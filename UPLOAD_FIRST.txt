@@ -1,0 +1,7 @@
+1) 이 ZIP을 PC에서 압축 해제
+2) .github 폴더와 android 폴더를 GitHub 저장소 루트에 업로드
+3) Commit changes
+4) Actions 탭에서 Build TRAFFIC CITY 2 APK 실행 확인
+5) 성공하면 Artifacts의 TRAFFIC_CITY_2-APK 다운로드
+
+평소 게임 업데이트는 index.html만 교체하면 됩니다.
