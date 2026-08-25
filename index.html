@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v145</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v146</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -9352,6 +9352,80 @@ function autoProjectRole(){
   if(hp>1&&demand.r>0.16)return "neighborhood";
   return null;
 }
+
+/* ── v146 신규지구 실수요 gate ─────────────────────────────────────────
+   Structure Plan은 '어디에 지을지'만 정한다. '지어야 하는지'는 실제 부족물량이 정한다.
+   이미 용도지정되어 개발을 기다리는 필지는 공급 pipeline으로 보아 중복 신도시 지정을 막는다. */
+const plannerDistrictDemandState146={
+  lastMonth:-1,lastStart:-999,lastStartRole:null,lastHoldMonth:-999,lastHoldSig:'',
+  streak:{neighborhood:0,center:0,office:0,industry:0},pipelineMonth:-1,pipeline:{}
+};
+function plannerDistrictRoleLabel146(role){return role==='neighborhood'?'생활권':role==='center'?'생활중심지':role==='office'?'업무지구':role==='industry'?'산업지구':'신규지구';}
+function plannerDistrictPipeline146(role){
+  const st=plannerDistrictDemandState146,mo=curMonth();
+  if(st.pipelineMonth!==mo){st.pipelineMonth=mo;st.pipeline={};}
+  if(st.pipeline[role])return st.pipeline[role];
+  let cap=0,cells=0;
+  const stageCap=k=>{
+    if(role==='neighborhood')return k===K_R?R_POP_STEP:k===K_MX?MX_POP_STEP:0;
+    if(role==='center')return k===K_C?(SEC_JOB[K_C]||0):k===K_MX?MX_JOB_STEP:0;
+    if(role==='office')return k===K_OFF?(SEC_JOB[K_OFF]||0):k===K_MX?MX_JOB_STEP:0;
+    if(role==='industry')return k===K_I?(SEC_JOB[K_I]||0):0;
+    return 0;
+  };
+  for(let i=0;i<NC;i++){
+    const k=kind[i],sc=stageCap(k);if(sc<=0||water[i]||gbelt[i]||dev[i]>=DEV_MAX)continue;
+    const nd=nearNode(i%W,(i/W)|0,ACCESS_R);if(nd<0)continue;
+    /* 미개발 용도지는 1.5단계, 이미 개발 중인 필지는 추가 0.75단계만 근시일 공급으로 인정한다.
+       전 용적을 미리 공급으로 잡으면 시장이 실제로 개발하지 않는 토지까지 과대평가하게 된다. */
+    const stages=dev[i]===0?1.5:.75;cap+=sc*stages;cells++;
+  }
+  /* 대각 반필지도 같은 pipeline에 넣되 면적비를 적용한다. */
+  for(let i=0;i<NC;i++)if(triEligible(i))for(let z=0;z<2;z++){
+    const k=triKindGet(i,z),sc=stageCap(k),d=triDevGet(i,z);if(sc<=0||d>=DEV_MAX)continue;
+    const stages=d===0?1.5:.75;cap+=sc*stages*TRI_AREA;cells+=TRI_AREA;
+  }
+  return st.pipeline[role]={cap,cells};
+}
+function plannerDistrictDemandCore146(role,mode='start'){
+  let q=null,full=1,extraOk=true;
+  if(role==='neighborhood'){q=demandQty.r;full=R_POP_STEP*DEV_MAX*.50;}
+  else if(role==='center'){q=demandQty.c;full=(SEC_JOB[K_C]||1)*DEV_MAX;const cg=serviceEmploymentGap(K_C);extraOk=cg.d>.32&&cg.gap>0;}
+  else if(role==='office'){q=demandQty.o;full=(SEC_JOB[K_OFF]||1)*DEV_MAX;}
+  else if(role==='industry'){q=demandQty.i;full=(SEC_JOB[K_I]||1)*DEV_MAX;}
+  if(!q)return {ok:false,role,mode,shortage:0,need:0,pipeline:0,effective:0,threshold:Infinity,pressure:0,reason:'알 수 없는 지구 역할'};
+  const shortage=Math.max(0,+q.shortage||0),need=Math.max(0,+q.need||0),pipe=plannerDistrictPipeline146(role);
+  /* pipeline은 확정 공급이 아니므로 65%만 차감한다. */
+  const pipelineCredit=Math.max(0,pipe.cap*.65),effective=Math.max(0,shortage-pipelineCredit);
+  let threshold=Math.max(full,need*.05,1);
+  if(role==='neighborhood'&&autoHousingState().severe)threshold*=.78;
+  if(mode==='continue')threshold*=.52;
+  const pressure=clamp(effective/Math.max(1,threshold*2),0,1);
+  const rawOk=extraOk&&effective>=threshold;
+  return {ok:rawOk,rawOk,role,mode,shortage,need,pipeline:pipe.cap,pipelineCells:pipe.cells,pipelineCredit,effective,threshold,pressure,extraOk,reason:!extraOk?'해당 기능수요가 충분하지 않음':effective<threshold?'실제 부족물량이 신규지구 착수기준 미만':'실수요 gate 충족'};
+}
+function plannerDistrictDemandRefresh146(){
+  const st=plannerDistrictDemandState146,mo=curMonth();if(st.lastMonth===mo)return;st.lastMonth=mo;st.pipelineMonth=-1;st.pipeline={};
+  for(const role of ['neighborhood','center','office','industry']){const g=plannerDistrictDemandCore146(role,'start');st.streak[role]=g.rawOk?Math.min(24,(st.streak[role]||0)+1):0;}
+}
+function plannerDistrictDemandGate146(role,mode='start'){
+  plannerDistrictDemandRefresh146();const st=plannerDistrictDemandState146,g=plannerDistrictDemandCore146(role,mode);
+  if(mode!=='start')return g;
+  const streak=st.streak[role]||0,emergency=g.effective>=g.threshold*2.2;
+  const sustained=emergency||streak>=2;
+  const cooldown=emergency||curMonth()-st.lastStart>=12;
+  return {...g,streak,emergency,sustained,cooldown,ok:g.rawOk&&sustained&&cooldown,reason:!g.rawOk?g.reason:!sustained?'실수요가 2개월 연속 확인되지 않음':!cooldown?'직전 신규지구 착수 후 12개월 관찰기간':'실수요 gate 충족'};
+}
+function plannerDistrictGateText146(g){
+  if(!g)return '실수요 자료 없음';
+  return `실제 부족 ${Math.round(g.shortage).toLocaleString()} · 기존 용도지 pipeline ${Math.round(g.pipeline).toLocaleString()} · 유효부족 ${Math.round(g.effective).toLocaleString()} · 기준 ${Math.round(g.threshold).toLocaleString()}${g.streak!==undefined?` · 연속 ${g.streak}개월`:''}`;
+}
+function plannerDistrictHold146(role,g){
+  const st=plannerDistrictDemandState146,mo=curMonth(),sig=`${role}|${g.reason}`;
+  if(st.lastHoldSig===sig&&mo-st.lastHoldMonth<12)return;
+  st.lastHoldSig=sig;st.lastHoldMonth=mo;
+  autoPost(`📐 ${plannerDistrictRoleLabel146(role)} 신규조성을 보류했습니다. ${g.reason} · ${plannerDistrictGateText146(g)}. Structure Plan은 입지만 고르며 수요를 만들지 않습니다.`);
+}
 let autoDistrictPolicyBlock=null;
 function autoDistrictCandidate(role){
   let best=null,bestScore=-1e9,gbBlocked=0,gbAreaBlocked=0;
@@ -9533,8 +9607,10 @@ function autoChoosePattern(c,role){
   return best||autoPatternPlan(c.x,c.y,"grid");
 }
 function autoPatternLabel(n){return n==="grid"?"격자형":n==="courtgrid"?"중정격자형":n==="diagonal"?"대각축형":n==="radial"?"방사·로터리형":n==="river"?"수변평행형":"운하정원형";}
-function autoCreateProject(){
-  const role=autoProjectRole();if(!role)return false;
+function autoCreateProject(forcedRole=null){
+  const role=forcedRole||autoProjectRole();if(!role)return false;
+  const demandGate=plannerDistrictDemandGate146(role,'start');
+  if(!demandGate.ok){plannerDistrictHold146(role,demandGate);return false;}
   const c=autoDistrictCandidate(role);
   if(!c){
     if(autoDistrictPolicyBlock)plannerBlockedByPolicy(`district-gbelt-${role}-${Math.floor(curMonth()/12)}`,
@@ -9566,9 +9642,11 @@ function autoCreateProject(){
   autoProject={id,type:"district",role,name:`${dir}${suffix} ${id}`,cx:c.x,cy:c.y,
     pattern:pat.name,phase:"roads",roadPlan,roadCursor:0,diagPlan:pat.pairs,diagCursor:0,roundCell:pat.roundCell,
     canalPlan:pat.canals||[],canalCursor:0,amenityPlan,amenityCursor:0,
-    zonePlan,zoneCursor:0,triPlan:null,triCursor:0,serviceCell,wait:false,waitMonths:0,created:curMonth()};
-  autoPost(`📐 ${autoProject.name}: ${autoPatternLabel(pat.name)} 가로계획을 채택했습니다. 연결도로부터 단계적으로 시공합니다.`);
-  {const hs=autoHousingState(),why=role==="neighborhood"&&hs.severe?"저소득 부담가능 주택 부족을 우선해 생활권 공급을 선택":role==="center"?"성숙 시가지의 근린상업 수용능력 부족이 누적되어 새 생활중심지를 선택":"도시의 용도수요·접근성·연결비용을 비교";plannerDecision(`district-${id}`,`${autoProject.name} 신규지구`,why,role==="neighborhood"?autoHousingMetrics(hs):`R ${Math.round(demand.r*100)} · C ${Math.round(demand.c*100)} · O ${Math.round(demand.o*100)} · I ${Math.round(demand.i*100)}`,"major",serviceCell,{domain:role==="neighborhood"?"housing":"urban",horizon:18});}
+    zonePlan,zoneCursor:0,triPlan:null,triCursor:0,serviceCell,wait:false,waitMonths:0,created:curMonth(),
+    demandGateStart:{shortage:demandGate.shortage,pipeline:demandGate.pipeline,effective:demandGate.effective,threshold:demandGate.threshold}};
+  plannerDistrictDemandState146.lastStart=curMonth();plannerDistrictDemandState146.lastStartRole=role;
+  autoPost(`📐 ${autoProject.name}: ${autoPatternLabel(pat.name)} 가로계획을 채택했습니다. ${plannerDistrictGateText146(demandGate)}를 확인했고, 연결도로부터 단계적으로 시공합니다.`);
+  {const hs=autoHousingState(),why=role==="neighborhood"&&hs.severe?"저소득 부담가능 주택 부족과 실제 미충족 주택수요가 신규 생활권 착수기준을 함께 넘음":role==="center"?"근린상업 수용능력 부족과 실제 C 부족물량이 신규 생활중심지 착수기준을 함께 넘음":"실제 부족물량이 기존 미개발 용도지 pipeline을 차감한 뒤에도 신규지구 착수기준을 넘음";plannerDecision(`district-${id}`,`${autoProject.name} 신규지구`,why,`${plannerDistrictGateText146(demandGate)} · Structure Plan은 입지순위에만 사용`,"major",serviceCell,{domain:role==="neighborhood"?"housing":role==="industry"||role==="office"?"jobs":"urban",horizon:18});}
   chronAdd("project",`${autoProject.name} ${autoPatternLabel(pat.name)} 가로계획을 수립했습니다.`,{capture:true,forceCapture:true});
   return true;
 }
@@ -9605,6 +9683,19 @@ function autoProjectZoneKind(i,p){
 }
 function autoProjectStep(){
   const p=autoProject;if(!p)return false;
+  if(p.type==="district"&&["roads","diags","canals","junction","zones","triangles"].includes(p.phase)){
+    const dg=plannerDistrictDemandGate146(p.role,'continue');
+    if(!dg.ok){
+      if(p.phase==="zones"||p.phase==="triangles"){
+        autoPost(`⏸ ${p.name}: 실수요가 줄어 잔여 용도지정을 유보합니다. 이미 조성한 가로와 용도지는 유지하고 공공공간만 마무리합니다. ${plannerDistrictGateText146(dg)}`);
+        chronAdd("project",`${p.name}의 잔여 용도지정을 실수요 감소로 유보했습니다.`,{capture:true,forceCapture:true});
+        p.zoneCursor=p.zonePlan.length;if(p.triPlan)p.triCursor=p.triPlan.length;p.phase="service";p.wait=false;p.waitMonths=0;return true;
+      }
+      autoPost(`⏸ ${p.name}: 실수요가 착수 후 사라져 추가 기반조성을 중단했습니다. 이미 시공한 시설은 철거하지 않습니다. ${plannerDistrictGateText146(dg)}`);
+      chronAdd("project",`${p.name}의 추가 조성을 실수요 감소로 중단했습니다.`,{capture:true,forceCapture:true});
+      autoProject=null;autoCooldown=2;return true;
+    }
+  }
   if(p.wait){
     if(S.gap>0.065&&p.waitMonths<3){p.waitMonths++;return true;}
     p.wait=false;p.waitMonths=0;
@@ -19453,7 +19544,7 @@ window.__TC={
     tdm:{label:'교통수요관리',aliases:['교통수요관리','TDM'],short:'도로 공급을 늘리는 대신 가격·주차·운영·수단전환 등을 이용해 통행수요와 이용방식을 관리하는 정책군입니다.',game:'혼잡통행료·주차가격·대중교통 서비스 조정 등을 비교할 때 쓸 수 있는 상위 개념입니다.'},
     polycentric:{label:'다핵도시',aliases:['다핵도시','다핵 도시'],short:'하나의 중심업무지구만이 아니라 여러 중심지가 역할을 나누는 도시공간 구조입니다.',game:'멀리 퍼진 도시라도 철도와 여러 중심지가 연결되면 단순 스프롤과 다른 형태가 될 수 있습니다.'},
     landUse:{label:'토지이용',aliases:['토지이용','토지 이용'],short:'토지가 주거·상업·업무·산업·공원 등 어떤 기능으로 사용되는지를 뜻합니다.',game:'교통 접근성과 토지시장이 장기적으로 토지이용을 바꾸고, 바뀐 토지이용이 다시 통행을 만듭니다.'},
-    climateProfile:{label:'Climate profile',aliases:['Climate profile','Temperate','Tropical rainforest','Hot desert','Snow-cold'],short:'게임의 시각·환경 설정 묶음입니다. Köppen–Geiger 같은 공식 기후분류 판정 결과가 아닙니다.',game:'v145까지는 시각효과와 프로파일 저장만 하며 교통·재정·성장 수치에는 직접 영향을 주지 않습니다.'}
+    climateProfile:{label:'Climate profile',aliases:['Climate profile','Temperate','Tropical rainforest','Hot desert','Snow-cold'],short:'게임의 시각·환경 설정 묶음입니다. Köppen–Geiger 같은 공식 기후분류 판정 결과가 아닙니다.',game:'v146까지는 시각효과와 프로파일 저장만 하며 교통·재정·성장 수치에는 직접 영향을 주지 않습니다.'}
   };
 
   const aliasToKey = new Map();
@@ -20887,7 +20978,7 @@ window.__TC={
     sec.className='tcClimateSection137';
     sec.innerHTML=`
       <h3>Climate profile</h3>
-      <p>Visual skin + Climate profile입니다. 공식 기후분류가 아니며, v145까지는 교통·재정·성장 계산을 바꾸지 않습니다.</p>
+      <p>Visual skin + Climate profile입니다. 공식 기후분류가 아니며, v146까지는 교통·재정·성장 계산을 바꾸지 않습니다.</p>
       <div class="tcClimateGrid137">
         ${Object.values(PROFILES).map(p=>`
           <button type="button" class="tcClimateBtn137" data-climate="${p.id}">
@@ -21356,11 +21447,11 @@ window.__TC={
 
   const BUILD_INFO = Object.freeze({
     product:'TRAFFIC CITY 2',
-    version:'v145',
-    build:145,
+    version:'v146',
+    build:146,
     saveSchemaVersion:47,
     terminology:'academic-consistency-2',
-    title:'STRUCTURE PLAN'
+    title:'DEMAND-GATED PLANNER'
   });
   const WEB_URL='https://byanka-rail.github.io/traffic-city-2/';
 
@@ -21585,7 +21676,7 @@ window.__TC={
 (() => {
   'use strict';
   if(window.__TC2_V141?.loaded)return;
-  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v145',build:145,saveSchemaVersion:47,title:'STRUCTURE PLAN'});
+  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v146',build:146,saveSchemaVersion:47,title:'DEMAND-GATED PLANNER'});
 
   function sourceName(){
     if(location.protocol==='https:'&&/byanka-rail\.github\.io$/i.test(location.hostname))return 'GitHub Pages';
@@ -21617,6 +21708,11 @@ window.__TC={
       sec142.innerHTML='<div class="tcVTitle"><b>v142</b><span>HUD METRIC STABILITY</span></div><ul><li>Assignment gap / OD error HUD를 고정 DOM 구조로 변경</li><li>숫자 영역에 고정 폭과 tabular numerals 적용</li><li>HUD 학술용어를 용어사전 MutationObserver 자동 재링크 대상에서 제외</li><li>×8에서도 라벨과 도움말 버튼 위치가 움직이지 않도록 수정</li></ul>';
       const first142=sh.querySelector('.tcVEntry');if(first142)first142.before(sec142);else sh.appendChild(sec142);
     }
+    if(!sh.querySelector('[data-v143-entry]')){const e=document.createElement('section');e.className='tcVEntry';e.dataset.v143Entry='1';e.innerHTML='<div class="tcVTitle"><b>v143</b><span>PLANNER PORTFOLIO EVALUATION</span></div><ul><li>지역업무와 대형사업 후보를 동시 비교</li><li>긴급성·편익·형평성·정책부합·대기·재정·불확실성 점수화</li></ul>';const f=sh.querySelector('.tcVEntry');if(f)f.before(e);else sh.appendChild(e);}
+    if(!sh.querySelector('[data-v144-entry]')){const e=document.createElement('section');e.className='tcVEntry';e.dataset.v144Entry='1';e.innerHTML='<div class="tcVTitle"><b>v144</b><span>BOUNDED ADAPTIVE PLANNING</span></div><ul><li>사후평가를 다음 후보점수에 0.85–1.15× 범위로 제한 반영</li><li>중첩개입·정책변경 시 학습 억제</li></ul>';const f=sh.querySelector('.tcVEntry');if(f)f.before(e);else sh.appendChild(e);}
+    if(!sh.querySelector('[data-v145-entry]')){const e=document.createElement('section');e.className='tcVEntry';e.dataset.v145Entry='1';e.innerHTML='<div class="tcVTitle"><b>v145</b><span>STRUCTURE PLAN</span></div><ul><li>주중심·부중심·성장전선·교통축을 장기 spatial prior로 사용</li><li>보호구역은 hard constraint 유지</li></ul>';const f=sh.querySelector('.tcVEntry');if(f)f.before(e);else sh.appendChild(e);}
+    if(!sh.querySelector('[data-v146-entry]')){const e=document.createElement('section');e.className='tcVEntry';e.dataset.v146Entry='1';e.innerHTML='<div class="tcVTitle"><b>v146</b><span>DEMAND-GATED PLANNER</span></div><ul><li>신규지구는 R/C/O/I 실제 부족물량을 hard gate로 통과해야 착수</li><li>이미 용도지정되어 개발 대기 중인 토지를 공급 pipeline으로 차감</li><li>실수요 2개월 지속 + 지구 착수 12개월 관찰기간 적용</li><li>착수 후 수요가 사라지면 잔여 용도지정을 유보하고 중복 확장을 중단</li><li>Structure Plan은 입지만 평가하며 수요를 만들지 않음</li></ul>';const f=sh.querySelector('.tcVEntry');if(f)f.before(e);else sh.appendChild(e);}
+
     if(!sh.querySelector('[data-v141-entry]')){
       const sec=document.createElement('section');sec.className='tcVEntry';sec.dataset.v141Entry='1';
       sec.innerHTML='<div class="tcVTitle"><b>v141</b><span>SNS READING STABILITY</span></div><ul><li>주민 피드가 HUD 갱신 때마다 전체 재렌더되던 문제 제거</li><li>새 글·월 갱신 때 현재 읽는 post anchor를 보존</li><li>SNS 닫기 버튼을 스크롤 상단에 sticky 고정</li><li>필터를 직접 바꿀 때만 새 목록의 맨 위로 이동</li></ul>';
@@ -21734,7 +21830,13 @@ function plannerMajorCandidates143(){
   if((t.needBus||generalBus)&&money>3500)a.push({id:'major-bus',label:t.needBus?'대중교통 공급공백 버스사업':'버스망 확장',family:'transport',domain:'transport',meta:{transit:true},cost:4500,urgency:clamp((t.needBus?.72:.38)+(t.car-.65)*.9+(1-t.cover)*.45,0,1),benefit:clamp((1-t.cover)*.55+(t.car-.55)*.55,0,1),equity:clamp((1-t.cover)*.65+.18,0,1),uncertainty:.34,allowUnconverged:!!t.needBus,execute:()=>autoCreateBusProject()});
   if(S.gap>=0&&S.gap<=.065&&(congestion>.10||t.needRail||t.busGap))a.push({id:'major-corridor',label:'회랑 교통사업 비교',family:'transport',domain:'transport',meta:{transit:t.needRail||transitPrioIx>=2},cost:7000,urgency:clamp(congestion+(t.needRail?.20:0),0,1),benefit:clamp(congestion*.82+(t.busGap?.18:0),0,1),equity:clamp((1-t.cover)*.40+.22,0,1),uncertainty:.42,execute:()=>autoCorridorStep()});
   if(S.pop>=900*DENSITY_SCALE&&money>=5200&&serviceStress>.20)a.push({id:'major-civic',label:'광역 생활서비스 시설',family:'service',domain:'service',cost:3500,urgency:serviceStress,benefit:clamp(serviceStress*.82+.12,0,1),equity:clamp((S.lifeWarnShare||0)*1.6+.25,0,1),uncertainty:.24,execute:()=>autoCreateCivicProject()});
-  if(role&&money>6000){const d=role==='neighborhood'?Math.max(demand.r,clamp(hp/Math.max(1,R_POP_STEP*5),0,1)):role==='industry'?demand.i:role==='office'?demand.o:Math.max(demand.c,clamp(serviceEmploymentGap(K_C).gap/Math.max(1,serviceEmploymentGap(K_C).need),0,1));a.push({id:'major-district-'+role,label:(role==='neighborhood'?'신규 생활권':role==='center'?'생활중심지':role==='industry'?'산업지구':'업무지구')+' 조성',family:'district',domain:role==='neighborhood'?'housing':role==='industry'||role==='office'?'jobs':'urban',meta:{role},cost:9000,urgency:clamp(Math.max(0,d),0,1),benefit:clamp(.45+Math.max(0,d)*.45,0,1),equity:role==='neighborhood'?.48:role==='center'?.42:.25,uncertainty:.48,execute:()=>autoCreateProject()});}
+  if(role&&money>6000){
+    const dg=plannerDistrictDemandGate146(role,'start');
+    if(dg.ok){
+      const d=dg.pressure;
+      a.push({id:'major-district-'+role,label:(role==='neighborhood'?'신규 생활권':role==='center'?'생활중심지':role==='industry'?'산업지구':'업무지구')+' 조성',family:'district',domain:role==='neighborhood'?'housing':role==='industry'||role==='office'?'jobs':'urban',meta:{role,demandGate:true},cost:9000,urgency:clamp(d,0,1),benefit:clamp(.15+d*.68,0,1),equity:role==='neighborhood'?.48:role==='center'?.42:.25,uncertainty:.48,execute:()=>autoCreateProject(role)});
+    }else plannerDistrictHold146(role,dg);
+  }
   if(S.pop>=1800*DENSITY_SCALE&&curMonth()>=30&&curMonth()-autoRedevelopLast>=6)a.push({id:'major-redevelop',label:'기존 시가지 재개발',family:'redevelop',domain:'urban',cost:6000,urgency:clamp(Math.max(demand.r,demand.c,demand.o,.15),0,1),benefit:clamp(.42+(S.transit15||0)*.18,0,1),equity:hs.severe?.22:.40,uncertainty:.40,execute:()=>autoCreateRedevelopProject()});
   if(S.pop>=1200*DENSITY_SCALE&&money>9000)a.push({id:'major-bridge',label:'단절축 교량 연결',family:'transport',domain:'transport',meta:{transit:false},cost:6500,urgency:clamp(congestion*.55+.18,0,1),benefit:clamp(congestion*.65+.20,0,1),equity:.24,uncertainty:.46,execute:()=>autoCreateBridgeProject()});
   return a;
@@ -21900,6 +22002,48 @@ document.getElementById('tcBuildBadge')?.addEventListener('click',()=>setTimeout
 if(window.__TC)Object.assign(window.__TC,{plannerStructurePlan:()=>plannerStructurePlan?JSON.parse(JSON.stringify(plannerStructurePlan)):null,plannerStructurePlanRefresh,plannerStructureFit});
 window.__TC145={loaded:true,...TC145,plan:()=>plannerStructurePlan,refresh:plannerStructurePlanRefresh,fit:plannerStructureFit};
 console.info('[TRAFFIC CITY 2] Structure Plan v145 loaded');
+})();
+</script>
+
+
+<!-- TC2_DEMAND_GATED_PLANNER_V146 -->
+<script>
+/* TC2_DEMAND_GATED_PLANNER_V146
+   Demand is a hard admission gate for district-scale expansion.
+   Structure Plan remains a soft location prior only. */
+(() => {
+'use strict';
+if(window.__TC146?.loaded)return;
+const TC146=Object.freeze({version:'v146',build:146,title:'DEMAND-GATED PLANNER'});
+function plannerDemandGateSummary146(){
+  plannerDistrictDemandRefresh146();
+  return ['neighborhood','center','office','industry'].map(role=>{
+    const g=plannerDistrictDemandGate146(role,'start');
+    return {role,label:plannerDistrictRoleLabel146(role),ok:g.ok,reason:g.reason,shortage:g.shortage,pipeline:g.pipeline,effective:g.effective,threshold:g.threshold,streak:g.streak,cooldown:g.cooldown};
+  });
+}
+const _renderPlannerLog146=renderPlannerLog;
+renderPlannerLog=function(){
+  _renderPlannerLog146();const sum=$('planlogSummary');if(!sum)return;
+  const rows=plannerDemandGateSummary146();
+  const txt=rows.map(g=>`${escHtml(g.label)} ${g.ok?'<b style="color:#8fb98a">착수 가능</b>':'<span style="color:#b8aa96">보류</span>'} · 부족 ${Math.round(g.shortage).toLocaleString()} · pipeline ${Math.round(g.pipeline).toLocaleString()} · 유효 ${Math.round(g.effective).toLocaleString()} / 기준 ${Math.round(g.threshold).toLocaleString()} · ${escHtml(g.reason)}`).join('<br>');
+  sum.insertAdjacentHTML('afterbegin',`<div style="margin:0 0 8px;padding:8px 9px;border:1px solid rgba(202,173,105,.22);border-radius:9px;background:rgba(160,123,54,.07)"><b>신규지구 실수요 gate</b><br><span style="font-size:10px;line-height:1.55;color:#cfc1a4">${txt}</span><br><span style="font-size:9.6px;color:#9b9082">Structure Plan은 gate를 통과한 후보의 위치만 평가합니다.</span></div>`);
+};
+const _saveStateObject146=saveStateObject;
+saveStateObject=function(){const st=_saveStateObject146();st.plannerDistrictDemandState146={lastMonth:plannerDistrictDemandState146.lastMonth,lastStart:plannerDistrictDemandState146.lastStart,lastStartRole:plannerDistrictDemandState146.lastStartRole,lastHoldMonth:plannerDistrictDemandState146.lastHoldMonth,lastHoldSig:plannerDistrictDemandState146.lastHoldSig,streak:{...plannerDistrictDemandState146.streak}};return st;};
+const _loadGame146=loadGame;
+loadGame=function(txt,opt={}){let raw=null;try{raw=typeof txt==='string'?JSON.parse(txt):txt;}catch(_){ }const ok=_loadGame146.apply(this,arguments);if(ok){const q=raw?.plannerDistrictDemandState146||{};plannerDistrictDemandState146.lastMonth=Number.isFinite(q.lastMonth)?q.lastMonth:-1;plannerDistrictDemandState146.lastStart=Number.isFinite(q.lastStart)?q.lastStart:-999;plannerDistrictDemandState146.lastStartRole=q.lastStartRole||null;plannerDistrictDemandState146.lastHoldMonth=Number.isFinite(q.lastHoldMonth)?q.lastHoldMonth:-999;plannerDistrictDemandState146.lastHoldSig=q.lastHoldSig||'';plannerDistrictDemandState146.streak={neighborhood:Math.max(0,q.streak?.neighborhood|0),center:Math.max(0,q.streak?.center|0),office:Math.max(0,q.streak?.office|0),industry:Math.max(0,q.streak?.industry|0)};plannerDistrictDemandState146.pipelineMonth=-1;plannerDistrictDemandState146.pipeline={};}return ok;};
+const _newCity146=newCity;
+newCity=function(){Object.assign(plannerDistrictDemandState146,{lastMonth:-1,lastStart:-999,lastStartRole:null,lastHoldMonth:-999,lastHoldSig:'',pipelineMonth:-1,pipeline:{},streak:{neighborhood:0,center:0,office:0,industry:0}});return _newCity146.apply(this,arguments);};
+function audit146(){
+  const role=autoProjectRole(),gate=role?plannerDistrictDemandGate146(role,'start'):null;
+  let illegal=false;
+  try{if(role&&window.__TC?.plannerMajorCandidates143){const cs=window.__TC.plannerMajorCandidates143();illegal=cs.some(c=>c.family==='district'&&!plannerDistrictDemandGate146(c.meta?.role,'start').ok);}}catch(_){ }
+  return {version:TC146.version,role,gate,illegalDistrictCandidate:illegal,pass:!illegal};
+}
+if(window.__TC)Object.assign(window.__TC,{plannerDistrictDemandGate146,plannerDistrictPipeline146,plannerDistrictDemandState146,plannerDemandGateSummary146});
+window.__TC146={loaded:true,...TC146,gate:plannerDistrictDemandGate146,pipeline:plannerDistrictPipeline146,state:plannerDistrictDemandState146,summary:plannerDemandGateSummary146,audit:audit146};
+console.info('[TRAFFIC CITY 2] Demand-Gated Planner v146 loaded');
 })();
 </script>
 </body>
