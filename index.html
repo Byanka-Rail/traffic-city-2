@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v139</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v140</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -414,8 +414,8 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       <div class="stat" data-m="job"><div class="k">일자리</div><div class="v" id="sJob">0</div></div>
       <div class="stat" data-m="time"><div class="k">평균 통행</div><div class="v" id="sTime">–</div></div>
       <div class="stat" data-m="life"><div class="k">생활권</div><div class="v" id="sLife">–</div></div>
-      <div class="stat" data-m="los"><div class="k">LOS</div><div class="v"><span class="los" id="sLos">–</span></div></div>
-      <div id="gapBox">수렴 – · 균형 –</div>
+      <div class="stat" data-m="los"><div class="k">V/C 등급</div><div class="v"><span class="los" id="sLos">–</span></div></div>
+      <div id="gapBox">Assignment gap – · OD error –</div>
       <div id="modeBox">🚗– 🚇– 🚌– 🚶–</div>
       <div id="autoBox"><span class="hk">자동계획관</span><span class="hv" id="autoBoxV">OFF</span></div>
     </div>
@@ -610,7 +610,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       <span class="hbtn" id="xdiscUp">＋</span>
       <span class="crowd" id="xdiscV2">두 번째 승차</span></div>
     <div class="kv"><span>운임 수입 (월)</span><span id="kFare">₩0</span></div>
-    <div class="tip">운임은 <b>승차마다</b> 붙고, 갈아탄 두 번째 승차부터 할인됩니다. 할인을 키우면 지선버스가 살아나 철도 수요가 늘지만 <b>수입은 줄어듭니다</b>. 어느 쪽이 이득인지는 균형이 답합니다.</div>
+    <div class="tip">운임은 <b>승차마다</b> 붙고, 갈아탄 두 번째 승차부터 할인됩니다. 할인을 키우면 지선버스가 살아나 철도 수요가 늘지만 <b>수입은 줄어듭니다</b>. 어느 쪽이 이득인지는 재배정된 모형 결과로 판단합니다.</div>
 
     <h4>대중교통 운영방침</h4>
     <div class="lineRow"><span class="nm">최소 서비스 기준</span>
@@ -619,7 +619,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
     <div class="lineRow"><span class="nm">투자 우선도</span>
       <span class="hbtn" id="trPrioDn">◀</span><span id="trPrioV">균형</span><span class="hbtn" id="trPrioUp">▶</span>
       <span class="crowd" id="trPrioW">같은 OD에서 비교</span></div>
-    <div class="tip">서비스 기준은 자동계획관이 기존·신규 노선의 <b>최대 배차간격</b>으로 지키려는 운영기준입니다. 투자 우선도는 도로·버스·BRT·철도의 물리적 평가값을 바꾸지 않고, <b>악화하지 않는 후보끼리</b> 어떤 수단을 먼저 택할지에만 정치적 가중치를 줍니다.</div>
+    <div class="tip">서비스 기준은 자동계획관이 기존·신규 노선의 <b>최대 <b>headway(배차간격)</b>로 지키려는 운영기준입니다. 투자 우선도는 도로·버스·BRT·철도의 물리적 평가값을 바꾸지 않고, <b>악화하지 않는 후보끼리</b> 어떤 수단을 먼저 택할지에만 정치적 가중치를 줍니다.</div>
 
     <h4>주차 정책</h4>
     <div class="lineRow"><span class="nm">주차공급 기준</span>
@@ -706,8 +706,8 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
     <div class="kv"><span>매입 누적 / 현재 가치</span><span id="kBankV">₩0 / ₩0</span></div>
     <div class="tip">🏦 도구로 땅을 삽니다. 값은 <b>그 땅의 시장지대</b>가 정하므로 싼 땅일수록 쌉니다. 비축지에 공공임대를 넣으면 절반 넘게 싸집니다 — <b>미리 사 둔 값어치가 그것입니다</b>. 다시 누르면 지금 시세로 팔립니다.</div>
 
-    <h4>공공기여 (교재 32장)</h4>
-    <div class="lineRow"><span class="nm">개발이익 환수율</span>
+    <h4>Developer Obligations · 공공기여 (교재 32장)</h4>
+    <div class="lineRow"><span class="nm">개발기여율</span>
       <span class="hbtn" id="ctbDn">−</span>
       <span id="ctbV">30%</span>
       <span class="hbtn" id="ctbUp">＋</span>
@@ -763,18 +763,18 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       <span><i style="background:#5c8a52"></i>도보 <b id="mWk">–</b></span></div>
 
     <h4>모형 상태</h4>
-    <div class="kv"><span>배정 수렴 (relative gap)</span><span id="kGap">–</span></div>
+    <div class="kv"><span>Assignment gap (model-defined)</span><span id="kGap">–</span></div>
     <div class="kv"><span>스윕 1회 소요</span><span id="kSweep">–</span></div>
     <div class="kv"><span>그래픽 품질 (자동)</span><span id="kQual">–</span></div>
-    <div class="kv"><span>도착제약 오차 (Furness)</span><span id="kBal">–</span></div>
-    <div class="kv"><span>평균 문전시간</span><span id="kTime">–</span></div>
+    <div class="kv"><span>OD balancing error (Furness/IPF)</span><span id="kBal">–</span></div>
+    <div class="kv"><span>평균 door-to-door time</span><span id="kTime">–</span></div>
     <div class="kv"><span>평균 V/C</span><span id="kVC">–</span></div>
-    <div class="kv"><span>서비스수준 LOS</span><span id="kLos">–</span></div>
+    <div class="kv"><span>V/C-based congestion grade</span><span id="kLos">–</span></div>
     <div class="kv"><span>포화 교차로</span><span id="kInt">0곳</span></div>
     <div class="kv"><span>차량통행 (첨두시)</span><span id="kTrip">0</span></div>
-    <div class="kv"><span>차량 주행거리 VKT</span><span id="kVmt">0</span></div>
+    <div class="kv"><span>PCE-weighted VKT</span><span id="kVmt">0</span></div>
 
-    <h4>철도 노선 (배차를 조절하세요)</h4>
+    <h4>철도 노선 (headway 조정)</h4>
     <div id="lines"><div class="tip">선로를 그리고 역을 2개 이상 두면 노선이 생깁니다.</div></div>
     <div class="kv"><span>시간당 승차인원</span><span id="kBoard">0</span></div>
     <div class="kv"><span>최대 노선 혼잡률</span><span id="kRailX">–</span></div>
@@ -799,16 +799,16 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
     <div id="utilBox"></div>
     <div class="tip">전기·수돗물·폐기물은 이제 <b>도로로 연결된 기반시설망</b>을 따라 공급됩니다. 총량이 남아도 끊어진 외곽은 못 쓰며, 배전·상수도망이 길어질수록 유지비가 늘어납니다. 폐기물처리장은 관로가 아니라 도로 수거서비스이며 트럭을 부릅니다 (63장).</div>
 
-    <h4>보행생활권 · 뉴어바니즘 압력</h4>
-    <div class="kv"><span>보행생활권 지수</span><span id="kUrban">–</span></div>
-    <div class="kv"><span>생활권 압력</span><span id="kPress">–</span></div>
+    <h4>Neighborhood Accessibility Composite (game-defined)</h4>
+    <div class="kv"><span>생활권 복합지수 (game-defined)</span><span id="kUrban">–</span></div>
+    <div class="kv"><span>생활권 결핍지수</span><span id="kPress">–</span></div>
     <div class="kv"><span>근린 토지이용 혼합</span><span id="kMix15">–</span></div>
     <div class="kv"><span>보행 가로 연결성</span><span id="kConn15">–</span></div>
     <div class="kv"><span>대중교통 생활권 접근</span><span id="kTr15">–</span></div>
-    <div class="tip">지수 = 생활서비스 42% + 근린 혼합 22% + 보행망 연결성 22% + 대중교통 접근 14%. <b>이름 자체는 보너스가 아닙니다.</b> 실제 도시구조에서 읽어낸 진단값이며, 자동 계획관은 압력이 높은 동네부터 MX·보행 관통로·공원/광장을 검토합니다.</div>
+    <div class="tip">생활권 복합지수 = 생활서비스 42% + 근린 혼합 22% + 보행망 연결성 22% + 대중교통 접근 14%. <b>표준 학술지표가 아니라 game-defined composite</b>입니다. 자동계획관은 생활권 결핍지수가 높은 동네부터 MX·보행 관통로·공원/광장을 검토합니다.</div>
 
-    <h4>생활서비스 · 15분 생활권</h4>
-    <div class="kv"><span>주민 평균 생활권 충족도</span><span id="kLife">–</span></div>
+    <h4>15-minute service accessibility (game-defined)</h4>
+    <div class="kv"><span>15-minute service accessibility</span><span id="kLife">–</span></div>
     <div id="svcBox"></div>
     <div class="kv"><span>생활통행 (첨두시)</span><span id="kTripO">0</span></div>
     <div class="tip">걸어서 닿는 서비스는 <b>어메니티</b>가 되어 주거·혼합용도의 성장 점수를 올립니다. 반경이 아니라 <b>보행 네트워크 거리</b>로 재므로, 가로를 촘촘히 깔수록 같은 시설이 더 많은 사람에게 닿습니다.</div>
@@ -817,7 +817,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
     <div id="busLines"><div class="tip">도로 위에 버스노선을 긋고 정류장을 2개 이상 두세요.</div></div>
     <div class="kv"><span>시간당 버스 승차</span><span id="kBusB">0</span></div>
     <div class="kv"><span>최대 노선 혼잡률</span><span id="kBusX">–</span></div>
-    <div class="tip">🟨 전용차로는 버스를 자유속도로 달리게 하지만, 그 링크의 <b>승용차 용량을 38% 가져갑니다</b>. 이득인지는 균형이 답합니다 (교재 14장).</div>
+    <div class="tip">🟨 전용차로는 버스를 자유속도로 달리게 하지만, 그 링크의 <b>승용차 용량을 38% 가져갑니다</b>. 이득인지는 재배정된 모형 결과가 답합니다 (교재 14장).</div>
 
     <h4>정책 실험</h4>
     <div id="baseBox"><div class="tip">지금 상태를 기준으로 저장한 뒤 정책을 바꾸면, 수렴 후 차이를 여기서 대조합니다.</div></div>
@@ -881,26 +881,26 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       설계 원칙은 하나입니다 — <em>결과를 상수로 박지 않고, 구조에서 나오게 한다.</em>
       1판(v1)의 잘못을 숨기지 않고 그대로 대조해 두었습니다. 잘못이 왜 잘못인지가 가장 좋은 교재이기 때문입니다.</div>
 
-      <details open><summary>1. 4단계 모형 — 그리고 이 게임과 실무의 근본 차이</summary><div class="ch">
-        교통계획 실무는 <b>발생 → 분포 → 수단선택 → 배정</b>의 4단계 모형을 씁니다. 이 게임도 네 단계를 전부 돌립니다. 그러나 근본에서 다른 것이 하나 있습니다.<br><br>
+      <details open><summary>1. Four-step Travel Demand Model — 그리고 이 게임과 실무의 근본 차이</summary><div class="ch">
+        전통적인 <b>Four-step Travel Demand Model</b>은 <b>Trip Generation → Trip Distribution → Mode Choice → Trip Assignment</b>의 네 단계로 구성됩니다. 이 게임도 네 단계를 모두 돌립니다. 그러나 근본에서 다른 것이 하나 있습니다.<br><br>
         실무의 O-D(기종점) 행렬 만들기는 <em>역문제</em>입니다. 링크에서 잰 관측교통량은 몇백 개인데, 미지수인 O-D 셀은 존 수의 제곱이라 애초에 부정정(under-determined)이고 해가 유일하지도 않습니다. 그래서 사전행렬(prior) + 엔트로피 최대화나 GLS, 이단 최적화로 억지로 좁혀 들어가고, 검증은 관측량 대비 <code>GEH &lt; 5</code>를 링크 85% 이상에서 만족하는지로 겨우 방어합니다. 가구통행실태조사·교통카드·통신 O-D를 다 긁어모아도 계속 싸우는 자리입니다.<br><br>
         이 게임은 O-D를 <b>스스로 생성</b>합니다. 누가 어디 살고 어디서 일하는지 완전 정보입니다. 즉 <em>실무에서 가장 어려운 추정 과정이 통째로 없습니다.</em> GEH 검증도 없습니다 — 맞출 관측이 존재하지 않으니까요. 이 게임이 재현하는 것은 「혼잡이 경로선택을 바꾸고 그것이 다시 혼잡을 바꾼다」는 <b>피드백 구조</b>이지, 계획 실무의 정합성이 아닙니다.
       </div></details>
 
-      <details><summary>2. 통행발생 — 인구 × 0.55 × 0.55</summary><div class="ch">
+      <details><summary>2. Trip Generation — 인구 × 0.55 × 0.55</summary><div class="ch">
         실무는 원단위법·교차분류법으로 가구 특성별 통행발생률을 추정합니다. 이 게임은 통행목적을 <b>통근(HBW) 하나</b>로 줄이고, <code>통행 = 인구 × 취업률 0.55 × 첨두집중률 0.55</code>로 끝냅니다.<br><br>
         <em>왜 이렇게 단순한가</em> — 발생 단계의 정밀함은 이 게임의 재미(망과 토지이용의 상호작용)에 거의 기여하지 않기 때문입니다. 대신 v2는 발생 단계에 하나를 새로 넣었습니다: <b>차량보유율이 접근성의 함수</b>가 된 것입니다(8장). 역세권·혼합용도 동네의 주민은 애초에 차를 덜 굴립니다.
       </div></details>
 
-      <details><summary>3. 통행분포 — 중력모형, 이중제약, Furness</summary><div class="ch">
+      <details><summary>3. Trip Distribution — 중력모형, 이중제약, Furness/IPF</summary><div class="ch">
         중력모형: <code>T_ij = a_i · b_j · P_i · A_j · f(t_ij)</code>, 마찰함수 <code>f = exp(−0.024·L)</code>.<br><br>
         <em>v1의 죄</em> — v1은 <b>단일제약</b>이었습니다. 출발 총량만 맞추고 도착 총량 제약이 없어서, 접근성 좋은 존이 통행을 <b>무한 흡수</b>했습니다. 일자리 100개짜리 존에 3,000명이 몰려도 모형이 아무 말도 하지 않았습니다.<br><br>
         v2는 <b>이중제약</b>입니다. 도착 총량이 그 존의 일자리 규모에 묶입니다. 이를 맞추는 고전 알고리즘이 <b>Furness(IPF, 반복비례맞춤)</b>: 행 합과 열 합을 번갈아 맞추며 균형계수 a_i·b_j를 찾습니다.<br><br>
-        <em>이 게임의 구현</em> — 별도의 행렬 반복을 돌리는 대신, 도착 균형계수 <code>b_j</code>를 <b>배정 스윕마다 한 번씩</b> 갱신합니다. Furness의 반복을 MSA의 반복에 접은 것입니다. 망도 토지도 계속 변하는 「움직이는 평형」에서는 이 편이 자연스럽고, 행렬을 저장하지 않아 단일파일 예산에도 맞습니다. HUD의 <b>「균형」</b> 숫자가 최대 도착오차입니다 — 고정된 도시에서는 수 스윕 안에 몇 % 아래로 내려갑니다.<br><br>
+        <em>이 게임의 구현</em> — 별도의 행렬 반복을 돌리는 대신, 도착 균형계수 <code>b_j</code>를 <b>배정 스윕마다 한 번씩</b> 갱신합니다. Furness의 반복을 MSA의 반복에 접은 것입니다. 망도 토지도 계속 변하는 「움직이는 평형」에서는 이 편이 자연스럽고, 행렬을 저장하지 않아 단일파일 예산에도 맞습니다. HUD의 <b>OD balancing error</b>가 최대 도착제약 오차를 표시합니다 — 고정된 도시에서는 수 스윕 안에 몇 % 아래로 내려갑니다.<br><br>
         <em>여전히 없는 것</em> — K-factor(존쌍 보정), TLFD로 마찰함수를 캘리브레이션하는 일. 맞출 조사 자료가 없는 세계라서입니다.
       </div></details>
 
-      <details><summary>4. 통행배정 — Wardrop 평형, MSA, relative gap</summary><div class="ch">
+      <details><summary>4. Trip Assignment — User Equilibrium, MSA, assignment gap</summary><div class="ch">
         <b>이용자평형(UE)</b>: 누구도 혼자 경로를 바꿔 이득을 볼 수 없는 상태(Wardrop 제1원칙). 풀이는 반복입니다 — 현재 혼잡비용으로 최단경로에 전량배정(AON)한 보조흐름을 만들고, 기존 흐름과 <code>λ = 1/k</code>로 평균(MSA)합니다.<br><br>
         <em>v1의 죄</em> — λ에 하한 0.18을 박아 두었습니다. λ가 0으로 못 가니 흐름이 평형에 <b>영원히 수렴하지 않고 그 근처를 진동</b>했습니다. v2는 하한을 없앴습니다.<br><br>
         그러면 반대 문제가 생깁니다: k가 커진 뒤 도로를 새로 놓으면 λ가 이미 작아서 새 도로로 교통이 영영 안 옮겨 탑니다. 전량 리셋(k=1)은 학습된 흐름을 다 버립니다. 답은 <b>웜스타트</b>: 플레이어가 건설·철거·배차변경을 하면 <code>k ← min(k, 3)</code>. 흐름은 살리고 반응성만 되찾습니다. 같은 이유로, 도시 성장으로 통행 수요가 한 스윕에 5% 넘게 <em>표류</em>하면 <code>k ← min(k, 12)</code>로 기억을 줄입니다 — 순수 1/k는 수요가 멈춘 세계의 알고리즘이고, 자라는 도시에서는 평균이 영원히 뒤처지기 때문입니다. 도시가 안정되면 k가 다시 자라 진짜 수렴으로 돌아갑니다.<br><br>
@@ -909,7 +909,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         고정된 수만 처리하면 도시가 커질수록 스윕 한 바퀴가 몇 달씩 걸려, 같은 게임 시간에 평형이 훨씬 덜 진행됩니다 —
         모형의 시계가 달력에서 떨어져 나가는 셈입니다. 실제로 고치기 전에는 도시가 커지자 스윕 1회가 1개월에서 6개월로 늘어났습니다.
         다만 아주 큰 도시에서는 한 틱에 처리하는 원점 수에 상한을 둡니다. 순전히 성능 때문이고, 그때는 스윕이 한두 달로 늘어납니다.<br><br>
-        수렴의 기본 자는 <b>relative gap</b> = (현재흐름 총비용 − 최단경로 총비용) / 현재흐름 총비용입니다. HUD의 「수렴」이 이 값입니다. 다만 성장도시는 MSA에 남아 있는 옛 OD구성과 현재 OD구성이 잠깐 다를 수 있어 수학적으로 나올 수 없는 음의 gap이 생길 수 있습니다. 그 경우 0%로 잘라 숨기지 않고 <b>불일치의 절댓값</b>을 표시하고 MSA 기억을 웜스타트합니다. 이 게임의 목표선은 3%입니다. 도로·버스·철도·수요가 바뀌면 gap이 튀었다가 다시 가라앉는 것이 정상입니다.<br><br>
+        표준 교통배정에서 <b>Relative Gap</b>은 현재 배정해의 비용과 동일 O-D 수요를 최단경로에 보냈을 때의 비용 차이를 비교하는 대표적인 수렴척도입니다. 그러나 이 게임의 도시는 배정 중에도 O-D 수요가 성장·이주로 움직일 수 있습니다. 현재 구현은 이전 MSA 흐름과 이번 스윕의 최단경로 비용을 통행당 평균으로 비교하고, 수요 vintage 불일치로 부호가 뒤집히면 절댓값을 취한 뒤 시간평활합니다. 따라서 HUD 값은 표준 Relative Gap이라고 부르지 않고 <b>Assignment gap (model-defined)</b>이라고 표시합니다. 3%는 게임의 운영상 안정화 목표선이지 학술적 보편 기준이 아닙니다. 값이 커지면 아직 재배정·수요추적 중이라는 뜻으로 해석합니다.<br><br>
         <em>Frank-Wolfe를 안 쓴 이유</em> — 이 규모(40×40)에서는 MSA로 충분하고, 목표가 3%라서입니다.
       </div></details>
 
@@ -922,7 +922,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       </div></details>
 
       <details><summary>6. 대중교통 — 빈도 기반 모형과 문전시간</summary><div class="ch">
-        v1의 지하철은 「역 반경 4칸이면 55% 전환」— 시간도 용량도 노선도 없는 상수였습니다. v2의 철도는 <b>빈도 기반(frequency-based) 모형</b>입니다. 열차를 한 대씩 굴리지 않습니다. 이 게임은 거시모형이고, 거시에서 서비스란 <b>배차간격</b>입니다.<br><br>
+        v1의 지하철은 「역 반경 4칸이면 55% 전환」— 시간도 용량도 노선도 없는 상수였습니다. v2의 철도는 <b>frequency-based transit model</b>입니다. 열차를 한 대씩 굴리지 않습니다. 서비스 수준은 <b>frequency(운행빈도)</b>와 그 역수 관계인 <b>headway(배차간격)</b>로 요약하며, 게임 내부의 직접 조정값은 headway(분)입니다.<br><br>
         문전(door-to-door)시간 다섯 조각:
         <table><tr><th>조각</th><th>계산</th></tr>
         <tr><td>접근 보행</td><td>집 → 역, <b>도로망 네트워크 거리</b> ÷ 4.8km/h</td></tr>
@@ -931,14 +931,14 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <tr><td>환승</td><td>선로가 이어져 있으면 경로에 녹아 있음</td></tr>
         <tr><td>하차 보행</td><td>역 → 직장, 네트워크 거리 ÷ 4.8km/h</td></tr></table>
         역세권을 반지름이 아니라 <b>보행 네트워크 거리</b>로 재는 것이 핵심입니다. 같은 800m라도 슈퍼블록이면 걸어서 15분, 격자망이면 10분 — 가로망 자체가 값을 갖게 됩니다(8장으로 이어짐).<br><br>
-        용량 = <code>(60/배차) × 900명/편성</code>. 혼잡률 x가 0.85를 넘으면 대기시간에 <code>×(1 + 0.6·(x−0.85)³)</code> 벌점 — 딱딱한 상한 대신 연속 벌점, BPR과 같은 철학입니다. 만원 전철은 대기를 키워 로짓에서 자연히 승용차로 되밀립니다. 상한 코드가 아니라 균형이 막습니다.
+        용량 = <code>(60/headway) × 900명/편성</code>. 혼잡률 x가 0.85를 넘으면 대기시간에 <code>×(1 + 0.6·(x−0.85)³)</code> 벌점 — 딱딱한 상한 대신 연속 벌점, BPR과 같은 철학입니다. 만원 전철은 대기를 키워 MNL에서 자연히 다른 대안으로 되밀립니다. 별도 수단분담 상한을 두지 않습니다.
       </div></details>
 
-      <details><summary>7. 수단선택 — 로짓, 그리고 고정통행자</summary><div class="ch">
+      <details><summary>7. Mode Choice — Multinomial Logit (MNL)과 차량보유 제약</summary><div class="ch">
         <em>v1의 죄</em> — 「역세권이면 55%」는 5분 통행과 40분 통행에 같은 전환율을 주고, 배차를 아무리 줄여도 분담률이 꿈쩍하지 않는 모형이었습니다. 분담률이 정책이 아니라 역 <b>개수</b>의 함수였습니다.<br><br>
-        v2는 O-D 셀마다 3항 <b>로짓</b>: <code>P_m = e^(−θ·GC_m) / Σ e^(−θ·GC_k)</code>, θ=0.14/분. 일반화비용 GC는 승용차 = 주행시간 + 주차벌점(도심일수록 큼), 철도 = 문전시간 + ASC 4분(고유 저항), 도보 = 보행시간(35분 이내만 대안).<br><br>
-        그리고 인구를 둘로 나눕니다 — <b>선택통행자</b>(차가 있어 셋 중 고름)와 <b>고정통행자</b>(차가 없어 철도·도보만). 차량보유율(8장)이 이 비율을 정합니다. 실무 용어 그대로 captive / choice rider입니다.<br><br>
-        마지막 연결 — 세 수단의 로짓 분모에서 나오는 <b>로그섬</b>(합성비용)이 3장의 분포 마찰함수에 들어갑니다. 수단이 좋아지면 그 목적지 자체가 「가까워진」 셈이 되어 통행이 늘어납니다. 철도 개통이 통행 패턴을 바꾸는 경로가 이것입니다.
+        v2는 O-D 셀마다 승용차·철도·버스·도보의 <b>4항 Multinomial Logit (MNL)</b>을 사용합니다: <code>P_m = e^(−θ·GC_m) / Σ e^(−θ·GC_k)</code>, θ=0.14/분. Generalized Cost에는 각 수단의 door-to-door time과 주차·운임·환승·ASC가 해당되는 경우 함께 들어갑니다.<br><br>
+        그리고 인구를 둘로 나눕니다 — 자동차를 사용할 수 있는 집단은 네 대안을 모두 비교하고, 자동차를 사용할 수 없는 집단은 비자동차 대안만 비교합니다. 차량보유 재고(68장)가 이 제약을 정합니다. <b>captive rider / choice rider</b>라는 표현은 설명용으로만 사용하며, 이 게임은 가구단위 이산선택모형을 추정한 것이 아닙니다.<br><br>
+        마지막 연결 — 네 수단의 로짓 분모에서 나오는 <b>logsum</b>이 3장의 분포 마찰함수에 들어갑니다. 수단이 좋아지면 그 목적지 자체가 「가까워진」 셈이 되어 통행이 늘어납니다. 철도 개통이 통행 패턴을 바꾸는 경로가 이것입니다.
       </div></details>
 
       <details><summary>8. 뉴어바니즘 — 규칙이 아니라 구조로</summary><div class="ch">
@@ -1039,7 +1039,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         전용차로가 존재하는 이유이기도 합니다. 그리고 이 때문에 버스 소요시간은 매 스윕 다시 계산됩니다 — 철도는 한 번 풀면 되지만요.<br><br>
         <b>전용차로(🟨)는 이 게임에서 가장 정직한 트레이드오프입니다.</b> 그 링크에서 버스는 혼잡비용 대신 자유속도 <code>t₀</code>로 달립니다.
         대신 <b>승용차 용량이 38% 줄어듭니다</b> — 차로를 하나 빼앗았으니까요. 그래서 대로·간선에만 깔 수 있습니다(이면도로는 뺄 차로가 없습니다).<br><br>
-        이득인지 아닌지는 <em>코드가 정하지 않고 균형이 답합니다.</em> 버스 이용자가 적으면 승용차 용량만 깎아 전체가 나빠지고,
+        이득인지 아닌지는 <em>코드가 정하지 않고 재배정된 모형 결과가 답합니다.</em> 버스 이용자가 적으면 승용차 용량만 깎아 전체가 나빠지고,
         회랑에 수요가 두터우면 버스가 빨라져 분담이 옮겨오고 승용차 대수 자체가 줄어 결국 둘 다 좋아질 수 있습니다.
         「기준 저장」으로 재 보십시오 — 이것이 13장의 실험 도구를 쓸 가장 좋은 예입니다.
         <table><tr><th></th><th>철도</th><th>버스</th></tr>
@@ -1089,12 +1089,12 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         같은 학교 하나라도 가로가 촘촘하면 더 많은 주민에게 닿습니다. 지도의 「15분 생활권」 주제도에서 그 모양을 직접 보십시오 —
         원이 아니라 <b>가로를 따라 번지는 얼룩</b>입니다.<br><br>
         <b>광장과 공원에는 건물을 세우지 않습니다.</b> 비워 두는 것이 시설이라서입니다.
-        HUD의 <b>생활권 %</b>는 주민 인구가중으로 「도보 15분 안에 닿는 서비스 종류 수 ÷ 5」입니다.
+        HUD의 <b>15-minute service accessibility</b>는 주민 인구가중으로 「도보 15분 안에 닿는 서비스 종류 수 ÷ 5」입니다.
         통근시간만 좋고 이 숫자가 낮은 도시는, 잘 굴러가지만 살고 싶지는 않은 도시입니다.<br><br>
         <b>이어지는 이야기</b> — 걷는 <em>거리</em>만이 아니라 걷는 <em>질</em>이 문제입니다. 그건 17장에서 다룹니다.
       </div></details>
 
-      <details><summary>17. 보행환경 — 스트로드는 어떻게 스스로 만들어지는가</summary><div class="ch">
+      <details><summary>17. 보행환경 — stroad는 어떻게 스스로 만들어지는가</summary><div class="ch">
         16장까지 이 게임의 보행시간은 <code>거리 ÷ 4.8km/h</code>로 <b>어디를 걷든 똑같았습니다</b>.
         8차선 간선 옆 인도와 가로수 있는 이면도로가 같은 값이었다는 뜻입니다. 뉴어바니즘 비판의 핵심이 통째로 빠져 있었습니다.<br><br>
         v2는 링크마다 <b>보행저항 계수</b>를 곱합니다.
@@ -1107,11 +1107,11 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <tr><td>공원·광장에 접함 (칸당)</td><td>×0.95 (최대 −12%)</td></tr></table>
         값 하나지만 파급이 큽니다. 이 게임의 <b>도보 수단분담 · 역세권 접근 · 정류장 접근 · 생활서비스 접근 · TOD 개발권</b>이
         전부 같은 보행망을 쓰기 때문입니다. 그래서 보행망은 균일 BFS가 아니라 <em>다익스트라</em>로 풉니다 — 링크마다 걷는 비용이 다르니까요.<br><br>
-        <b>여기서 스트로드가 저절로 나옵니다.</b> 막히는 축을 간선으로 올리면 차는 빨라집니다.
+        <b>여기서 stroad가 저절로 나옵니다.</b> 막히는 축을 간선으로 올리면 차는 빨라집니다.
         그런데 그 순간 그 가로의 보행저항이 1.55로 뛰어 역세권이 쪼그라들고, 15분 생활권이 무너지고,
         차량보유율(8장)이 올라가 <em>다시 교통량이 늘어납니다</em>.
         「차를 위해 넓혔더니 차가 더 늘었다」는 그 순환이 상수 한 줄 없이 기존 구조에서 나옵니다.
-        4장의 브라에스 역설이 <b>토지이용까지 포함된 형태</b>로 확장된 셈입니다.<br><br>
+        이 장기 순환은 <b>Braess Paradox</b>가 아니라 <b>induced travel·land-use feedback·automobile-dependence feedback</b>으로 구분합니다. Braess Paradox는 네트워크 링크 추가가 User Equilibrium에서 총비용을 악화시키는 좁은 의미로만 사용합니다.<br><br>
         <b>보행전용로(🚶)는 별도 레이어입니다.</b> 철도를 지하로 깐 것과 같은 방식으로, 빈 땅·공원·용도지역 <em>위에 겹칩니다</em>.
         300m 타일 하나를 통째로 산책로로 쓰는 게 아니라 <b>그 구획을 관통하는 길이 있다</b>는 뜻이라,
         필지도 개발단계도 그대로 남습니다. 축척상 이 편이 정직합니다.<br><br>
@@ -1120,14 +1120,14 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         차량 용량에는 아무 영향이 없고, 값은 도로의 절반 이하입니다.
       </div></details>
 
-      <details><summary>17-A. 생활권 압력 — 뉴어바니즘을 보너스가 아니라 구조로 만들기</summary><div class="ch">
+      <details><summary>17-A. 생활권 결핍지수 — 뉴어바니즘을 보너스가 아니라 구조로 만들기</summary><div class="ch">
         이 게임은 이제 <b>뉴어바니즘이라는 이름 자체에 아무 보너스도 주지 않습니다.</b> 대신 주민이 실제로 누리는 네 가지를 측정합니다.<br><br>
         <table><tr><th>요소</th><th>가중치</th><th>게임에서 재는 것</th></tr>
         <tr><td>생활서비스 완결성</td><td>42%</td><td>학교·의료·문화행정·공원/광장·근린상가가 보행 15분 안에 몇 종류 있는가</td></tr>
         <tr><td>근린 토지이용 혼합</td><td>22%</td><td>주거·상업/업무·공공공간이 한 동네 안에 함께 있는가</td></tr>
         <tr><td>보행 가로 연결성</td><td>22%</td><td>막다른길과 긴 우회가 적고 보행망이 여러 방향으로 이어지는가</td></tr>
         <tr><td>대중교통 접근</td><td>14%</td><td>걸어서 닿는 역·정류장의 거리와 실제 배차</td></tr></table>
-        네 값을 합친 것이 <b>보행생활권 지수</b>, 그 반대인 <code>1 − 지수</code>가 <b>생활권 압력</b>입니다.
+        네 값을 합친 것이 <b>생활권 복합지수 (game-defined)</b>, 그 반대인 <code>1 − 지수</code>가 <b>생활권 결핍지수</b>입니다.
         따라서 주거지를 단일용도로 끝없이 늘리고 대로만 넓히면 압력이 높아지고, 같은 시설을 두더라도 슈퍼블록 때문에 우회하면 점수가 깎입니다.<br><br>
         자동 계획관은 이 압력을 직접 읽습니다. 생활상가가 멀면 빈 필지에 <b>혼합용도(MX)</b>를 넣고,
         가로 연결성이 낮으면 차도를 더 내기 전에 <b>짧은 보행 관통로</b>로 블록을 꿰매며,
@@ -1135,7 +1135,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         도시 규모가 커졌는데 대중교통 접근이 약하면 버스 신설 판단도 더 빨라집니다.<br><br>
         중요한 점은 <em>모양을 흉내 내는 것이 아니라 결과를 만든다</em>는 것입니다. 격자무늬 도로를 그렸다고 점수를 주지 않고,
         실제로 그 길이 보행거리를 줄이고 목적지와 공공공간을 가까이 만들었을 때만 지수가 오릅니다.
-        그래서 뉴어바니즘적 도시는 미리 정해진 승리조건이 아니라 <b>생활권 압력에 대한 구조적 해법</b>으로 나타납니다.
+        그래서 뉴어바니즘적 도시는 미리 정해진 승리조건이 아니라 <b>생활권 결핍지수에 대한 구조적 해법</b>으로 나타납니다.
       </div></details>
 
       <details><summary>18. 시간·자동 진행·주민 피드</summary><div class="ch">
@@ -1146,9 +1146,9 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <b>자동 계획관 2.9(🤖)</b> — 단순한 「문제 한 칸 수리」에서 <b>지구 프로젝트</b> 방식으로 바뀌었습니다.
         전기·물·폐기물 부족, 포화 교차로, 마비 회랑, 만원 대중교통은 긴급사업으로 먼저 처리합니다.
         평상시에는 개발수요와 접근성·규제·지반을 보고 신규 지구 후보를 고른 뒤 <b>연결도로 → 블록형 가로망 → 용도지정 → 근린공원</b>을 몇 달에 걸쳐 시공합니다.
-        큰 구조사업 뒤에는 relative gap이 내려갈 시간을 주므로, 재배정 중인 숫자로 곧바로 다음 결정을 내리지 않습니다.
+        큰 구조사업 뒤에는 Assignment gap (model-defined)이 내려갈 시간을 주므로, 재배정 중인 숫자로 곧바로 다음 결정을 내리지 않습니다.
         자연성장과 자동 용도지정은 이제 <b>같은 입지점수 함수</b>를 써서, 농업·제조·업무가 서로 다른 입지논리로 움직입니다.
-        여기에 17-A장의 <b>생활권 압력</b>을 읽어, 부족한 동네에는 MX·보행 관통로·포켓공원/광장을 우선 검토합니다.
+        여기에 17-A장의 <b>생활권 결핍지수</b>을 읽어, 부족한 동네에는 MX·보행 관통로·포켓공원/광장을 우선 검토합니다.
         예산의 3배 여유가 없으면 해당 사업을 보류하고, 플레이어가 만든 시설을 철거하거나 되돌리지는 않습니다.<br><br>
         <b>교통망도 단계적으로 자랍니다.</b> 일정 규모를 넘은 도시에서 대중교통이 부족하면 인구가 많은 출발지와 일자리·생활거점 사이의
         <em>실제 도로 최단경로</em>를 따라 간선버스를 신설합니다. 버스가 붐비면 먼저 배차를 줄이고,
@@ -1392,7 +1392,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         현실에서 이 상황의 답은 <b>버스를 역으로 붙이는 것</b>인데, 모형에 그 경로가 없었습니다.<br><br>
 
         <b>고친 방식 — 대안을 늘리지 않고, 다리를 놓았습니다.</b>
-        철도 대안의 <em>접근단</em>과 <em>端末</em>을 보행뿐 아니라 버스로도 열었습니다.
+        철도 대안의 <em>접근단</em>과 <em>egress</em>을 보행뿐 아니라 버스로도 열었습니다.
         수단 수는 그대로 넷(승용차·철도·버스·도보)입니다. 달라진 건 '철도'가 무엇을 뜻하느냐입니다 —
         이제 철도는 <b>철도를 포함하는 통행</b>이고, 버스는 <b>철도를 포함하지 않는 통행</b>입니다.
         두 대안이 경로 차원에서 겹치지 않으므로 로짓의 IIA 문제도 새로 생기지 않습니다.
@@ -1400,11 +1400,11 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <table><tr><th>구간</th><th>비용</th></tr>
         <tr><td>접근</td><td>min( 역까지 보행 , 정류장 보행 + 대기 + 차내 + 환승보행 + 환승저항 )</td></tr>
         <tr><td>간선</td><td>철도 대기(배차/2 · 혼잡가산) + 차내</td></tr>
-        <tr><td>端末</td><td>min( 역에서 보행 , 환승보행 + 환승저항 + 대기 + 차내 + 보행 )</td></tr></table>
+        <tr><td>egress</td><td>min( 역에서 보행 , 환승보행 + 환승저항 + 대기 + 차내 + 보행 )</td></tr></table>
 
         <b>환승결절을 면이 아니라 시간으로 정의했습니다.</b> 정류장과 역이 '같은 곳'인지는
         <b>보행망 위 8분</b>으로 잽니다. 직선거리가 아니라 실제로 걸어가는 시간이므로,
-        간선도로가 가로막으면 <em>바로 건너편 역이라도 환승이 성립하지 않습니다</em>(17장 스트로드).
+        간선도로가 가로막으면 <em>바로 건너편 역이라도 환승이 성립하지 않습니다</em>(17장 stroad).
         환승광장을 만들 이유가 여기서 생깁니다.<br><br>
 
         <b>환승저항 4분</b>은 대기·차내시간과 <em>별개로</em> 더합니다. 갈아타는 일 자체가 비용입니다 —
@@ -1422,7 +1422,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         분석 시트의 <b>환승통행</b> 항목이 0이라면 역세권 안 사람만 타고 있다는 뜻이고,
         그때는 노선을 연장하기보다 <b>역으로 버스를 붙이는 편이 훨씬 쌉니다</b>.<br><br>
 
-        <b>속도 이야기.</b> 端末을 목적지마다 정류장 전수로 훑으면 안쪽 루프가 통째로 커집니다.
+        <b>속도 이야기.</b> egress을 목적지마다 정류장 전수로 훑으면 안쪽 루프가 통째로 커집니다.
         처음 구현에서 시뮬레이션 비용이 79% 늘었습니다.
         '가까운 8개만 보기'로 자르는 손쉬운 방법이 있지만, 그러면 <em>조금 더 걸어도 훨씬 빨리 오는 정류장</em>을 놓칩니다.
         그래서 자르는 대신 <b>방향을 뒤집었습니다</b> — 정류장마다 '걸어서 닿는 노드 목록'을 미리 만들어 두고,
@@ -1451,11 +1451,11 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <tr><td>철도만</td><td>운임<sub>철</sub></td></tr>
         <tr><td>버스만</td><td>운임<sub>버</sub></td></tr>
         <tr><td>지선버스 + 철도</td><td>운임<sub>버</sub> + 운임<sub>철</sub>(1−D)</td></tr>
-        <tr><td>철도 + 端末버스</td><td>운임<sub>철</sub> + 운임<sub>버</sub>(1−D)</td></tr>
-        <tr><td>지선 + 철도 + 端末</td><td>운임<sub>버</sub> + 운임<sub>철</sub>(1−D) + 운임<sub>버</sub>(1−D)</td></tr></table>
+        <tr><td>철도 + egress버스</td><td>운임<sub>철</sub> + 운임<sub>버</sub>(1−D)</td></tr>
+        <tr><td>지선 + 철도 + egress</td><td>운임<sub>버</sub> + 운임<sub>철</sub>(1−D) + 운임<sub>버</sub>(1−D)</td></tr></table>
 
         <b>첫 승차는 제값, 두 번째부터 할인.</b> 실무의 통합운임이 그렇습니다.
-        요금은 27장에서 만든 접근·端末 사슬 <em>안에</em> 들어갑니다. 밖에서 나중에 더하는 게 아닙니다.
+        요금은 27장에서 만든 접근·egress 사슬 <em>안에</em> 들어갑니다. 밖에서 나중에 더하는 게 아닙니다.
         그래야 "지선버스를 탈까 걸어갈까"를 고를 때 요금이 함께 저울에 올라갑니다.
         요금이 밖에 있으면 사람은 일단 버스를 탄 다음에 요금을 내게 되고, 그건 선택이 아닙니다.<br><br>
 
@@ -1500,12 +1500,12 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         그 뒤 보는 것은 「정책 전→후」가 아니라 <b>B−A</b>입니다. 이것이 이 게임 안에서의 반사실(counterfactual) 추정입니다.
         다만 한 개의 체크포인트·한 개의 난수 시드에서 나온 <b>단일실행</b> 결과입니다. 다른 도시 시드에서도 방향이 반복되는지 확인하기 전에는 강건한 일반화라 부르지 않고, 현실세계의 인과효과를 증명했다고도 표현하지 않습니다.<br><br>
         정책 여러 개나 도로·철도·보행로를 동시에 바꾸면 어느 개입 때문인지 분리할 수 없습니다.
-        relative gap이 3%를 넘거나 두 분기의 관찰기간이 다르면 통제비교도 성립하지 않으므로 분석실이 막거나 경고합니다.<br><br>
+        assignment gap이 3%를 넘거나 두 분기의 관찰기간이 다르면 통제비교도 성립하지 않으므로 분석실이 막거나 경고합니다.<br><br>
         <b>차이 지도</b>는 기준 시점의 주제도 값을 64×64 셀에 저장하고 현재값과 뺍니다.
         절대값 지도는 「어디가 높은가」를 보여 주지만, 차이 지도는 <b>「기준 시점보다 어디가 변했는가」</b>를 보여 줍니다.
         파랑은 감소, 주황은 증가이며 좋고 나쁨을 색으로 미리 판정하지 않습니다. 기본 도로색과 별도로 <b>링크 혼잡 V/C</b>도 숫자형 주제도로 분리해 병목의 이동을 차이로 볼 수 있습니다. 예를 들어 주거비 부담은 감소가 좋지만 소득은 증가가 좋기 때문입니다.<br><br>
         결과표도 같은 원칙입니다. 먼저 <b>관찰값</b>을 보여 주고, 그다음 실제로 바뀐 정책·시설을 읽어
-        「통행료 → 승용차 일반화비용 → 로짓 → VMT」처럼 <b>코드에 존재하는 가능한 전달경로</b>를 제시합니다.
+        「통행료 → 승용차 일반화비용 → 로짓 → VKT」처럼 <b>코드에 존재하는 가능한 전달경로</b>를 제시합니다.
         전후관찰만 있을 때는 그 경로가 이번 변화의 원인이라고 쓰지 않습니다. A/B 통제비교가 완성된 경우에만
         「동일 기준안 대비 이 모형에서 얼마만큼 다르게 나타났다」고 표현합니다. 실측자료가 없는 계수의 현실 타당성까지 증명했다고 말하지 않습니다.
         이 도구의 목적은 정답 맞히기가 아니라 <b>모형이 어떤 주장을 하고 있는지 반증 가능한 형태로 시험하는 것</b>입니다.
@@ -1666,7 +1666,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
 
       <details><summary>55. 계획관이 생활시설을 짓는다 — 그리고 경찰서를 그린다</summary><div class="ch">
         계획관이 지구·버스·철도·교량·재개발만 짓고 <b>학교·병원·경찰서는 하나도 짓지 않았습니다</b>.
-        53장에서 생활권 압력을 넣었는데 계획관은 그것을 볼 줄 몰랐던 것입니다.
+        53장에서 생활권 결핍지수를 넣었는데 계획관은 그것을 볼 줄 몰랐던 것입니다.
         사람이 떠나는데 도로만 놓는 계획관은 계획관이 아닙니다.<br><br>
         <b>과잉 건설을 한 번 겪었습니다.</b> 조건을 "사각지대 &gt; 0"으로 두었더니
         경찰서를 <b>32곳</b>이나 지었습니다. 사각지대는 도로가 끊긴 자리에도 생겨 결코 0이 되지 않습니다 —
@@ -1695,7 +1695,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         나중에 부른 쪽이 이깁니다. 계산을 <code>walkCostAt</code> 하나로 모았습니다.
       </div></details>
 
-      <details><summary>53. 생활권 압력 — 지표에서 힘으로</summary><div class="ch">
+      <details><summary>53. 생활권 결핍지수 — 지표에서 힘으로</summary><div class="ch">
         생활권은 <b>숫자로만</b> 있었습니다 — 낮아도 아무 일이 없었습니다.
         그래서 도로와 용도만 깔아도 도시가 잘 자랐고,
         학교·병원·상업을 놓을 이유가 "그냥 좋아 보여서"였습니다.<br><br>
@@ -2177,11 +2177,11 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
 
         이제 <b>✋ 이동</b> 도구로 용지를 누르면 그 구역의 보고서가 열립니다. 네 부분입니다:<br>
         <b>지금 이 자리</b> — 용도·개발단계·건축연령, 그리고 이 칸에 걸린 지정(TOD·공공임대·비축·요금구역).<br>
-        <b>지대</b> — 잠재/실현지대와 임대료 격차. 격차가 임계를 넘으면 붉게 표시되고
+        <b>지대</b> — 잠재/실현지대와 Rent Gap. 격차가 임계를 넘으면 붉게 표시되고
         "재개발 압력"이라고 적힙니다.<br>
         <b>사는 사람</b> — 소득지수, 주거비 부담, 받고 있는 복지, 요금할인 대상 여부, 시간가치.<br>
         <b>이 구역에 일어난 일</b> — 연·월과 함께 남은 사건 이력.
-        "재개발 착공 — 3단계를 헐고 5단계로. 임대료 격차 61%가 임계를 넘었습니다",
+        "재개발 착공 — 3단계를 헐고 5단계로. Rent Gap (지대 격차) 61%가 임계를 넘었습니다",
         "축출 3단계 — 새 지대를 기존 거주자가 감당하지 못했습니다",
         "밀려난 사람이 들어왔습니다 (과밀 2단계). 이 자리가 지불능력이 닿는 가장 싼 땅이었습니다."<br><br>
 
@@ -2362,7 +2362,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         개발이 통째로 위축됐습니다 — 갭이 큰 칸은 아직 덜 지은 칸이기도 해서,
         벌금이 곧 개발 억제가 되어 버렸습니다. 논리가 반대입니다:
         세금은 어차피 내야 하니 <b>지어서 벌충하는 편이 낫습니다</b>.<br>
-        <table><tr><th>세율</th><th>평균 층수</th><th>임대료 격차</th><th>재개발</th><th>총 세수</th></tr>
+        <table><tr><th>세율</th><th>평균 층수</th><th>Rent Gap (지대 격차)</th><th>재개발</th><th>총 세수</th></tr>
         <tr><td>0%</td><td>2.911</td><td>59.9%</td><td>59건</td><td>5,654</td></tr>
         <tr><td>70%</td><td><b>3.352</b></td><td><b>54.1%</b></td><td>59건</td><td>7,484</td></tr></table>
         <b>예상이 빗나갔습니다.</b> "세금이 재개발을 앞당긴다"고 적어 두었는데 건수가 그대로였습니다.
@@ -2371,7 +2371,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         가설을 지키려고 계수를 만지지 않았습니다. 나온 대로 적었습니다.<br><br>
 
         <b>② 임대료 규제</b> — 실현지대에 뚜껑을 씌웁니다.
-        <table><tr><th></th><th>주거비 부담</th><th>임대료 격차</th><th>재개발</th><th>축출</th></tr>
+        <table><tr><th></th><th>주거비 부담</th><th>Rent Gap (지대 격차)</th><th>재개발</th><th>축출</th></tr>
         <tr><td>규제 없음</td><td>1.194</td><td>59.7%</td><td>62건</td><td>47</td></tr>
         <tr><td>규제 55%</td><td><b>1.147</b></td><td><b>61.5%</b></td><td>65건</td><td>50</td></tr></table>
         부담은 내려갑니다. 그런데 <b>잠재지대는 그대로</b>라 갭이 벌어지고,
@@ -2407,7 +2407,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       </div></details>
 
       <details><summary>37. 보이게 하기 — 숫자로만 있는 것은 없는 것이다</summary><div class="ch">
-        33~36장에서 지대·임대료 격차·소득·부담·과밀을 만들었습니다.
+        33~36장에서 지대·Rent Gap (지대 격차)·소득·부담·과밀을 만들었습니다.
         그런데 전부 <b>분석 시트의 숫자로만</b> 존재했습니다.
         지도를 아무리 봐도 어디가 구도심이고 어디가 빈민가인지 알 수 없었습니다.
         플레이어가 볼 수 없는 모형은 <b>없는 것과 같습니다</b>.<br><br>
@@ -2415,12 +2415,12 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <b>주제도 넷을 더했습니다.</b> 값은 하나도 새로 만들지 않았습니다 — 있던 것을 칠했을 뿐입니다.
         <table><tr><th>주제도</th><th>읽는 법</th></tr>
         <tr><td>지대</td><td>실현지대. 도심에서 멀어질수록 옅어지는 그 곡선이 지도로 보인다</td></tr>
-        <tr><td>임대료 격차</td><td>재개발 압력. 진한 곳이 다음에 헐릴 곳이다</td></tr>
+        <tr><td>Rent Gap (지대 격차)</td><td>재개발 압력. 진한 곳이 다음에 헐릴 곳이다</td></tr>
         <tr><td>소득</td><td>따라온 소득. 지대와 어긋나 있는 곳이 구도심이다</td></tr>
         <tr><td>주거비 부담</td><td>내야 하는 값 ÷ 낼 수 있는 값. 1을 넘으면 축출 위험</td></tr></table>
 
         <b>색축을 둘로 나눴습니다.</b> 지대와 소득은 높낮이일 뿐이라 기존 색축을 쓰지만,
-        임대료 격차와 주거비 부담은 <b>높을수록 나쁜</b> 지표라 벽돌빛으로 갑니다.
+        Rent Gap (지대 격차)와 주거비 부담은 <b>높을수록 나쁜</b> 지표라 벽돌빛으로 갑니다.
         같은 색으로 칠하면 "진한 곳이 좋은 곳"이라는 습관이 정반대로 읽히게 만듭니다.<br><br>
 
         <b>과밀은 주제도를 켜지 않아도 보여야 합니다.</b>
@@ -2467,13 +2467,13 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         모형이 옳고 제 가정이 틀렸습니다. 싼 것은 <b>실현</b>지대인데,
         실현지대는 <code>잠재지대 × 밀도 × 연령</code>입니다.
         그러니 가장 싼 곳은 외곽이 아니라 <b>접근성은 좋은데 낡고 저밀한 곳</b>입니다.<br>
-        <table><tr><th></th><th>잠재지대(접근성)</th><th>임대료 격차</th></tr>
+        <table><tr><th></th><th>잠재지대(접근성)</th><th>Rent Gap (지대 격차)</th></tr>
         <tr><td>과밀지</td><td>9.87</td><td><b>67.9%</b></td></tr>
         <tr><td>그 외</td><td>9.71</td><td>64.7%</td></tr></table>
         접근성은 오히려 조금 낫습니다. 싼 이유는 <em>낡고 낮아서</em>입니다.
         서울의 쪽방촌이 외곽이 아니라 종로·영등포에 있는 이유가 이것입니다.<br><br>
 
-        <b>그래서 순환이 닫힙니다.</b> 빈민가는 임대료 격차가 가장 큰 곳이고,
+        <b>그래서 순환이 닫힙니다.</b> 빈민가는 Rent Gap (지대 격차)가 가장 큰 곳이고,
         격차가 큰 곳은 33장에서 <b>재개발 압력이 가장 큰 곳</b>이었습니다.
         밀려난 사람이 모인 자리가 곧 다음 재개발 대상입니다 —
         축출 → 가장 싼 땅으로 → 그곳이 재개발 → 다시 축출.
@@ -2540,12 +2540,12 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         둘 다 모형 안의 값이라 비율로 말할 수 있습니다.
         소득이 지대를 못 따라가면 부담률이 1을 넘고, 그것이 affordability 압박입니다.<br><br>
 
-        <b>넣고 나서 31장이 깨졌습니다.</b> "역을 늘리면 1인당 VMT가 더 떨어진다"는
+        <b>넣고 나서 31장이 깨졌습니다.</b> "역을 늘리면 1인당 VKT가 더 떨어진다"는
         검정이 실패했는데, 버그가 아니라 <b>새로 생긴 경로</b>였습니다:
         역세권을 개발하면 지대가 오르고 → 소득지수가 오르고 → 시간가치가 오릅니다.
         시간가치가 높은 사람은 돈보다 시간을 아끼므로 <b>오히려 승용차를 선호</b>합니다.
         고소득 역세권 주민이 차를 더 탄다는 것은 실제로 관측되는 일이고,
-        그 되먹임이 통행거리에 섞여 VMT의 방향을 흐렸습니다.
+        그 되먹임이 통행거리에 섞여 VKT의 방향을 흐렸습니다.
         31장의 검정은 정책이 직접 겨냥하는 것 — <b>승용차 분담률</b> — 로 바꿨습니다.
         모형이 자라면 무엇을 물어야 하는지도 함께 바뀝니다.<br><br>
 
@@ -2574,7 +2574,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <b>11장의 원칙을 소리에 그대로 옮겼습니다.</b>
         "장식을 얹지 않고, 아는 값을 그린다" — 이 게임의 소리는 <b>전부 지표</b>입니다.
         <table><tr><th>들리는 것</th><th>실제로 무엇인가</th></tr>
-        <tr><td>웅웅거리는 도시 소음의 <b>크기</b></td><td>VMT × 혼잡도</td></tr>
+        <tr><td>웅웅거리는 도시 소음의 <b>크기</b></td><td>VKT × 혼잡도</td></tr>
         <tr><td>그 소음의 <b>거친 정도</b></td><td>평균 V/C — 막힐수록 필터가 열린다</td></tr>
         <tr><td>밤에 <b>조용해지는 것</b></td><td>연출이 아니라 통행량. 시간대 계수를 따로 두지 않았다</td></tr>
         <tr><td>쉭쉭거리는 <b>고역 층</b></td><td>비 (wxAmt 그대로)</td></tr>
@@ -2651,7 +2651,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <table><tr><th></th><th>무엇인가</th><th>무엇의 함수인가</th></tr>
         <tr><td>잠재지대</td><td>그 자리가 <b>받을 수 있는</b> 값</td><td>입지(접근성)만</td></tr>
         <tr><td>실현지대</td><td>지금 건물이 <b>받아내는</b> 값</td><td>밀도 × 건물 연령</td></tr>
-        <tr><td>임대료 격차</td><td>둘의 차</td><td>재개발 압력</td></tr></table>
+        <tr><td>Rent Gap (지대 격차)</td><td>둘의 차</td><td>재개발 압력</td></tr></table>
 
         Neil Smith의 rent gap입니다. 그리고 여기서 네 가지가 한꺼번에 나옵니다.<br>
         <b>노후화</b>는 실현지대를 깎는 감가입니다 — 잠재지대는 그대로인데 받아내는 값만 떨어집니다.
@@ -2665,7 +2665,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         기존 주민이 밀려나거나 생활권이 악화될 수도 있습니다. 반대로 큰 재개발 없이도 공실 감소·생활서비스 회복·주거안정이 나타날 수 있습니다.
         이 게임은 그 궤적을 관찰하고, ‘재생’이라는 결론은 자동으로 붙이지 않습니다.<br><br>
 
-        <b>현재 경계.</b> 이후 장에서 저·중·고소득 가구구성, 감당가능성, 재정착 대기와 주거불안 경로가 추가되었습니다.
+        <b>현재 경계.</b> 이후 장에서 저·중·고소득 가구구성, 부담가능성, 재정착 대기와 주거불안 경로가 추가되었습니다.
         따라서 지금은 ‘헐린 만큼 자동으로 도시 밖으로 떠난다’고 처리하지 않습니다. 주택을 잃은 사람은 먼저 재정착 대기 상태로 이동하고,
         실제 외부유출은 연결 외부권과의 생활효용 비교에서 별도로 기록합니다. 정규주택 거주자가 도시를 떠나면 건물은 사라지지 않고 <b>공실</b>이 남습니다.
         다만 개별 가구의 의사결정이나 토지소유자 협상까지 추적하는 미시모형은 아닙니다.<br><br>
@@ -2685,7 +2685,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         이번에는 지대를 <b>관측량으로만</b> 도출했습니다.
       </div></details>
 
-      <details><summary>32. 공공기여 — 용적은 계획이 만든 값이다</summary><div class="ch">
+      <details><summary>32. Developer Obligations — 용적은 계획이 만든 값이다</summary><div class="ch">
         31장에서 TOD 지구는 시청이 <em>돈을 내고</em> 용적을 얹어 주는 순수 지출이었습니다.
         방향이 거꾸로입니다. 용적을 올려 주면 그 땅의 가치가 오르는데,
         그 증분은 <b>계획이 만든 것이지 땅주인이 만든 것이 아닙니다</b>.
@@ -2722,7 +2722,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         <b>그리고 이건 슈퍼블록에서만 의미가 있습니다.</b> 가로가 촘촘한 격자에서 같은 실험을 하면
         통로가 6곳 생겨도 아무 일도 일어나지 않습니다 — 이미 지름길이 있기 때문입니다.
         공공보행통로는 <b>대형 필지가 만든 우회를 되돌리는 장치</b>이지 보편적인 선(善)이 아닙니다.
-        20장의 스트로드·슈퍼블록 이야기와 같은 자리에서 만납니다.<br><br>
+        20장의 stroad·슈퍼블록 이야기와 같은 자리에서 만납니다.<br><br>
 
         <b>아직 안 하는 것.</b> 현물의 종류가 보행통로 하나뿐입니다.
         공개공지·임대주택·문화시설 같은 다른 기여는 없고,
@@ -2758,7 +2758,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
 
         <b>그래서 컴팩트시티는 성공하는가.</b> 같은 도시를 저장해 두고 되돌린 통제실험입니다
         (역 3개짜리 도시, 지정 가능한 곳은 전부 지정, 5년):<br>
-        <table><tr><th></th><th>TOD 지구</th><th>평균 층수</th><th>1인당 VMT</th><th>보유율</th></tr>
+        <table><tr><th></th><th>TOD 지구</th><th>평균 층수</th><th>1인당 VKT</th><th>보유율</th></tr>
         <tr><td>지정 없음</td><td>0칸</td><td>3.11</td><td>2.782</td><td>93.5%</td></tr>
         <tr><td>지정 있음</td><td>60칸</td><td>3.14</td><td>2.773</td><td>92.6%</td></tr>
         <tr><td>역을 7개로</td><td><b>122칸</b></td><td>3.18</td><td><b>2.755</b></td><td>92.6%</td></tr></table>
@@ -2774,7 +2774,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         올릴 수 있는 땅이 애초에 얼마 없습니다.
         그리고 이 결론은 상수로 넣은 것이 아니라, <em>보행 10분을 도로망 위에서 정직하게 쟀더니</em> 나온 것입니다.<br><br>
 
-        <b>지표.</b> 총 VMT가 아니라 <b>1인당 VMT</b>를 봅니다.
+        <b>지표.</b> 총 VKT가 아니라 <b>1인당 VKT</b>를 봅니다.
         총량은 도시가 크면 당연히 커집니다. 컴팩트시티가 성공했는지는
         "같은 인구가 덜 달리는가"로만 답할 수 있습니다.<br><br>
 
@@ -2813,7 +2813,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         지금까지 승용차 최단경로는 <em>시간</em>만 재고 있었습니다(<code>dist[]</code>).
         기름은 시간이 아니라 거리를 먹으므로, 같은 다익스트라 안에서
         같은 경로의 거리를 함께 누적하는 배열(<code>dkm[]</code>)을 붙였습니다.
-        링크 길이 <code>eLen[]</code>은 이미 VMT 계산에 쓰고 있었으므로 새로 만들 것은 없었습니다.
+        링크 길이 <code>eLen[]</code>은 이미 VKT 계산에 쓰고 있었으므로 새로 만들 것은 없었습니다.
         비용은 12장의 환율 그대로 <code>km × ₩/km ÷ VOT</code>로 분이 됩니다.<br><br>
 
         <b>검증 — 두 레버가 다르게 움직입니다.</b> 같은 도시를 저장해 두고 되돌린 통제실험입니다.
@@ -2941,7 +2941,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         중요한 안전장치가 하나 있습니다. <b>기존의 주거비 부담·토지가치세·재개발용 rentP/rentC 회계는 33장 값 그대로 유지</b>합니다.
         64장의 입찰지대는 우선 "어느 용도가 이 땅을 차지하려 하는가"만 결정합니다. 새 시장층을 넣었다고 기존 주거모형을 조용히 다시 쓰지 않습니다.<br><br>
         <b>두 종류의 갭을 구분합니다.</b><br>
-        ① <b>임대료 격차</b> = 33장의 공통 잠재지대 − 지금 건물이 실현하는 지대. 낡았거나 덜 지은 건물을 같은 용도로 재개발하는 기존 압력입니다.<br>
+        ① <b>Rent Gap (지대 격차)</b> = 33장의 공통 잠재지대 − 지금 건물이 실현하는 지대. 낡았거나 덜 지은 건물을 같은 용도로 재개발하는 기존 압력입니다.<br>
         ② <b>용도전환 압력</b> = 64장의 최고 입찰지대 − 현재 용도의 입찰지대. 업무가 주거보다, 혼합이 제조보다 더 높은 값을 낼 수 있는 새 압력입니다.<br><br>
         <b>규제는 시장을 지우지 않고 막습니다.</b> 플레이어가 직접 지정한 필지와 초기 시가지는 최고입찰자가 달라도 자동으로 바뀌지 않습니다.
         대신 구역 보고서와 「용도전환 압력」 주제도에서 <em>무슨 용도가 얼마만큼 더 높은 입찰을 하는지</em> 볼 수 있습니다.
@@ -2972,7 +2972,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       </div></details>
       <details><summary>66. MODEL INTEGRITY — 결과가 달라진 것과 모형이 깨진 것은 다르다</summary><div class="ch">
         모형이 커질수록 가장 위험한 버그는 화면이 멈추는 버그가 아닙니다. <b>숫자가 그럴듯하게 나오는데 서로 다른 장이 서로 다른 세계를 계산하는 것</b>입니다. 기반시설망·토지시장·정책층이 붙은 뒤부터는 무엇이 절대 변하면 안 되는지 적어 둘 필요가 생겼습니다.<br><br>
-        분석실의 <b>MODEL INTEGRITY</b>는 검사를 둘로 나눕니다. <b>불변량(contract)</b>은 인구 회계, 수단분담 합계, 링크 흐름 비음수, 최고입찰≥현재입찰처럼 어떤 정책에서도 깨지면 안 되는 규칙입니다. <b>상태(health)</b>는 relative gap과 Furness 도착오차처럼 개입 직후에는 높아도 정상이고 안정도시에서는 내려가야 하는 값입니다.<br><br>
+        분석실의 <b>MODEL INTEGRITY</b>는 검사를 둘로 나눕니다. <b>불변량(contract)</b>은 인구 회계, 수단분담 합계, 링크 흐름 비음수, 최고입찰≥현재입찰처럼 어떤 정책에서도 깨지면 안 되는 규칙입니다. <b>상태(health)</b>는 assignment gap과 Furness 도착오차처럼 개입 직후에는 높아도 정상이고 안정도시에서는 내려가야 하는 값입니다.<br><br>
         인구·일자리는 <code>S.pop</code>·<code>S.jobs</code>를 그대로 믿지 않고 현재 도로에 붙은 R·MX·시설·삼각 반필지를 다시 세어 대조합니다. 교통은 4수단 합계 100%, 활성 링크의 유효 인접노드, NaN·음수 흐름/비용을 검사합니다. 토지시장은 정책 전·후 최고입찰 순서와 정책쐐기 범위, 65장의 LVT 공통 자본화를 검사합니다.<br><br>
         기반시설은 도로성분별 공급률 0~1과 망 길이·유지비의 비음수를, 공공서비스는 도달노드가 전체노드를 넘지 않는지를 봅니다. 주거에서는 비주거지에 남은 유령 <code>crowd</code>와 <code>dispPool</code>·화면의 미정착 인구 불일치를 잡습니다.<br><br>
         「감사 기준 저장」은 이전 버전과 도시를 같게 만들려는 기능이 아닙니다. 정책과 성장으로 <b>달라져도 되는 상태값</b>을 나란히 보여 주는 참고선입니다. 불변량 PASS 여부와 상태 변화량을 분리해야 “새 기능이 효과를 냈다”와 “새 기능이 기존 계산을 망가뜨렸다”를 구별할 수 있습니다.<br><br>
@@ -3019,7 +3019,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         그 뒤 주차수요·오픈스페이스·자동차세 세수까지 천천히 바뀝니다.
         반대로 외곽 저밀지에서 대중교통이 나쁘고 주차가 넉넉하면 보유재고가 올라가 스프롤의 자동차 의존을 강화할 수 있습니다.<br><br>
 
-        분석실의 「차량보유·주차」 실험에서는 <b>현재 보유율 / 장기목표 / 주거지 주차부족 / 승용차 분담 / VMT</b>를 같이 봅니다.
+        분석실의 「차량보유·주차」 실험에서는 <b>현재 보유율 / 장기목표 / 주거지 주차부족 / 승용차 분담 / VKT</b>를 같이 봅니다.
         정책 직후 수단분담만 보고 결론을 내리지 말고, 몇 년을 진행해 보유재고까지 움직였는지 확인해야 합니다.<br><br>
 
         <b>아직 없는 것.</b> 가구별 자동차 대수(0·1·2대), 차종, 면허, 중고차시장, 실제 차량구입가격, 소득계층별 구매제약은 없습니다.
@@ -3111,12 +3111,12 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         비공식주거와 불안정 거처는 새 인구가 아니라 기존 <code>dispPool</code>의 위치를 보여 주는 부분집합이므로 인구를 이중계산하지 않습니다.
         저가주택이 부족하고 대기기간이 길수록 비공식·불안정 상태가 늘며, 값싼 저이용 토지이면서 일자리·대중교통 접근이 가능한 곳에 더 잘 나타납니다.<br><br>
         도시 리포트의 <b>감당 가능한 주택재고</b>는 전체 R 물량이 아니라 저·중·고소득 각 계층이 현재 정책과 주거비 부담 한계 안에서 감당할 수 있는 정규주거의 비율입니다.
-        따라서 고가주택이 남아 있어도 저소득층의 감당가능 재고는 부족할 수 있습니다.
+        따라서 고가주택이 남아 있어도 저소득층의 부담가능주택 재고는 부족할 수 있습니다.
         공공임대·복지·임대료정책은 이 경로를 완화하고, 재개발·TOD·기업호황은 지대를 올려 호황형 축출을 만들 수도 있습니다.<br><br>
         직접건설 기능은 그대로 유지됩니다. 자동건설관이 기본 개발을 수행하더라도 플레이어는 언제든 도로·용도·공공임대·시설을 직접 수정할 수 있습니다.
       </div></details>
       <details><summary>75. 유능한 자동계획관 1 — 저가주택이 부족한데 비싼 주거만 짓지 않는다</summary><div class="ch">
-        자동계획관은 이제 전체 RCI만 보고 주거를 공급하지 않습니다. <b>저소득 감당가능 재고·주거비 부담·재정착 대기·비공식주거·과밀</b>을 하나의 주거압력으로 함께 읽습니다.<br><br>
+        자동계획관은 이제 전체 RCI만 보고 주거를 공급하지 않습니다. <b>저소득층 부담가능주택 재고·주거비 부담·재정착 대기·비공식주거·과밀</b>을 하나의 주거압력으로 함께 읽습니다.<br><br>
         압력이 높으면 새 생활권에서 R의 비중을 높이고, 기존 시가지의 값싼 연결필지에 R을 우선 지정합니다. 반대로 자동계획관이 과거에 만든 저가 R/MX가 시장입찰 때문에 재개발 후보가 되더라도, 주거불안이 심한 동안에는 <b>저가주택 보존</b>을 우선해 자동 재개발에서 제외합니다. 이것은 영구보존 규제가 아니라 당시 도시상태를 읽는 계획판단입니다.<br><br>
         공공임대 확대처럼 가치판단이 필요한 정책은 자동으로 결정하지 않습니다. 플레이어가 정책을 정하고, 자동계획관은 그 정책 안에서 합리적으로 실행합니다. 직접건설 기능도 그대로 남아 있어 언제든 세밀한 개입이 가능합니다.<br><br>
         <b>📋 계획관 주요판단</b>에는 새 지구·재개발·철도·교량·생활시설·저가주택 보존 같은 구조적 판단만 월·이유·당시 지표와 함께 남습니다. 계획관에게 매번 허가를 주는 창이 아니라, 나중에 도시가 왜 이렇게 되었는지 추적하는 감사기록입니다.
@@ -3127,8 +3127,8 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
         정책제약은 실제 게임에 존재하는 값만 기록합니다. 주거판단에는 임대료규제·토지가치세·복지·개발이익 환수와 주변 녹지보전·문화유산·토지비축·공공임대를,
         교통판단에는 혼잡통행료·운임·환승할인·저소득 할인·연료비·자동차 보유비·유지관리 수준을 남깁니다.
         따라서 나중에 같은 자동계획관이 다른 정책 아래에서 왜 다른 결정을 했는지 비교할 수 있습니다.<br><br>
-        결과추적은 분야마다 다른 지표를 사용합니다. 주거는 저소득 감당가능 재고·부담·대기·비공식주거,
-        교통은 평균통행시간·V/C·대중교통분담·VMT, 생활시설은 15분 생활권·경고인구·도달시간, 기반시설은 최저 공급률을 봅니다.
+        결과추적은 분야마다 다른 지표를 사용합니다. 주거는 저소득층 부담가능주택 재고·부담·대기·비공식주거,
+        교통은 평균통행시간·V/C·대중교통분담·VKT, 생활시설은 15분 생활권·경고인구·도달시간, 기반시설은 최저 공급률을 봅니다.
         철도처럼 효과가 늦게 나타나는 사업은 더 긴 관찰기간을 둡니다.<br><br>
         다만 사후관측은 <b>인과효과라고 단정하지 않습니다.</b> 추적기간 중 플레이어가 정책을 바꾸었거나 같은 분야에 다른 자동계획이 겹쳤다면
         로그에 「정책변경」「동일분야 다른 계획」을 표시합니다. 이것은 계획관의 자기평가를 과신하지 않기 위한 장치입니다.<br><br>
@@ -3146,12 +3146,12 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       </div></details>
       <details><summary>78. 정책 콕핏 — 정책은 결정하고, 계획관은 제약을 설명한다</summary><div class="ch">
         플레이어의 역할은 개별 필지를 일일이 승인하는 것이 아니라 <b>정책을 정하는 것</b>입니다. 정책창을 교통·주거/토지·복지·유지관리 탭으로 재구성하고,
-        상단에는 월 수지·저소득 감당가능 주택·평균통행·승용차분담을 항상 보여 줍니다. 정책은 누르는 즉시 적용되고 별도 승인창은 뜨지 않습니다.<br><br>
+        상단에는 월 수지·저소득 부담가능 주택·평균통행·승용차분담을 항상 보여 줍니다. 정책은 누르는 즉시 적용되고 별도 승인창은 뜨지 않습니다.<br><br>
         자동계획관은 정책을 거역하지 않습니다. 개발제한구역 때문에 새 생활권을 확보하지 못하거나, 토지비축·공공임대 보호 때문에 시장재개발을 하지 못하거나,
         공급부족인데 기반시설 후보지가 개발제한구역에 막힌 경우에는 <b>정책제약 보류</b>라는 중요판단을 남깁니다. 단순히 “못 지음”이 아니라 실제로 막은 정책/보호조건을 함께 기록합니다.<br><br>
         정책 자체도 추적합니다. 혼잡통행료·운임·연료비처럼 빠른 정책은 6개월, 주거·복지·유지관리 정책은 12개월,
         토지가치세·개발이익 환수는 18개월, 자동차 보유비는 24개월 뒤 사후상태를 붙입니다.
-        교통은 통행시간·V/C·대중교통분담·VMT, 주거는 감당가능 재고·부담·재정착 대기·비공식주거를 비교합니다.<br><br>
+        교통은 통행시간·V/C·대중교통분담·VKT, 주거는 부담가능주택 재고·부담·재정착 대기·비공식주거를 비교합니다.<br><br>
         사후관측은 <b>순수 인과효과라고 단정하지 않습니다.</b> 추적기간에 다른 정책을 바꾸었거나 같은 분야의 자동계획이 실행됐다면 경고를 붙입니다.
         정확한 정책 인과효과를 검증하려면 분석실의 기준선/통제실험을 사용하고, 정책 콕핏은 실제 플레이 중 “정책을 바꾼 뒤 도시가 어떻게 움직였는가”를 빠르게 읽는 창입니다.
       </div></details>
@@ -3212,7 +3212,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
 
   <div id="intro"><div class="card">
     <h1>TRAFFIC CITY 2</h1>
-    <div class="sub">4단계 교통모형 도시 시뮬레이터 · 모바일</div>
+    <div class="sub">Four-step Travel Demand Model 기반 도시 시뮬레이터 · 모바일</div>
     <!-- 시작 화면에 설명을 11항목 늘어놓으면 아무도 읽지 않고, 읽더라도 아직 볼 것이 없다.
          여기서 필요한 것은 <b>지금 무엇을 할지</b> 고르는 일뿐이다. 설명은 접어 둔다. -->
     <div id="startBtns">
@@ -3223,7 +3223,7 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
     </div>
     <div id="startInfo" class="sub" style="margin-top:8px"></div>
     <details id="introGuide"><summary>❔ 처음이라면 — 게임 소개</summary><div class="ch">
-<p>이중제약 <b>중력모형 + Furness</b>로 통행을 분포시키고, <b>4항 로짓</b>이 승용차·철도·버스·도보를 고르고, <b>MSA</b>가 이용자평형으로 수렴합니다. 수렴 정도는 화면 위 <b>relative gap</b>으로 보입니다.</p>
+<p>이중제약 <b>중력모형 + Furness</b>로 통행을 분포시키고, <b>4항 로짓</b>이 승용차·철도·버스·도보를 고르고, <b>MSA</b>가 이용자평형으로 수렴합니다. 재배정 안정도는 화면 위 <b>Assignment gap (model-defined)</b>으로 봅니다.</p>
     <p><b>기본 플레이 방식:</b> 새 도시는 <b>자동계획관 ON</b>으로 시작합니다. 계획관이 도로·생활권·대중교통·재개발 같은 일상적인 도시건설을 대부분 맡고, 플레이어는 우하단 <b>🏛️ 정책</b>에서 도시 리포트·분석실·자문관회의·연대기·계획관 판단기록을 모아 읽은 뒤 <b>정책 레버와 큰 방향</b>을 결정합니다. 직접 건설 도구는 세밀한 개입이나 실험이 필요할 때 사용할 수 있습니다.</p>
     <p>① 하단에서 <b>묶음(도로·관리·용도·공공·교통)</b>을 고르면 그 아래 세부 도구가 펼쳐집니다<br>
        ② <b>도로</b>를 드래그해 그리세요. <b>╱ 대각도로</b>는 45°로 끌면 실제 424m 대각 링크가 생깁니다. 대각축이 격자를 가르면 남는 <b>△ 삼각 반필지</b>도 R/C/MX/업무·공원/광장으로 한쪽씩 지정할 수 있습니다<br>
@@ -3480,13 +3480,13 @@ const cordon=new Uint8Array(NC);         // 혼잡통행료 징수구역 (진입
    주차장을 안 지어도 되니까 더 지을 수 있는 것이고, 그래서 차를 덜 세우는 동네가 된다. */
 const zoneTodD=new Uint8Array(NC);       // 지정 TOD 지구
 let todList=[];                          // 지정 지구 칸 목록 — 현물 기여를 여기서만 뽑는다
-/* ── 지대와 임대료 격차 (교재 33장) ──
+/* ── 지대와 Rent Gap (교재 33장) ──
    Alonso: 한계지의 지대는 0이고, 거기서부터 아낀 통행비용이 곧 지대다.
    이 모형은 우변(통행비용)을 이미 정확히 계산한다 — 목적지선택의 로그섬이 그것이다.
    그러니 지대는 새 시장을 만들 것 없이 그 잔차로 도출된다.
      잠재지대  = 그 자리가 받을 수 있는 값 (입지만의 함수)
      실현지대  = 지금 서 있는 건물이 실제로 받아내는 값 (밀도·연령의 함수)
-     임대료 격차 = 둘의 차. 이 갭이 재개발 압력이고, 젠트리피케이션의 연료다. */
+     Rent Gap (지대 격차) = 둘의 차. 이 갭이 재개발 압력이고, 젠트리피케이션의 연료다. */
 const accGC=[];                          // 노드별 기대 최소 일반화비용의 로그섬 (분, 클수록 접근성 좋음)
 const rentP=new Float32Array(NC);        // 잠재지대 — 33장의 공통 입지지대(기존 회계 유지)
 const rentC=new Float32Array(NC);        // 실현지대 (규제·공공임대 반영)
@@ -3873,7 +3873,7 @@ function demographicRates(){
   const ageY=Math.max(0,curMonth()/12),life=clamp(S.life15||0,0,1),bur=clamp(S.burden||.9,.35,2.2);
   const jobRatio=(S.jobs||0)/Math.max(1,(S.pop||residentPopulationTotal())*WORK);
   const aff=clamp(1.05-bur,-.8,.7),transition=clamp(ageY/120,0,1);
-  /* 새 도시·감당가능한 도시일수록 자연증가가 조금 높지만, 100년 내내 같은 고출생을 유지하지 않는다. */
+  /* 새 도시·부담가능한 도시일수록 자연증가가 조금 높지만, 100년 내내 같은 고출생을 유지하지 않는다. */
   const birthAnnual=clamp(.0145+.0038*aff+.0018*clamp(jobRatio-1,-.7,.7)-.0030*transition,.0075,.0195);
   const deathAnnual=clamp(.0087-.0014*(life-.45)+.0016*clamp((S.lifePress||0)-.35,0,1),.0064,.0125);
   return {birthAnnual,deathAnnual,netAnnual:birthAnnual-deathAnnual};
@@ -4353,7 +4353,7 @@ const TOLL_REV=0.0003;                   // 통행료 → 월 세수 환산 (게
 let toll=0;                              // ₩/진입통행
 let baseline=null;                       // 간단 전후비교 기준선
 let expBase=null,expRecipe="free",expDiff=false,labTab="exp",labLastMonth=-1; // 62장 실험·분석실
-let expAB={control:null,treatment:null}; // v80 동일 기준시점 A/B 반사실 비교
+let expAB={control:null,treatment:null}; // v80 동일 기준시점 paired counterfactual simulation
 let auditLast=null,auditBaseline=null,auditHistory=[]; // 66장 MODEL INTEGRITY
 const expPred={};
 /* ── 층 전환 (교재 47장) ──
@@ -4366,7 +4366,7 @@ let massTally=null;                      // 검증용 매스 집계 (평소 null
 let floorView=0;                         // 0=지상 −1=지하
 const GHOST=0.13;                        // 지하에서 지상 도면을 남기는 정도 — 맥락은 있어야 한다
 let overlay=0;                           // 0 혼잡 · 1 일자리접근 · 2 인구접근 · 3 역보행 · 4 통행발생 · 5 활동밀도
-const OV_NAME=["기본 지도","15분 생활권","일자리 접근성","인구 접근성","역까지 보행시간","통행발생량","활동밀도","중심지 계층","생활권 압력","지대","임대료 격차","소득","주거비 부담","경찰서 도달시간","보행환경","링크 혼잡 V/C","기반시설 부족률","용도전환 압력","정책-시장 쐐기","저소득 가구 비율","고용 공실률","주거불안"];
+const OV_NAME=["기본 지도","15-minute service accessibility","일자리 접근성","인구 접근성","역까지 보행시간","통행발생량","활동밀도","중심지 계층","생활권 결핍지수","지대","Rent Gap (지대 격차)","소득","주거비 부담","경찰서 도달시간","보행환경","링크 혼잡 V/C","기반시설 부족률","용도전환 압력","정책-시장 쐐기","저소득 가구 비율","고용 공실률","주거불안"];
 /* v77 주제도 의미축. red-green 대신 파랑↔중립↔주황을 써 적록색각에서도 방향을 읽기 쉽게 한다.
    goodHigh: 높을수록 유리, badHigh: 높을수록 주의, neutral: 단순 저↔고, categorical: 범주형. */
 const OV_SEM=[
@@ -4633,14 +4633,14 @@ let bbIn=null,bbS1=null;
    지금까지 버스와 철도는 로짓 안에서 서로 경쟁하는 독립 대안이었다.
    그래서 '역까지 데려다주는 지선버스'라는 것이 구조적으로 생길 수 없었다.
    버스가 역으로 물어다 주는 순간 그건 버스통행이 아니라 철도통행의 접근단이다.
-   여기서는 철도 대안의 접근·端末을 보행뿐 아니라 버스로도 열어 준다. */
+   여기서는 철도 대안의 접근·egress을 보행뿐 아니라 버스로도 열어 준다. */
 const XFER_PEN=4;                        // 환승저항(분) — 대기·차내와 별개인 '갈아타는 수고'
 const XFER_WALK=8;                       // 환승보행 상한(분) — 이보다 멀면 같은 결절이 아니다
-const XACC_MAX=40;                       // 결합 접근/端末 상한(분)
+const XACC_MAX=40;                       // 결합 접근/egress 상한(분)
 let xferSta=null;                        // [nB*nS] 정류장 b ↔ 역 s 환승보행시간
 let xSta=null,xStaB1=null,xStaB2=null,xStaF=null,bInF=null,xAtF=null,xOutF=null;   // 역별 최적 접근(보행 or 지선버스) + 그때 쓴 버스구간
 let xAtStop=null,xAtS2=null;             // 하차역 → 환승정류장 도달비용 + 그 하차역
-let xOut=null,xOutB1=null;               // 端末버스 타고 각 정류장에 닿는 비용 + 승차정류장
+let xOut=null,xOutB1=null;               // egress버스 타고 각 정류장에 닿는 비용 + 승차정류장
 /* 목적지마다 정류장 48개를 다 훑으면 안쪽 루프가 통째로 커진다.
    가까운 몇 개만 남기는 건 답이 아니다 — 조금 더 걸어도 훨씬 빨리 오는 정류장이 있어서 최적을 놓친다.
    방향을 뒤집어 정류장마다 '닿는 노드'를 채우는 방법도 써 봤는데, 목적지가 아닌 노드까지 전부 채워 더 비쌌다.
@@ -4652,7 +4652,7 @@ let xOut=null,xOutB1=null;               // 端末버스 타고 각 정류장에
    근사가 아니라 엄밀한 가지치기다. 보통 두세 개만 보고 끝난다. */
 let stopPtr=null,stopIdx=null,stopW=null;  // 노드 → 도보 18분 안 정류장 (CSR, 가까운 순)
 let staPtr=null, staIdx=null, staW=null;   // 노드 → 도보 25분 안 역     (CSR, 가까운 순)
-let lEb1=[],lEb2=[],lFa=[];                     // 목적지별 端末 버스구간 (없으면 -1)
+let lEb1=[],lEb2=[],lFa=[];                     // 목적지별 egress 버스구간 (없으면 -1)
 const DX=[1,-1,0,0],DY=[0,0,1,-1];
 
 function warm(){sweepCount=Math.min(sweepCount,K0);}
@@ -5222,7 +5222,7 @@ function buildWalkSta(){
 
 /* 환승결절 — 정류장과 역이 '같은 곳'인지 재는 표.
    면이 아니라 보행시간으로 정의한다. 8분 넘게 걸으면 그건 환승이 아니라 별개의 통행이다.
-   보행망 위에서 재므로 스트로드가 가로막으면 바로 옆 역이라도 환승이 성립하지 않는다. */
+   보행망 위에서 재므로 stroad가 가로막으면 바로 옆 역이라도 환승이 성립하지 않는다. */
 function buildTransfer(){
   const nS=stations.length,nB=stops.length,n=nodes.length;
   xferSta=new Float32Array(nB*nS).fill(Infinity);
@@ -6384,7 +6384,7 @@ function processOrigin(a){
       if(c<bIn[s2]){bIn[s2]=c;bS1[s2]=s1;bInF[s2]=xStaF[s1];}
     }
   }
-  /* 端末 환승 — 내린 역에서 버스로 갈아타 목적지 근처 정류장까지.
+  /* egress 환승 — 내린 역에서 버스로 갈아타 목적지 근처 정류장까지.
      목적지마다 다시 풀면 O(nS·nB)라 감당이 안 되므로, 원점당 한 번 정류장 도달비용까지만 밀어 둔다. */
   if(nB&&nS&&xferSta&&stations.length){
     for(let b=0;b<nB;b++){xAtStop[b]=Infinity;xAtS2[b]=-1;xOut[b]=Infinity;xOutB1[b]=-1;}
@@ -6420,7 +6420,7 @@ function processOrigin(a){
     const v=order[i];if(jobAt[v]<=0&&svcAtt[v]<=0&&attrF[v]<=0)continue;
     const tCar=dist[v];if(!isFinite(tCar))continue;
     let tTr=Infinity,s2b=-1,eb1=-1,eb2=-1,tBs=Infinity,b2b=-1;
-    if(staPtr&&bInMin<Infinity){                       // 내려서 걷는 端末
+    if(staPtr&&bInMin<Infinity){                       // 내려서 걷는 egress
       const p1=staPtr[v+1];
       for(let q=staPtr[v];q<p1;q++){
         const w=staW[q];if(bInMin+w>=tTr)break;         // ← 엄밀한 가지치기
@@ -6428,7 +6428,7 @@ function processOrigin(a){
         const c=base+w;if(c<tTr){tTr=c;s2b=s2;eb1=-1;eb2=-1;}
       }
     }
-    if(stopPtr&&(xOutMin<Infinity||bbInMin<Infinity)){  // 端末 환승 · 버스 단독 (같은 목록 한 번만)
+    if(stopPtr&&(xOutMin<Infinity||bbInMin<Infinity)){  // egress 환승 · 버스 단독 (같은 목록 한 번만)
       const p1=stopPtr[v+1];
       for(let q=stopPtr[v];q<p1;q++){
         const w=stopW[q];
@@ -6519,7 +6519,7 @@ function processOrigin(a){
     sweepTruck+=tkT;
     if(trT>1e-6&&lS2[j]>=0){
       loadRail(lS1[j],lS2[j],trT);sweepBoard+=trT;
-      /* 지선·端末 버스는 '버스통행'이 아니라 철도통행의 다리다.
+      /* 지선·egress 버스는 '버스통행'이 아니라 철도통행의 다리다.
          그래도 버스 링크에는 실려야 한다 — 그래야 지선이 붐비고 배차를 줄일 이유가 생긴다. */
       const s1=lS1[j];
       if(s1>=0&&xStaB2[s1]>=0){loadBus(xStaB1[s1],xStaB2[s1],trT);sweepBusBoard+=trT;sweepXfer+=trT;}
@@ -6540,7 +6540,7 @@ function processOrigin(a){
     const odT=lPc[j]*lTc[j]+lPt[j]*lTt[j]+lPb[j]*lTb[j]+lPw[j]*lTk[j];
     swTwork+=Tw*odT;swTother+=To*odT;
     sweepTW+=T;sweepTransit+=trT;sweepWalk+=wkT;sweepBus+=bsT;
-    /* relative gap은 도로 링크비용끼리 비교해야 한다. lTc에는 출발지 접근/주차시간 ACC가 포함되어
+    /* assignment gap은 도로 링크비용끼리 비교해야 한다. lTc에는 출발지 접근/주차시간 ACC가 포함되어
        eFlow·eCost의 TSTT보다 항상 커졌고, 결과가 음수가 되어 clamp(0)로 0%에 고정되는 문제가 있었다. */
     sweepSP+=carT*Math.max(0,lTc[j]-ACC);sweepCarTW+=carT;sweepO+=To;
   }
@@ -6567,7 +6567,7 @@ function loadRail(s1,s2,t){
 /* 스윕 종료: MSA 평균 · Furness b 갱신 · gap · 지표 */
 function sweepWrap(){
   sweepPtr=0;sweepCount++;
-  /* relative gap — 평균 전에, 스윕 내내 쓰인 동일 비용벡터 c(eFlow_old)로 잰다.
+  /* assignment gap — 평균 전에, 스윕 내내 쓰인 동일 비용벡터 c(eFlow_old)로 잰다.
      흐름측·최단측을 각자의 통행량으로 정규화해(분/통행) 수요 성장·망 편집의
      vintage 불일치를 지운다. (평균 후에 재면 항상 0으로 붕괴한다) */
   let tstt0=0;
@@ -6664,9 +6664,9 @@ function sweepWrap(){
      매 틱이 아니라 '월 1회 스윕 종료'에만 다시 계산해 비용을 억제하면서 현재 혼잡을 반영한다. */
   svcDirty=true;computeSvcReach();
   let vmt=0;for(let a=0;a<nodes.length;a++)for(let k=0;k<deg[a];k++){const e=a*RSTR+k;vmt+=eFlow[e]*eLen[e];}
-  S.vmt=vmt;                                               // 대·km/h — 대각 링크는 0.3√2 km
+  S.vmt=vmt;                                               // PCE·km/h — eFlow가 승용차환산(PCE) 흐름이므로 실제 차량대수 VKT와 구분
   /* 컴팩트시티의 진짜 질문은 '얼마나 조밀한가'가 아니라 '그래서 덜 달리는가'다.
-     총 VMT는 도시가 커지면 당연히 는다 — 1인당으로 봐야 정책이 보인다 (교재 31장). */
+     총 VKT는 도시가 커지면 당연히 는다 — 1인당으로 봐야 정책이 보인다 (교재 31장). */
   S.vmtCap=S.pop>0?vmt/S.pop:0;
   computeRent();
   {
@@ -6924,7 +6924,7 @@ function landScore(k,i,nd,congPen,forBid=false){
      철도·서비스가 충분한 초고밀 도시도 자동으로 쇠퇴한다. 실제 부담은 아래의 통행·기반시설·
      주차·1인당 오픈스페이스를 통해 되먹인다. */
   if(accPen>0)score-=accPen*0.055;
-  /* ── 생활권 압력 (교재 53장) ──
+  /* ── 생활권 결핍지수 (교재 53장) ──
        지금까지 생활권은 <b>지표로만</b> 있었다 — 낮아도 아무 일이 없었다.
        그래서 플레이어가 도로와 용도만 깔아도 도시가 잘 자랐고,
        가게·학교·병원을 놓을 이유가 "그냥 좋아 보여서"였다.
@@ -7067,7 +7067,7 @@ function computeRent(){
   const n=nodes.length;
   /* v94: 부담률은 현재 용도·임대료·가구구성에서만 파생되어야 한다.
      비주거 전환·새 도시·불러오기 뒤 계산 대상이 아니게 된 셀에 예전 값이 남으면
-     감당가능 공실 검색이 다른 도시의 부담률을 읽을 수 있으므로 계산 시작 전에 전부 무효화한다. */
+     부담가능 공실 검색이 다른 도시의 부담률을 읽을 수 있으므로 계산 시작 전에 전부 무효화한다. */
   burdCell.fill(0);burdLowCell.fill(0);burdMidCell.fill(0);burdHighCell.fill(0);
   let lo=Infinity;
   for(let v=0;v<n;v++){const g=accGC[v];if(isFinite(g)&&g<lo)lo=g;}
@@ -7534,7 +7534,7 @@ function growStep(){
         dev[i]=0;
         changed=true;
         S.renewals=(S.renewals||0)+1;
-        logAt(i,"renew",`재개발 착공 — ${before}단계를 헐고 ${siteTo[i]}단계로. 임대료 격차 ${Math.round(gapR*100)}%가 임계를 넘었습니다.`);
+        logAt(i,"renew",`재개발 착공 — ${before}단계를 헐고 ${siteTo[i]}단계로. Rent Gap (지대 격차) ${Math.round(gapR*100)}%가 임계를 넘었습니다.`);
         /* ── 젠트리피케이션 ──
            새 건물은 오른 지대를 실현한다. 그 값을 감당하던 사람들이 감당하던 것이 아니다.
            69장부터는 한 셀 안의 저·중·고소득 분포를 저장하므로 재개발 후 감당하지 못하는 계층 몫을 따로 셀 수 있다. */
@@ -8945,7 +8945,7 @@ function snsStep(){
    v2.8까지는 "한 달에 가장 급한 문제 하나"를 고치는 반응형 봇이었다.
    2.0은 긴급대응은 남기되, 평상시에는 지구 단위 프로젝트를 만든다:
    후보지 선정 → 연결도로 → 블록형 가로망 → 용도지정 → 근린공원 → 효과 관찰.
-   구조사업 뒤에는 relative gap이 내려갈 시간을 주고, 자연성장과 같은 입지점수를 사용한다. */
+   구조사업 뒤에는 assignment gap이 내려갈 시간을 주고, 자연성장과 같은 입지점수를 사용한다. */
 let autoOn=true;
 const autoLog=[];
 const plannerDecisions=[];
@@ -9037,7 +9037,7 @@ function plannerMetricSnapshot(domain="urban"){
   return {pop:S.pop||0,jobs:S.jobs||0,avgT:S.avgT||0,vc:S.avgVC||0,affLow:S.affLowShare||0,waiting:S.waiting||0,money:money||0};
 }
 function plannerExpected(domain){
-  if(domain==="housing")return "저소득 감당가능 재고↑ · 주거비부담/대기/비공식주거↓";
+  if(domain==="housing")return "저소득층 부담가능주택 재고↑ · 주거비부담/대기/비공식주거↓";
   if(domain==="transport")return "평균통행시간·혼잡↓ · 대중교통/보행 접근성 유지 또는 개선";
   if(domain==="service")return "15분 생활권↑ · 서비스 사각/도달시간↓";
   if(domain==="utility")return "최저 기반시설 공급률↑ · 공급부족 해소";
@@ -9053,7 +9053,7 @@ function plannerHorizon(domain,key=""){
 function plannerOutcomeText(domain,b,c){
   const pc=x=>`${Math.round(x*100)}%`,num=x=>Math.round(x).toLocaleString();
   if(domain==="housing")return `감당재고 ${pc(b.affLow)}→${pc(c.affLow)} · 부담 ${b.burden.toFixed(2)}→${c.burden.toFixed(2)} · 대기 ${num(b.waiting)}→${num(c.waiting)} · 비공식/불안정 ${num(b.insecure)}→${num(c.insecure)}`;
-  if(domain==="transport")return `평균 ${b.avgT.toFixed(1)}→${c.avgT.toFixed(1)}분 · V/C ${b.vc.toFixed(2)}→${c.vc.toFixed(2)} · 대중교통 ${pc(b.transit)}→${pc(c.transit)} · VMT ${num(b.vmt)}→${num(c.vmt)}`;
+  if(domain==="transport")return `평균 ${b.avgT.toFixed(1)}→${c.avgT.toFixed(1)}분 · V/C ${b.vc.toFixed(2)}→${c.vc.toFixed(2)} · 대중교통 ${pc(b.transit)}→${pc(c.transit)} · VKT ${num(b.vmt)}→${num(c.vmt)}`;
   if(domain==="service")return `15분생활권 ${pc(b.life)}→${pc(c.life)} · 경고인구 ${pc(b.warn)}→${pc(c.warn)} · 경찰도달 ${b.svc.toFixed(1)}→${c.svc.toFixed(1)}분`;
   if(domain==="utility")return `최저공급 ${pc(b.worst)}→${pc(c.worst)} · 전체공급 ${pc(b.avg)}→${pc(c.avg)} · 인구 ${num(b.pop)}→${num(c.pop)}`;
   return `인구 ${num(b.pop)}→${num(c.pop)} · 일자리 ${num(b.jobs)}→${num(c.jobs)} · 평균통행 ${b.avgT.toFixed(1)}→${c.avgT.toFixed(1)}분 · 저소득 감당재고 ${pc(b.affLow)}→${pc(c.affLow)}`;
@@ -9502,7 +9502,7 @@ function autoCreateProject(){
     canalPlan:pat.canals||[],canalCursor:0,amenityPlan,amenityCursor:0,
     zonePlan,zoneCursor:0,triPlan:null,triCursor:0,serviceCell,wait:false,waitMonths:0,created:curMonth()};
   autoPost(`📐 ${autoProject.name}: ${autoPatternLabel(pat.name)} 가로계획을 채택했습니다. 연결도로부터 단계적으로 시공합니다.`);
-  {const hs=autoHousingState(),why=role==="neighborhood"&&hs.severe?"저소득 감당가능 주택 부족을 우선해 생활권 공급을 선택":role==="center"?"성숙 시가지의 근린상업 수용능력 부족이 누적되어 새 생활중심지를 선택":"도시의 용도수요·접근성·연결비용을 비교";plannerDecision(`district-${id}`,`${autoProject.name} 신규지구`,why,role==="neighborhood"?autoHousingMetrics(hs):`R ${Math.round(demand.r*100)} · C ${Math.round(demand.c*100)} · O ${Math.round(demand.o*100)} · I ${Math.round(demand.i*100)}`,"major",serviceCell,{domain:role==="neighborhood"?"housing":"urban",horizon:18});}
+  {const hs=autoHousingState(),why=role==="neighborhood"&&hs.severe?"저소득 부담가능 주택 부족을 우선해 생활권 공급을 선택":role==="center"?"성숙 시가지의 근린상업 수용능력 부족이 누적되어 새 생활중심지를 선택":"도시의 용도수요·접근성·연결비용을 비교";plannerDecision(`district-${id}`,`${autoProject.name} 신규지구`,why,role==="neighborhood"?autoHousingMetrics(hs):`R ${Math.round(demand.r*100)} · C ${Math.round(demand.c*100)} · O ${Math.round(demand.o*100)} · I ${Math.round(demand.i*100)}`,"major",serviceCell,{domain:role==="neighborhood"?"housing":"urban",horizon:18});}
   chronAdd("project",`${autoProject.name} ${autoPatternLabel(pat.name)} 가로계획을 수립했습니다.`,{capture:true,forceCapture:true});
   return true;
 }
@@ -10110,7 +10110,7 @@ function autoRailPull(){
   for(let t=0;t<nS;t++){
     const tt=stations[t];if(!tt.usable)continue;
     const A=walkStaArr[t];if(!A)continue;
-    /* 반경을 임의로 정하지 않고 모형이 실제로 쓰는 端末 상한(25분)을 그대로 쓴다.
+    /* 반경을 임의로 정하지 않고 모형이 실제로 쓰는 egress 상한(25분)을 그대로 쓴다.
        대신 멀수록 선형으로 깎는다 — 25분 걸어야 닿는 일자리는 역앞 일자리와 같지 않다. */
     let acc=0;
     for(let v=0;v<n;v++){const w=A[v];if(!(w<25))continue;acc+=(jobAt[v]+svcAtt[v]*2)*(1-w/25);}
@@ -10675,7 +10675,7 @@ function autoUrbanismStep(){
       if(sc>bsc){bsc=sc;best=i;}
     }
     if(!pendingMx&&best>=0&&autoAct(autoZoneCost(best,K_MX),()=>{kind[best]=K_MX;dev[best]=0;forest[best]=0;zoneOwner[best]=ZONE_AUTO;},
-      `🏘 생활권 압력이 높은 동네에 혼합용도를 지정했습니다. 장보기·생활목적지를 걸어서 가까이 가져옵니다.`)){
+      `🏘 생활권 결핍지수가 높은 동네에 혼합용도를 지정했습니다. 장보기·생활목적지를 걸어서 가까이 가져옵니다.`)){
       autoUrbanLast=curMonth();return true;
     }
   }
@@ -10684,7 +10684,7 @@ function autoUrbanismStep(){
     const cut=autoWalkCutCandidate(ba);
     if(cut){const cost=cut.cells.length*40;
       if(autoAct(cost,()=>{for(const i of cut.cells)walk[i]=1;},
-        `🚶 생활권 압력이 높은 블록에 보행 관통로 ${cut.cells.length}칸을 냈습니다. 같은 시설까지의 실제 보행거리를 줄입니다.`)){
+        `🚶 생활권 결핍지수가 높은 블록에 보행 관통로 ${cut.cells.length}칸을 냈습니다. 같은 시설까지의 실제 보행거리를 줄입니다.`)){
         autoUrbanLast=curMonth();return true;
       }
     }
@@ -10695,7 +10695,7 @@ function autoUrbanismStep(){
     if(plan.length){
       const cost=plan.reduce((a,b)=>a+(b.cost||0),0),nm=plan.map(q=>q.nm).join('·');
       if(autoAct(cost,()=>{for(const q of plan){const i=q.i;forest[i]=0;zoneOwner[i]=ZONE_NONE;if(q.walk)walk[i]=1;else{kind[i]=q.kind;dev[i]=1;}}},
-        `🌿 생활권 압력이 높은 동네에 ${nm}을 조성했습니다. 공공공간을 일상 보행권 안으로 끌어옵니다.`)){
+        `🌿 생활권 결핍지수가 높은 동네에 ${nm}을 조성했습니다. 공공공간을 일상 보행권 안으로 끌어옵니다.`)){
         updateHousingInsecurity(true);
         autoUrbanLast=curMonth();return true;
       }
@@ -10751,8 +10751,8 @@ function autoAffordableInfillStep(){
       hs.critical?"critical":"major",best,{domain:"housing",horizon:6,expected:"재정회복 뒤 공급 재검토"});
     return false;
   }
-  const ok=autoAct(cost,()=>{kind[best]=K_R;dev[best]=0;forest[best]=0;zoneOwner[best]=ZONE_AUTO;},`🏠 저소득 감당가능 주택이 부족해 값싼 연결필지를 주거 R로 우선 지정했습니다.`);
-  if(ok){autoAffordableBuilds++;autoAffordableLast=curMonth();plannerDecision(`aff-build-${Math.floor(curMonth()/6)}`,`${autoDirName(best%W,(best/W)|0)} 저비용 주거 우선공급`,`전체 R 수요보다 계층별 감당가능 재고와 주거불안을 먼저 확인`,autoHousingMetrics(hs),hs.critical?"critical":"major",best,{domain:"housing"});}
+  const ok=autoAct(cost,()=>{kind[best]=K_R;dev[best]=0;forest[best]=0;zoneOwner[best]=ZONE_AUTO;},`🏠 저소득 부담가능 주택이 부족해 값싼 연결필지를 주거 R로 우선 지정했습니다.`);
+  if(ok){autoAffordableBuilds++;autoAffordableLast=curMonth();plannerDecision(`aff-build-${Math.floor(curMonth()/6)}`,`${autoDirName(best%W,(best/W)|0)} 저비용 주거 우선공급`,`전체 R 수요보다 계층별 부담가능주택 재고와 주거불안을 먼저 확인`,autoHousingMetrics(hs),hs.critical?"critical":"major",best,{domain:"housing"});}
   return ok;
 }
 /* v97 주민서비스 고용 공급 라인 — 인구가 늘어 근린상업·업무 수요가 커져도
@@ -10912,7 +10912,7 @@ function autoRedevelopCandidate(){
       }
     }
   }
-  if(blocked>=0){autoAffordableProtected++;plannerDecision(`aff-preserve-${Math.floor(curMonth()/6)}`,`${autoDirName(blocked%W,(blocked/W)|0)} 저가주택 재개발 보류`,`시장입찰은 높았지만 저소득 감당가능 재고가 부족해 자동 재개발 대상에서 제외`,autoHousingMetrics(hs),hs.critical?"critical":"major",blocked,{domain:"housing",horizon:12,expected:"저가주택 재고 보전 · 가격축출/비공식주거 억제"});}
+  if(blocked>=0){autoAffordableProtected++;plannerDecision(`aff-preserve-${Math.floor(curMonth()/6)}`,`${autoDirName(blocked%W,(blocked/W)|0)} 저가주택 재개발 보류`,`시장입찰은 높았지만 저소득층 부담가능주택 재고가 부족해 자동 재개발 대상에서 제외`,autoHousingMetrics(hs),hs.critical?"critical":"major",blocked,{domain:"housing",horizon:12,expected:"저가주택 재고 보전 · 가격축출/비공식주거 억제"});}
   if(protectedCell>=0&&protectedPressure>=MARKET_SWITCH*.7)plannerBlockedByPolicy(
     `protected-redev-${Math.floor(curMonth()/12)}`,`${autoDirName(protectedCell%W,(protectedCell/W)|0)} 시장재개발 보류`,
     "시장전환·고밀화 압력이 있으나 공공소유 보호정책 때문에 자동계획관이 손대지 않음",protectedWhy,
@@ -11136,7 +11136,7 @@ function autoStep(){
      '대체수단이 없음'이라는 물리적 결함은 해결되지 않는다. */
   const tNeed=autoTransitBackboneNeed();
   if(tNeed.needBus&&money>3500&&autoCreateBusProject()){
-    autoPost(`🚌 자동차 분담 ${Math.round(tNeed.car*100)}% · 15분 대중교통 접근 ${Math.round(tNeed.cover*100)}%라 ${S.gap>0.065?"배정 재탐색 중에도 ":""}버스망 공급공백을 우선 보완합니다.`);
+    autoPost(`🚌 자동차 분담 ${Math.round(tNeed.car*100)}% · 15-minute transit accessibility ${Math.round(tNeed.cover*100)}%라 ${S.gap>0.065?"배정 재탐색 중에도 ":""}버스망 공급공백을 우선 보완합니다.`);
     autoAnyProjectStep();return;
   }
 
@@ -11335,7 +11335,7 @@ function audioFrame(now){
   ease(aNoiseF.frequency,(240+900*clamp(load,0,1))*(0.45+0.55*near),0.8);
   S.earVC=ear.vc;S.earFlow=ear.flow;S.earN=ear.n;       // 무엇을 듣고 있는지 시트에 보인다
   /* ② 비 — 날씨가 그대로 소리가 된다 */
-  ease(aRainG.gain,wx===2?0.035*clamp(wxAmt,0,1):0,0.9);
+  ease(aRainG.gain,(wx===2&&!(typeof tcClimateKind138==="function"&&tcClimateKind138()==="snowcold"))?0.035*clamp(wxAmt,0,1):0,0.9);
   /* ③ 앰비언트 패드 — 도시가 커질수록 화음이 한 겹씩 쌓인다.
         곡을 쓰지 않는다. 인구가 화성을 정한다. */
   const pop=S.pop||0;
@@ -15444,8 +15444,8 @@ function fmtPctHUD(v,d1=1,d2=2){
 }
 function metricHelp(kind,btn){
   const tip=$("metricTip");if(!tip)return;
-  if(kind==="gap")tip.innerHTML=`<b>수렴 · relative gap</b><br>현재 교통배정이 이용자평형에 얼마나 가까운지 보는 오차입니다. 낮을수록 현재 경로선택이 안정됐다는 뜻입니다.<br><br>도로·버스·철도·수요가 바뀌면 다시 올라갔다가 재배정이 진행되며 내려갑니다.<div class="muted">0.00%가 오래 고정되는데 도시가 계속 변한다면 정상 평형이 아니라 배정기억이 오래된 수요구조를 붙잡은 것일 수 있어, 엔진이 자동으로 웜스타트합니다.</div>`;
-  else tip.innerHTML=`<b>균형 · Furness 도착오차</b><br>각 목적지로 향하는 통근량이 그 지역의 일자리·활동 규모와 얼마나 맞는지 보는 오차입니다. 낮을수록 “어디로 가는가”가 도시의 목적지 구조와 잘 맞습니다.<div class="muted">수렴은 경로선택, 균형은 목적지분포를 봅니다. 둘은 서로 다른 오차입니다.</div>`;
+  if(kind==="gap")tip.innerHTML=`<b>Assignment gap (model-defined)</b><br>현재 MSA 흐름과 이번 스윕의 shortest-path 비용을 비교해 재배정 안정도를 추적하는 게임 정의 진단값입니다. <b>표준 Relative Gap과 동일한 정의가 아닙니다.</b><br><br>도로·버스·철도·O-D 수요가 바뀌면 다시 올라갔다가 재배정이 진행되며 내려갑니다.<div class="muted">3%는 이 게임의 운영상 안정화 기준입니다. 학술적 보편 임계값으로 해석하지 않습니다.</div>`;
+  else tip.innerHTML=`<b>OD balancing error · Furness/IPF</b><br>destination attraction 제약과 현재 도착 통행량의 차이를 보는 행렬 balancing 오차입니다. 낮을수록 Trip Distribution의 도착제약이 잘 맞습니다.<div class="muted">User Equilibrium은 경로선택 문제이고, OD balancing은 Trip Distribution의 행·열 제약 문제입니다. 서로 다른 절차입니다.</div>`;
   const r=btn.getBoundingClientRect(),w=Math.min(330,innerWidth-24);
   tip.style.width=w+"px";
   tip.style.left=Math.max(12,Math.min(innerWidth-w-12,r.left+r.width/2-w/2))+"px";
@@ -15472,12 +15472,12 @@ function updateHUD(){
   const mo=Math.floor(tick/MONTH),yr=Math.floor(mo/12)+1,mm=mo%12+1;
   const dd=Math.min(DAYS,Math.floor((tick%MONTH)/MONTH*DAYS)+1);
   const LL2=lightLevel();
-  const wico=wx===2?"🌧":wx===1?"☁️":"";
+  const wico=wx===2?((typeof tcClimateKind138==="function"&&tcClimateKind138()==="snowcold")?"❄️":"🌧"):wx===1?"☁️":"";
   const ico=(!dayNight?"":LL2>0.75?"☀️":LL2>0.42?(lightPh<0.5?"🌅":"🌇"):"🌙")+wico;
   $("dateBox").textContent=`${pad4(yr)}년차 ${pad2(mm)}월 ${pad2(dd)}일 ${ico}`;
   const gapTxt=S.gap>=0?fmtPctHUD(S.gap):"–";
   const balTxt=S.balErr>=0?fmtPctHUD(S.balErr,0,1):"–";
-  $("gapBox").innerHTML=`수렴 ${gapTxt} <button class="metricHelp" data-metric-help="gap" title="수렴 의미">?</button> · 균형 ${balTxt} <button class="metricHelp" data-metric-help="bal" title="균형 의미">?</button>`;
+  $("gapBox").innerHTML=`Assignment gap ${gapTxt} <button class="metricHelp" data-metric-help="gap" title="Assignment gap 설명">?</button> · OD error ${balTxt} <button class="metricHelp" data-metric-help="bal" title="OD balancing error 설명">?</button>`;
   $("gapBox").style.color=S.gap>=0&&S.gap<0.03?"#5c8a52":S.gap<0.08?"#c2922a":"#d9a441";
   $("modeBox").textContent=S.persons>0
     ?`🚗${Math.round((1-S.transit-S.walkSh-S.busSh)*100)} 🚇${Math.round(S.transit*100)} 🚌${Math.round(S.busSh*100)} 🚶${Math.round(S.walkSh*100)}`
@@ -15517,10 +15517,10 @@ function updatePanel(){
   $("kBal").textContent=S.balErr>=0?(S.balErr*100).toFixed(1)+"%":"–";
   $("kTime").textContent=S.avgT?S.avgT.toFixed(1)+"분":"–";
   $("kVC").textContent=S.avgVC.toFixed(2);
-  const [g]=losOf(S.avgVC);$("kLos").textContent=S.trips>0?g+" 등급":"–";
+  const [g]=losOf(S.avgVC);$("kLos").textContent=S.trips>0?g+" (V/C grade)":"–";
   $("kInt").textContent=S.satInt+"곳";
   $("kTrip").textContent=fmt(S.trips)+" 대/h";
-  $("kVmt").textContent=fmt(S.vmt)+" 대·km/h";
+  $("kVmt").textContent=fmt(S.vmt)+" PCE·km/h";
   $("kBoard").textContent=fmt(S.board)+" 명/h";
   $("kRailX").textContent=S.railX>0?Math.round(S.railX*100)+"%":"–";
   buildLines();buildBusLines();
@@ -15792,7 +15792,7 @@ function insightHTML(m){
     h+=row("공사 중",`${S.sites||0} 곳`,"착공 → 준공까지");
     h+=row("토지비축",`${S.bankCells||0} 칸`,`매입 ₩${fmt(S.bankSpend||0)} → 현재 ₩${fmt(S.bankValue||0)}`);
     h+=row("보행환경",`${Math.round((S.walkQ||0)*100)}%`,"사람이 사는 곳 기준");
-    h+=row("생활권 압력",
+    h+=row("생활권 결핍지수",
       `<b style="color:${S.lifeWarnShare>0.35?"#b03426":S.lifeWarnShare>0.15?"#c2922a":"#5c8a52"}">${Math.round((S.lifeWarnShare||0)*100)}%</b>`,
       S.lifeLeavePop>0?`⚠ ${fmt(Math.round(S.lifeLeavePop))}명이 떠나기 시작했습니다`
         :S.lifeWarnPop>0?`${fmt(Math.round(S.lifeWarnPop))}명이 불편을 겪습니다`:"생활권이 갖춰져 있습니다");
@@ -15823,10 +15823,10 @@ function insightHTML(m){
     {const hs=autoHousingState();h+=row("자동계획관 주거판단",`${Math.round(hs.score*100)}% ${hs.critical?"긴급":hs.severe?"우선대응":"통상"}`,`저비용 R 우선지정 ${autoAffordableBuilds}회 · 저가주택 보존 ${autoAffordableProtected}회`);}
     h+=row("축출 — 감당 못 함 / 전체 재개발 영향",`${Math.round(S.displacedLo||0)} / ${Math.round(S.displaced||0)}명`);
     h+=`<div class="tip">소득을 밖에서 주지 않았습니다 — 지대가 목표를 정하고 소득이 <b>천천히</b> 따라갑니다. 사람은 집값이 올랐다고 그날 이사하지 않으니까요. <b>그 시차가 구도심이고 젠트리피케이션입니다.</b> 축출은 '가난한 동네가 재개발됐다'가 아니라 <b>새 지대를 기존 거주자가 감당하지 못한 사건</b>입니다.</div>`;
-    h+=`<h4>지대와 임대료 격차 (교재 33장)</h4>`;
+    h+=`<h4>지대와 Rent Gap (교재 33장)</h4>`;
     h+=row("평균 잠재지대",`${(S.rentP||0).toFixed(2)}`,"입지가 받을 수 있는 값");
     h+=row("평균 실현지대",`${(S.rentC||0).toFixed(2)}`,"지금 건물이 받아내는 값");
-    h+=row("임대료 격차",`<b style="color:${S.rentGap>0.55?"#b03426":"#5c8a52"}">${((S.rentGap||0)*100).toFixed(0)}%</b>`,"재개발 압력");
+    h+=row("Rent Gap (지대 격차)",`<b style="color:${S.rentGap>0.55?"#b03426":"#5c8a52"}">${((S.rentGap||0)*100).toFixed(0)}%</b>`,"재개발 압력");
     h+=row("정책 전 최고입찰 / 정책 후",`${(S.bidGrossTopAvg||0).toFixed(2)} / ${(S.bidTopAvg||0).toFixed(2)}`,"용도별 bid-rent · 정책 쐐기 (64·65장)");
     h+=row("평균 정책-시장 쐐기",`${Math.round((S.policyBidWedge||0)*100)}%`,`LVT·임대료 규제가 순입찰에 만든 차이`);
     h+=row("용도전환 압력",`${Math.round((S.marketGap||0)*100)}%`,`정책후 최고입찰과 현용도 차이`);
@@ -15840,8 +15840,8 @@ function insightHTML(m){
     h+=row("공공기여금 (월)",`₩${fmt(S.revContrib||0)}`);
     h+=row("기여받은 공공보행통로",`${S.contribWalk||0} 곳`,"역세권을 넓힌다");
     h+=row("개발지 평균 층수",`${(S.density||0).toFixed(2)} 단계`);
-    h+=row("1인당 VMT",`${(S.vmtCap||0).toFixed(3)} 대·km/인`,"컴팩트시티의 성적표");
-    h+=`<div class="tip">총 VMT는 도시가 크면 당연히 큽니다 — 정책이 보이는 것은 <b>1인당</b>입니다. TOD 지구는 용적을 더 주는 대신 <b>주차를 조입니다</b>(+${todParkPenalty()}분). 지정 면적이 도시의 몇 %인지 보세요. 역이 적으면 지정할 땅 자체가 없어, TOD만으로는 도시가 바뀌지 않습니다.</div>`;
+    h+=row("1인당 PCE-weighted VKT",`${(S.vmtCap||0).toFixed(3)} PCE·km/인`,"컴팩트시티의 성적표");
+    h+=`<div class="tip">총 VKT는 도시가 크면 당연히 큽니다 — 정책이 보이는 것은 <b>1인당</b>입니다. TOD 지구는 용적을 더 주는 대신 <b>주차를 조입니다</b>(+${todParkPenalty()}분). 지정 면적이 도시의 몇 %인지 보세요. 역이 적으면 지정할 땅 자체가 없어, TOD만으로는 도시가 바뀌지 않습니다.</div>`;
     h+=`<h4>차량보유 · 주차 장기피드백</h4>`;
     h+=row("현재 평균 보유율",`${(S.ownAvg*100).toFixed(1)}%`,`주거지에 저장된 실제 재고`);
     h+=row("계층별 보유율",`저 ${(S.ownLo*100).toFixed(0)}% · 중 ${(S.ownMid*100).toFixed(0)}% · 고 ${(S.ownHi*100).toFixed(0)}%`,`고정비의 체감이 계층별로 다름 (69장)`);
@@ -15913,15 +15913,15 @@ function insightHTML(m){
     h+=row("운임 수입 (월)",`₩${fmt(S.revFare||0)}`,`기본 ₩${FARE_STEPS[fareIx]}/승차`);
     h+=`<div class="tip">지선버스를 타고 역까지 온 통행입니다. 이 숫자가 크다면 철도가 <b>제 발로 걸어올 수 있는 범위 밖</b>에서 승객을 끌어오고 있다는 뜻입니다. 0이면 역세권 안 사람만 타고 있는 것이고, 그때는 노선을 늘리기보다 <b>역으로 버스를 붙이는 편</b>이 쌉니다.</div>`;
     h+=`<h4>모형 상태</h4>`;
-    h+=row("배정 수렴 (relative gap)",`<b style="color:${S.gap<0.03?"#5c8a52":"#d9a441"}">${S.gap>=0?fmtPctHUD(S.gap):"–"}</b>`,S.gapVintage?"오래된 OD기억을 현재 수요에 다시 맞추는 중":"");
-    if(S.gap>0.03)h+=`<div class="tip" style="color:#d9a441">⚠︎ 아직 평형을 재탐색 중입니다. 정밀한 정책효과·철도수요 판단은 3% 아래에서 신뢰도가 높습니다. 다만 기반시설·최소 대중교통 공급처럼 물리적으로 확인 가능한 계획은 계속 진행됩니다 (교재 4장).</div>`;
-    h+=row("차량 주행거리 VKT",`${fmt(S.vmt)} 대·km/h`,"승용차환산");
+    h+=row("Assignment convergence (model-defined gap)",`<b style="color:${S.gap<0.03?"#5c8a52":"#d9a441"}">${S.gap>=0?fmtPctHUD(S.gap):"–"}</b>`,S.gapVintage?"오래된 OD기억을 현재 수요에 다시 맞추는 중":"");
+    if(S.gap>0.03)h+=`<div class="tip" style="color:#d9a441">⚠︎ 아직 Trip Assignment가 안정화되는 중입니다. 정밀한 정책효과·철도수요 판단은 Assignment gap이 3% 아래일 때 비교하는 것이 이 게임의 운영 기준입니다. 다만 기반시설·최소 대중교통 공급처럼 물리적으로 확인 가능한 계획은 계속 진행됩니다 (교재 4장).</div>`;
+    h+=row("PCE-weighted VKT",`${fmt(S.vmt)} PCE·km/h`,"Passenger Car Equivalent 기준");
     h+=row("화물 통행",`${fmt(S.truckTrips)} 대/h`,`혼입률 ${(S.truckPct*100).toFixed(1)}%`);
     return h;
   }
   if(m==="life"){
-    let h=`<h4>보행생활권 지수 ${Math.round(S.urbanism*100)}%</h4>`;
-    h+=row("생활권 압력",`${Math.round(S.lifePress*100)}%`,`1 − 보행생활권 지수`);
+    let h=`<h4>생활권 복합지수 (game-defined) ${Math.round(S.urbanism*100)}%</h4>`;
+    h+=row("생활권 결핍지수",`${Math.round(S.lifePress*100)}%`,`1 − 생활권 복합지수 (game-defined)`);
     h+=row("공공서비스 용량부족",`${Math.round((S.serviceOverload||0)*100)}%`,`학교·의료·문화의 도달인구 대비 시설용량`);
     h+=row("계획수용력 초과 과밀",`${Math.round((S.overcrowdService||0)*100)}%`,`설계수용력 초과분의 인구가중 압력`);
     h+=row("15분 서비스",`${Math.round(S.life15*100)}%`,`가중 42%`);
@@ -15929,7 +15929,7 @@ function insightHTML(m){
     h+=row("가로 연결성",`${Math.round(S.conn15*100)}%`,`가중 22%`);
     h+=row("대중교통 접근",`${Math.round(S.transit15*100)}%`,`가중 14%`);
     h+=`<div class="tip">뉴어바니즘을 이름으로 보상하지 않습니다. 서비스·혼합용도·연결된 보행망·대중교통이 실제로 갖춰졌을 때만 지수가 올라갑니다.</div>`;
-    h+=`<h4>15분 생활권 충족도 ${Math.round(S.life15*100)}%</h4>`;
+    h+=`<h4>15-minute service accessibility ${Math.round(S.life15*100)}%</h4>`;
     h+=`<div class="tip">주민 인구가중으로 「도보 15분 안에 닿는 서비스 종류 ÷ 5」입니다. 반경이 아니라 <b>보행 네트워크</b> 거리로 잽니다.</div>`;
     for(let c=0;c<SVC.length;c++){
       let w2=0,ok2=0;
@@ -15962,7 +15962,7 @@ function insightHTML(m){
       if(v<0.6)b[0]++;else if(v<0.85)b[1]++;else if(v<1)b[2]++;else b[3]++;
     }
     const [g2]=losOf(S.avgVC);
-    let h=`<h4>서비스수준 ${S.trips>0?g2+" 등급":"–"}</h4>`;
+    let h=`<h4>V/C-based congestion grade ${S.trips>0?g2:"–"}</h4>`;
     h+=row("평균 V/C",S.avgVC.toFixed(2),"교통량가중");
     h+=row("최대 V/C",worst.toFixed(2));
     h+=`<h4>링크 분포 (${tot}개)</h4>`;
@@ -15980,12 +15980,12 @@ function insightHTML(m){
     h+=row("철도 최대 혼잡률",S.railX>0?Math.round(S.railX*100)+"%":"–");
     h+=row("버스 최대 혼잡률",S.busX>0?Math.round(S.busX*100)+"%":"–");
     {const td=autoTransitDiagnostic();h+=`<h4>자동계획 대중교통 공급진단</h4>`;
-      h+=row("15분 대중교통 접근",`${Math.round(td.cover*100)}%`,`승용차 ${Math.round(td.car*100)}%`);
+      h+=row("15-minute transit accessibility",`${Math.round(td.cover*100)}%`,`승용차 ${Math.round(td.car*100)}%`);
       h+=row("등록 정류장 / 역",`${td.usableBus}/${td.stopCap} · ${td.usableRail}곳`,td.busGap?"공급공백 있음":"공급공백 기준 미충족");
       h+=row("현재 판단",td.status);
       h+=`<div class="tip">${td.reason}</div>`;}
     if(roadTIAHistory.length){const q=roadTIAHistory[0],cs=q.candidates||[],c=cs[0];h+=`<h4>최근 교통사업 사전평가</h4>`;h+=row("평가 시점",`${Math.floor(q.mo/12)+1}년차 ${q.mo%12+1}월`,q.chosen==="hold"?"전 후보 보류":`선택: ${q.chosen}`);if(c)h+=row("최상위 후보",`${c.label||c.type} · ${c.delta>=0?"+":""}${c.delta.toFixed(1)}%`,`대표 OD person-min 변화`);for(const x of cs.slice(1,4))h+=row("대안",`${x.label||x.type} · ${x.delta>=0?"+":""}${x.delta.toFixed(1)}%`,x.shiftShare?`차량전환 ${Math.round(x.shiftShare*100)}%`:`비용 ₩${fmt(Math.round(x.cost||0))}`);h+=`<div class="tip">이제 혼잡한 도로를 무조건 넓히지 않고 <b>확폭 · 평행 우회축 · 횡단 연결축 · 버스/BRT · 도시철도</b>를 같은 대표 OD로 비교합니다. 도로안은 짧은 MSA 재배정, 대중교통안은 자동차에서 전환되는 승객과 도로용량 변화를 함께 반영합니다. 철도는 버스회랑을 역간격이 넓은 고용량 축으로 가정해 보행·대기·차내시간과 건설비를 함께 검토한 뒤에만 착수합니다.</div>`;}
-    h+=`<div class="tip">지체는 BPR <code>t = t₀(1+0.15(v/c)⁴)</code>입니다. 4제곱이라 0.85까지는 멀쩡하다가 1.0 근처에서 무너집니다 (교재 5장).</div>`;
+    h+=`<div class="tip">지체는 BPR volume-delay function <code>t = t₀(1+0.15(v/c)⁴)</code>입니다. v/c가 커질수록 통행시간이 비선형적으로 증가합니다. 이 정적 함수는 queue spillback이나 신호교차로의 HCM control delay를 직접 재현하지 않습니다 (교재 5장).</div>`;
     return h;
   }
   return "";
@@ -16026,7 +16026,7 @@ function cellReportSummaryHTML(i){
     h+=row("주거비 부담",`${(burdCell[i]||0).toFixed(2)}배`,burdCell[i]>1.2?"부담 큼":"상대적으로 감당 가능");
   }
   if(jobKind(k)&&d>0)h+=row("기업 입주",`${Math.round(jobOccRate(i,k)*100)}%`,`공실 ${Math.round(jobVacancy(i)*100)}%`);
-  h+=row("임대료 격차",`${Math.round(gp*100)}%`,gp>=RENEW_GAP?"재개발 압력 높음":"임계 미만");
+  h+=row("Rent Gap (지대 격차)",`${Math.round(gp*100)}%`,gp>=RENEW_GAP?"재개발 압력 높음":"임계 미만");
   h+=row("토지 최고입찰",mb.use?zoneName(mb.use):"없음",mb.use&&mb.use!==k?`현재용도보다 ${Math.round(mb.gap*100)}% 우위`:"현재 용도 유지압력");
   if(nd>=0)h+=row("15분 생활권",`${Math.round(lf*100)}%`,lf<LIFE_WARN?"생활서비스 부족":"보통 이상");
   h+=row("기반시설 최저공급",`${Math.round(umin*100)}%`,umin<.9?"성장 제약 가능":"연결 양호");
@@ -16048,9 +16048,9 @@ function cellPaperHTML(i){
   const topBids=mb.all.slice().sort((a,b)=>b[1]-a[1]).filter(z=>z[1]>0).slice(0,5);
   const currentUse=zoneName(k);
   const occText=occ>1?`정규 수용력의 ${Math.round(occ*100)}%가 실제로 거주하고 있어 계획수용을 ${Math.round((occ-1)*100)}% 초과한다.`:`실제 거주량은 정규 수용력의 ${Math.round(occ*100)}%로 계획수용 범위 안에 있다.`;
-  const gapText=gp>=RENEW_GAP?`잠재지대와 실현지대의 차이가 ${Math.round(gp*100)}%로 재개발 검토선 ${Math.round(RENEW_GAP*100)}%를 넘는다. 이 값은 '재개발이 반드시 옳다'는 판정이 아니라, 현재 건물이 입지의 잠재가치를 충분히 활용하지 못해 토지소유자나 개발자가 교체·증축을 검토할 경제적 압력이 크다는 뜻이다.`:`임대료 격차는 ${Math.round(gp*100)}%로 현재 자동 재개발 검토선보다 낮다. 따라서 입지가치만으로 기존 건물을 즉시 교체할 강한 압력은 확인되지 않는다.`;
+  const gapText=gp>=RENEW_GAP?`잠재지대와 실현지대의 차이가 ${Math.round(gp*100)}%로 재개발 검토선 ${Math.round(RENEW_GAP*100)}%를 넘는다. 이 값은 '재개발이 반드시 옳다'는 판정이 아니라, 현재 건물이 입지의 잠재가치를 충분히 활용하지 못해 토지소유자나 개발자가 교체·증축을 검토할 경제적 압력이 크다는 뜻이다.`:`Rent Gap (지대 격차)는 ${Math.round(gp*100)}%로 현재 자동 재개발 검토선보다 낮다. 따라서 입지가치만으로 기존 건물을 즉시 교체할 강한 압력은 확인되지 않는다.`;
   const marketText=mb.use&&mb.use!==k?`현재 정책조건 아래 최고 입찰 용도는 ${zoneName(mb.use)}이며, 현재 ${currentUse}보다 약 ${Math.round(mb.gap*100)}% 높은 순입찰을 제시한다. 이것은 토지가 다른 용도로 바뀌면 더 높은 경제적 잉여를 낼 가능성이 있다는 신호이지, 주민복지나 도시계획상 그 전환이 바람직하다는 의미는 아니다.`:`현재 용도 ${currentUse}가 최고 입찰자이거나 다른 용도의 우위가 자동전환선 아래다. 시장가격 압력만 놓고 보면 현 용도가 당장 밀려날 이유가 약하다.`;
-  const lifeText=nd<0?`이 필지는 도로·보행 네트워크에 충분히 연결되지 않아 생활권을 안정적으로 계산할 수 없다.`:lf<LIFE_ABANDON?`15분 생활권 지수가 ${Math.round(lf*100)}%로 매우 낮다. 이는 단순히 '공원이 적다'는 뜻이 아니라 학교·의료·공공공간·생활상업 등 일상 목적지 중 보행으로 실제 도달 가능한 종류가 부족하다는 뜻이며, 장기적으로 입지 효용과 거주 지속성을 깎는다.`:lf<LIFE_WARN?`15분 생활권은 ${Math.round(lf*100)}%로 기본적인 목적지는 일부 닿지만 생활서비스가 충분히 갖춰졌다고 보기는 어렵다.`:`15분 생활권은 ${Math.round(lf*100)}%로 현재 모형 기준에서는 비교적 갖춰진 편이다.`;
+  const lifeText=nd<0?`이 필지는 도로·보행 네트워크에 충분히 연결되지 않아 생활권을 안정적으로 계산할 수 없다.`:lf<LIFE_ABANDON?`15-minute service accessibility가 ${Math.round(lf*100)}%로 매우 낮다. 이는 단순히 '공원이 적다'는 뜻이 아니라 학교·의료·공공공간·생활상업 등 일상 목적지 중 보행으로 실제 도달 가능한 종류가 부족하다는 뜻이며, 장기적으로 입지 효용과 거주 지속성을 깎는다.`:lf<LIFE_WARN?`15-minute service accessibility는 ${Math.round(lf*100)}%로 기본적인 목적지는 일부 닿지만 생활서비스가 충분히 갖춰졌다고 보기는 어렵다.`:`15-minute service accessibility는 ${Math.round(lf*100)}%로 현재 모형 기준에서는 비교적 갖춰진 편이다.`;
   const svcText=svc>=SVC_MAX?`경찰서비스는 현재 도로망을 통해 도달하지 못한다.`:svc<=SVC_TARGET?`경찰 도달시간은 ${svc.toFixed(1)}분으로 목표 ${SVC_TARGET}분 이내다.`:`경찰 도달시간은 ${svc.toFixed(1)}분으로 목표 ${SVC_TARGET}분을 넘는다.`;
   const utilText=umin>=.98?`전력·상수도·폐기물 공급은 모두 거의 완전히 연결되어 있어 기반시설 연결 자체가 당장의 개발제약은 아니다.`:`세 기반시설 가운데 최저 공급률이 ${Math.round(umin*100)}%다. 개발단계가 올라가면 이 병목이 사업성이나 성장속도를 제한할 수 있다.`;
   const future=[];
@@ -16070,7 +16070,7 @@ function cellPaperHTML(i){
   h+=`<h4>4. 생활권과 공공서비스</h4><p>${lifeText}</p><p>보행환경 점수는 ${Math.round(walkv*100)}%다. 이 값은 밀도 그 자체의 벌점이 아니라 도로 위계, 보행연결과 주변환경을 반영한다. ${svcText}</p><p>학교·의료·문화행정은 단순히 가까이 있는지만 보지 않고 서비스권에 몰린 인구가 시설용량을 초과하는지도 별도로 계산한다. 따라서 고밀도 개발이 곧 생활권 악화는 아니며, <strong>계획된 고밀도와 서비스용량 초과 과밀은 서로 다른 상태</strong>다.</p>`;
   h+=`<h4>5. 기반시설과 추가개발 가능성</h4><p>${utilText} 현재 공급률은 전력 ${Math.round(up*100)}%, 상수도 ${Math.round(uw*100)}%, 폐기물 ${Math.round(us*100)}%다. 이 수치는 '시설이 지도에 존재한다'는 것과 달리, 이 셀이 속한 도로망 성분이 실제 공급원과 연결되고 용량을 배분받는지를 나타낸다.</p>`;
   h+=`<h4>6. 가능한 향후 경로</h4>${future.map((z,n)=>`<h5>${n+1}) 가능경로</h5><p>${z}</p>`).join("")}`;
-  h+=`<h4>7. 인과해석의 한계</h4><div class="paperCaution"><strong>주의.</strong> 이 보고서는 현재 상태를 설명하는 사례분석이다. 예를 들어 임대료 격차가 높고 몇 년 뒤 재개발이 발생했다 해도, 그 변화가 한 정책 하나 때문에 발생했다고 단정할 수 없다. 같은 기간 R/C/O/I 수요, 외부권 경제, 교통배정, 자동계획, 주변 용도변화가 동시에 움직인다. 정책의 단독효과를 보려면 분석실에서 같은 기준시점 A/B를 비교해야 한다.</div>`;
+  h+=`<h4>7. 인과해석의 한계</h4><div class="paperCaution"><strong>주의.</strong> 이 보고서는 현재 상태를 설명하는 사례분석이다. 예를 들어 Rent Gap (지대 격차)가 높고 몇 년 뒤 재개발이 발생했다 해도, 그 변화가 한 정책 하나 때문에 발생했다고 단정할 수 없다. 같은 기간 R/C/O/I 수요, 외부권 경제, 교통배정, 자동계획, 주변 용도변화가 동시에 움직인다. 정책의 단독효과를 보려면 분석실에서 같은 기준시점의 paired counterfactual simulation를 비교해야 한다.</div>`;
   h+=`<h4>8. 사건연혁</h4>`;
   if(events.length){h+=`<p>${events.length}건의 셀 사건이 기록되어 있다. 아래 연혁은 결과가 언제 발생했는지를 보여 주지만 그 자체로 원인을 증명하지는 않는다.</p><table class="paperTable">${events.slice().reverse().map(e=>`<tr><th>${Math.floor(e.mo/12)+1}년 ${(e.mo%12)+1}월</th><td>${escHtml(e.s||"")}</td></tr>`).join("")}</table>`;}else h+=`<p>현재까지 재개발·축출·공공임대 지정·토지매입 등 별도 사건 기록은 없다.</p>`;
   h+=`<details><summary>기술부록 A · 원시 지표 전체 보기</summary>${cellReportTechnicalHTML(i)}</details>`;
@@ -16112,7 +16112,7 @@ function cellReportTechnicalHTML(i){
   h+=row("잠재지대",`${(rentP[i]||0).toFixed(2)}`,"입지가 받을 수 있는 값");
   h+=row("실현지대",`${(rentC[i]||0).toFixed(2)}`,"지금 건물이 받아내는 값");
   const gp=rentP[i]>0?(rentP[i]-rentC[i])/rentP[i]:0;
-  h+=row("임대료 격차",`<b style="color:${gp>=RENEW_GAP?"#b03426":"#5c8a52"}">${pct(gp)}</b>`,
+  h+=row("Rent Gap (지대 격차)",`<b style="color:${gp>=RENEW_GAP?"#b03426":"#5c8a52"}">${pct(gp)}</b>`,
     gp>=RENEW_GAP?`임계 ${pct(RENEW_GAP)} 초과 — 재개발 압력`:"임계 미만");
   if(rentM[i]>rentC[i]+1e-6)h+=row("규제 전 시장가",`${rentM[i].toFixed(2)}`,"임대료 규제가 눌렀다 (38장)");
 
@@ -16219,7 +16219,7 @@ function advise(){
   }
   if(!gateways.length&&S.pop>0)
     return "⚠ 도시가 지역경제에서 단절되었습니다. 외부 통근·화물과 신규 주민 유입이 멈춥니다. 지도 가장자리까지 도로를 다시 이으세요.";
-  if(S.pop>600&&S.lifePress>0.52)return "생활권 압력이 큽니다. 단일용도 확장보다 MX·보행 관통로·공원/광장·근린서비스를 같은 보행권 안에 묶어 보세요.";
+  if(S.pop>600&&S.lifePress>0.52)return "생활권 결핍지수가 큽니다. 단일용도 확장보다 MX·보행 관통로·공원/광장·근린서비스를 같은 보행권 안에 묶어 보세요.";
   if(S.walkSh<0.10&&S.pop>800)return "도보 분담이 낮습니다. 간선 옆은 걷기 나쁩니다 — 🚶 보행로로 블록을 관통시켜 보세요.";
   if(S.pop>600&&S.life15<0.4)return "주민이 걸어서 닿는 생활서비스가 부족합니다. 학교·공원·의료를 주거 가까이 두세요 (🗺 15분 생활권).";
   if(S.busX>1)return "버스가 만원입니다. 배차를 줄이거나 전용차로로 회전율을 높이세요.";
@@ -16340,8 +16340,8 @@ function setContrib(dir){
   const ix=clamp(contribIx+dir,0,CONTRIB_STEPS.length-1);
   if(ix===contribIx)return;
   contribIx=ix;warm();
-  policySocialPost("contrib",`개발이익 환수율을 ${Math.round(contribRate()*100)}%로 조정했습니다.`,["재정","생활권"],{dir,value:contribRate()});
-  flash(`🤝 개발이익 환수율 ${Math.round(contribRate()*100)}%`);sfx("policy");
+  policySocialPost("contrib",`개발기여율을 ${Math.round(contribRate()*100)}%로 조정했습니다.`,["재정","생활권"],{dir,value:contribRate()});
+  flash(`🤝 개발기여율 ${Math.round(contribRate()*100)}%`);sfx("policy");
   if(panelOpen||policyOpen)updatePanel();sfx("policy");
 }
 function setFuel(dir){
@@ -16378,7 +16378,7 @@ function setUtilReserve(dir){const ix=clamp(utilReserveIx+dir,0,UTIL_RESERVE_STE
 const policyChanges=[];
 let policyChangeSeq=0,policyTab="all";
 const POLICY_META={
-  toll:{nm:"혼잡통행료",domain:"transport",h:6,expected:"승용차 진입·VMT·혼잡↓, 통행료 수입↑"},
+  toll:{nm:"혼잡통행료",domain:"transport",h:6,expected:"승용차 진입·VKT·혼잡↓, 통행료 수입↑"},
   fare:{nm:"기본운임",domain:"transport",h:6,expected:"운임과 대중교통 수요·수입의 재균형"},
   xdisc:{nm:"환승할인",domain:"transport",h:6,expected:"환승저항↓, 버스-철도 연계수요↑"},
   maint:{nm:"시설 유지보수",domain:"utility",h:12,expected:"시설등급·가용성 개선, 유지비 증가"},
@@ -16389,8 +16389,8 @@ const POLICY_META={
   welfmode:{nm:"복지 대상",domain:"housing",h:12,expected:"지원 집중도와 주거안정 효과 재배분"},
   lvt:{nm:"토지가치세",domain:"urban",h:18,expected:"토지 순수익·유휴/재개발압력·세수 변화"},
   rcap:{nm:"임대료 규제",domain:"housing",h:12,expected:"실현 주거비부담↓, 입찰·재개발·공급은 재균형"},
-  contrib:{nm:"개발이익 환수",domain:"urban",h:18,expected:"공공기여↑, TOD 사업성·보너스 사용 둔화 가능"},
-  fuel:{nm:"유류세·연료비",domain:"transport",h:6,expected:"승용차 일반화비용↑, 자동차 통행·VMT↓"},
+  contrib:{nm:"Developer Obligations",domain:"urban",h:18,expected:"현금·현물 공공기여↑, TOD bonus development 사업성·사용량 둔화 가능"},
+  fuel:{nm:"유류세·연료비",domain:"transport",h:6,expected:"승용차 일반화비용↑, 자동차 통행·VKT↓"},
   cartax:{nm:"자동차 보유비",domain:"transport",h:24,expected:"장기 차량보유 목표↓, 실제 보유재고는 천천히 추종"},
   transitstd:{nm:"대중교통 서비스 기준",domain:"transport",h:6,expected:"최소 배차서비스↑, 대기시간↓, 운영비·수요 재균형"},
   transitprio:{nm:"대중교통 투자 우선도",domain:"transport",h:12,expected:"비악화 사업후보 사이의 도로/대중교통 선택구성 변화"},
@@ -16457,7 +16457,7 @@ function policyOutcomeTextById(id,b,c,domain){
   return plannerOutcomeText(domain,b,c);
 }
 function policyOutcomeVerdictById(id,b,c,domain){
-  // 평상시 정책 장부는 전후관찰만 한다. 개선/악화의 인과판정은 A/B 통제실험으로 넘긴다.
+  // 평상시 정책 장부는 전후관찰만 한다. 개선/악화의 인과판정은 paired counterfactual simulation으로 넘긴다.
   if(id==="maint"&&b.condAvg!==undefined)return "시설상태 변화 관찰";
   if(id==="xdisc"&&b.xfer!==undefined)return "환승연계 변화 관찰";
   if(id==="tfare"&&b.fareBurdenLo!==undefined)return "저소득 교통비 변화 관찰";
@@ -16581,7 +16581,7 @@ const POLICY_MECHANISM_EXPLAIN={
   lvt:"토지가치세는 토지에서 소유자에게 남는 순수익을 낮추고 유휴토지 보유의 기회비용을 높인다. 모형에서는 정책전 입찰과 정책후 순입찰 사이의 쐐기로 나타난다.",
   rcap:"임대료 규제는 거주자가 실제 지불하는 주거비를 낮출 수 있지만 토지의 경쟁입찰과 신규공급 유인은 별도로 움직인다. 따라서 단기 부담완화와 장기 공급반응을 구분해서 봐야 한다.",
   contrib:"개발이익 환수는 개발로 생기는 일부 잉여를 공공기여로 돌린다. 공공재원은 늘 수 있지만 개발사업자의 순사업성은 낮아질 수 있다.",
-  fuel:"연료비는 주행거리와 비례해 자동차 일반화비용을 올린다. 장거리 통행일수록 영향이 크며 수단선택, VMT, 장기 차량보유에 단계적으로 작용한다.",
+  fuel:"연료비는 주행거리와 비례해 자동차 일반화비용을 올린다. 장거리 통행일수록 영향이 크며 수단선택, VKT, 장기 차량보유에 단계적으로 작용한다.",
   cartax:"자동차 보유비는 한 번의 통행보다 차량을 계속 보유할지에 영향을 준다. 따라서 실제 차량재고는 목표 보유율을 향해 천천히 움직이며 즉각 반응하지 않는다.",
   transitstd:"대중교통 서비스 기준은 자동계획관이 버스·철도 노선의 최대 배차간격을 지키게 한다. 배차가 촘촘해지면 대기시간과 용량이 개선되지만 운행비도 함께 커진다.",
   transitprio:"교통투자 우선도는 사전 교통영향평가의 물리적 person-min 결과를 바꾸지 않는다. 전체 통행시간을 악화시키지 않는 후보들 사이에서 도로 또는 대중교통에 작은 정책가중치를 주어 계획관의 선택순서를 바꾼다.",
@@ -16617,9 +16617,9 @@ function policyPaperHTML(q){
   h+=`<h4>5. 교란요인과 인과해석</h4>`;
   if(conf.length)h+=`<div class="paperCaution"><strong>교란 가능성 확인.</strong> ${conf.map(escHtml).join("; ")}. 따라서 평상시 정책장부의 결론은 <b>변화 관찰</b>이며 정책 단독효과라고 해석하지 않는다.</div>`;
   else h+=`<p>장부에 기록된 큰 교란요인은 현재 확인되지 않는다. 그러나 외생적 난수, 개별 입지선택과 누적된 시장상태까지 완전히 통제한 것은 아니므로 단순 전후차를 현실세계의 인과효과로 일반화할 수 없다.</p>`;
-  if(q.controlled){const ok=q.controlled.valid!==false,cs=policyControlledSummary(q);h+=`<h4>6. 통제 A/B 기록</h4><p>${ok?`같은 실험 체크포인트에서 기준분기와 정책분기를 나눈 단일시드 반사실 비교가 있다. 비교요약은 <strong>${escHtml(cs||"정책분기와 기준분기의 지표 차이를 기록함")}</strong>이다. 이 결과는 평상시 전후비교보다 인과해석에 유리하지만 다른 시드에서 반복된 효과인지까지 증명하지는 않는다.`:`통제비교 기록은 존재하지만 통제조건을 충족하지 못해 효과추정으로 채택하지 않았다. 사유: ${escHtml(q.controlled.why||"기준상태 또는 분기의 동등성이 확인되지 않음")}`}</p>`;}
+  if(q.controlled){const ok=q.controlled.valid!==false,cs=policyControlledSummary(q);h+=`<h4>6. paired counterfactual simulation 기록</h4><p>${ok?`같은 실험 체크포인트에서 기준분기와 정책분기를 나눈 단일시드 반사실 비교가 있다. 비교요약은 <strong>${escHtml(cs||"정책분기와 기준분기의 지표 차이를 기록함")}</strong>이다. 이 결과는 평상시 전후비교보다 인과해석에 유리하지만 다른 시드에서 반복된 효과인지까지 증명하지는 않는다.`:`통제비교 기록은 존재하지만 통제조건을 충족하지 못해 효과추정으로 채택하지 않았다. 사유: ${escHtml(q.controlled.why||"기준상태 또는 분기의 동등성이 확인되지 않음")}`}</p>`;}
   h+=`<h4>${q.controlled?7:6}. 정책평가에서 말할 수 있는 것과 없는 것</h4><p><strong>말할 수 있는 것:</strong> 이 정책을 언제 얼마만큼 바꿨는지, 그 뒤 어떤 핵심지표가 어떤 방향으로 움직였는지, 같은 기간 어떤 도시구조와 다른 정책이 겹쳤는지를 기록할 수 있다.</p><p><strong>말할 수 없는 것:</strong> 평상시 전후관찰만으로 관측차이 전부가 해당 정책 때문에 생겼다고 단정할 수 없으며, 이 단일 가상도시 결과를 현실 도시의 보편적 효과크기로 해석할 수도 없다.</p>`;
-  h+=`<h4>${q.controlled?8:7}. 향후 관찰</h4><p>관측이 끝난 뒤에도 도시의 장기재고와 입지는 계속 변한다. 정책이 구조적 변화를 목표로 한다면 동일한 정책을 유지한 상태에서 추가 기간을 관찰하고, 필요하면 분석실에서 같은 기준시점·복수시드를 사용한 A/B를 반복하는 것이 가장 엄밀하다.</p>`;
+  h+=`<h4>${q.controlled?8:7}. 향후 관찰</h4><p>관측이 끝난 뒤에도 도시의 장기재고와 입지는 계속 변한다. 정책이 구조적 변화를 목표로 한다면 동일한 정책을 유지한 상태에서 추가 기간을 관찰하고, 필요하면 분석실에서 같은 기준시점·복수시드의 paired counterfactual simulation를 반복하는 것이 가장 엄밀하다.</p>`;
   h+=`<details><summary>기술부록 A · 저장된 기준상태(JSON)</summary><pre style="white-space:pre-wrap;font-size:10px;color:#bfb4a5">${escHtml(JSON.stringify({id:q.id,month:q.mo,before:q.before,after:q.after,due:q.due,baseline:q.baseline,outcome:q.outcome},null,2))}</pre></details>`;
   return h;
 }
@@ -16629,11 +16629,11 @@ const POLICY_ADVISORS={
   fare:{icon:"🎫",name:"대중교통 운임 자문관",cat:"transport",mandate:"운임·수요·운영수입",bias:"노선 확장보다 먼저 운임조정으로 수요와 재정을 맞추려는 성향이 있다."},
   xdisc:{icon:"🔁",name:"환승통합 자문관",cat:"transport",mandate:"버스-철도 환승저항",bias:"직통망보다 네트워크 통합과 환승할인을 높게 평가한다."},
   tfare:{icon:"🪪",name:"교통형평 자문관",cat:"transport",mandate:"저소득 교통비 부담",bias:"평균 효율보다 취약계층의 이동가능성을 우선한다."},
-  fuel:{icon:"⛽",name:"자동차 외부비용 자문관",cat:"transport",mandate:"주행거리·연료비·VMT",bias:"장거리 자동차 이용의 사회적 비용을 가격에 반영하는 정책을 선호한다."},
+  fuel:{icon:"⛽",name:"자동차 외부비용 자문관",cat:"transport",mandate:"주행거리·연료비·VKT",bias:"장거리 자동차 이용의 사회적 비용을 가격에 반영하는 정책을 선호한다."},
   cartax:{icon:"🚙",name:"차량보유 자문관",cat:"transport",mandate:"장기 차량보유 재고",bias:"한 번의 통행보다 자동차를 계속 소유하는 비용구조를 우선 본다."},
   lvt:{icon:"🏷️",name:"토지가치세 자문관",cat:"housing",mandate:"토지 유휴·지대·세원",bias:"건물보다 토지의 입지가치를 과세해 유휴보유를 줄이는 방안을 우선한다."},
   rcap:{icon:"🏠",name:"임대료안정 자문관",cat:"housing",mandate:"임차가구 부담과 축출",bias:"단기 주거안정을 우선하며 공급유인 약화 가능성은 반론으로 다룬다."},
-  contrib:{icon:"🏗️",name:"개발이익환수 자문관",cat:"housing",mandate:"개발이익의 공공환원",bias:"민간 개발이익 중 일부를 공공기여로 회수하는 쪽을 선호한다."},
+  contrib:{icon:"🏗️",name:"Developer Obligations 자문관",cat:"housing",mandate:"개발권·계획이익의 공공기여",bias:"민간 개발이익 중 일부를 공공기여로 회수하는 쪽을 선호한다."},
   guard:{icon:"🛡️",name:"주거보장선 자문관",cat:"welfare",mandate:"최저 주거비 부담 보호선",bias:"평균보다 가장 부담이 큰 가구를 먼저 보호하려 한다."},
   welf:{icon:"🤝",name:"복지예산 자문관",cat:"welfare",mandate:"복지지출과 주거안정",bias:"취약가구의 지불능력을 보완하는 직접지출을 우선한다."},
   welfauto:{icon:"⚖️",name:"복지배분방식 자문관",cat:"welfare",mandate:"고정지출과 보장선 방식",bias:"복지총액보다 어떻게 배분할지를 핵심 문제로 본다."},
@@ -16668,7 +16668,7 @@ function advisorCase(id){
     score=clamp(20+55*Math.max(0,x.vc-.55)+45*Math.max(0,x.car-.62)+1.2*Math.max(0,x.avgT-22),0,100);
     if(x.transit<.03&&x.transitCover<.12&&x.car>.85)rec="대중교통망을 먼저 확보한 뒤 혼잡통행료 상향";
     else if(x.vc>.72||x.car>.78)rec="혼잡통행료 상향을 우선 검토"; else if(toll>0&&x.vc<.45&&x.car<.6)rec="혼잡통행료 인하를 검토";
-    why=`평균 V/C ${x.vc.toFixed(2)}, 승용차 분담 ${Math.round(x.car*100)}%, 대중교통 분담 ${Math.round(x.transit*100)}%, 15분 대중교통 접근 ${Math.round(x.transitCover*100)}%를 근거로 본다.`;trade=x.transit<.03&&x.transitCover<.12?"대체수단이 거의 없으면 통행료는 수단전환보다 자동차 이용자의 부담을 먼저 키운다. 버스·철도 선택지를 함께 공급해야 한다.":"주거·상업 접근비용과 형평성 자문관은 도심 진입비 상승을 반론으로 제기할 수 있다.";
+    why=`평균 V/C ${x.vc.toFixed(2)}, 승용차 분담 ${Math.round(x.car*100)}%, 대중교통 분담 ${Math.round(x.transit*100)}%, 15-minute transit accessibility ${Math.round(x.transitCover*100)}%를 근거로 본다.`;trade=x.transit<.03&&x.transitCover<.12?"대체수단이 거의 없으면 통행료는 수단전환보다 자동차 이용자의 부담을 먼저 키운다. 버스·철도 선택지를 함께 공급해야 한다.":"주거·상업 접근비용과 형평성 자문관은 도심 진입비 상승을 반론으로 제기할 수 있다.";
   }else if(id==="fare"){
     score=clamp(28+40*Math.max(0,.25-x.transit)+28*Math.max(0,x.avgT-24)/20+30*Math.max(0,-x.balR),0,100);
     if(x.transit<.03&&x.transitCover<.12){score*=.35;rec="운임보다 노선·정류장 공급을 우선";}
@@ -16681,12 +16681,12 @@ function advisorCase(id){
   }else if(id==="tfare"){
     score=clamp(20+8*Math.max(0,x.fareBur-2)+38*Math.max(0,.35-x.aff),0,100);
     if(x.fareBur>3||x.aff<.25)rec="저소득 교통할인 확대를 우선 검토"; else if(x.balR<-.2&&x.fareBur<1.5)rec="할인 축소를 검토";
-    why=`저소득 운임 체감 ${x.fareBur.toFixed(1)}분, 저소득 감당주택 ${Math.round(x.aff*100)}%를 이동형평 관점에서 본다.`;trade="재정 자문은 손실보전을, 교통망 자문은 노선 부재가 더 근본 문제일 수 있음을 지적한다.";
+    why=`저소득 운임 체감 ${x.fareBur.toFixed(1)}분, 저소득층 부담가능주택 ${Math.round(x.aff*100)}%를 이동형평 관점에서 본다.`;trade="재정 자문은 손실보전을, 교통망 자문은 노선 부재가 더 근본 문제일 수 있음을 지적한다.";
   }else if(id==="fuel"){
     score=clamp(18+50*Math.max(0,x.car-.68)+40*Math.max(0,x.vc-.65)+.003*Math.max(0,x.vmt-50000),0,100);
     if(x.transit<.03&&x.transitCover<.12&&x.car>.85)rec="대중교통 대안을 확충하면서 연료비 상향을 검토";
     else if(x.car>.78||x.vc>.8)rec="연료비·유류부담 상향을 우선 검토"; else if(x.car<.5&&x.balR<-.15)rec="추가 인상은 보류";
-    why=`승용차 분담 ${Math.round(x.car*100)}%, V/C ${x.vc.toFixed(2)}, VMT ${Math.round(x.vmt).toLocaleString()}, 대중교통 접근 ${Math.round(x.transitCover*100)}%를 본다.`;trade=x.transit<.03&&x.transitCover<.12?"주행비용은 자동차 GC를 즉시 올리지만 대체 노선이 없으면 대중교통 전환폭은 제한되고 외곽가구 부담이 커진다.":"외곽 거주자와 산업물류의 비용을 함께 높일 수 있어 주거·산업 측 반론이 예상된다.";
+    why=`승용차 분담 ${Math.round(x.car*100)}%, V/C ${x.vc.toFixed(2)}, VKT ${Math.round(x.vmt).toLocaleString()}, 대중교통 접근 ${Math.round(x.transitCover*100)}%를 본다.`;trade=x.transit<.03&&x.transitCover<.12?"주행비용은 자동차 GC를 즉시 올리지만 대체 노선이 없으면 대중교통 전환폭은 제한되고 외곽가구 부담이 커진다.":"외곽 거주자와 산업물류의 비용을 함께 높일 수 있어 주거·산업 측 반론이 예상된다.";
   }else if(id==="cartax"){
     score=clamp(18+55*Math.max(0,x.own-.65)+35*Math.max(0,x.car-.7),0,100);
     if(x.own>.7||x.car>.8)rec="자동차 보유비 상향을 우선 검토"; else if(x.own<.45&&x.balR<-.15)rec="추가 상향은 보류";
@@ -16698,7 +16698,7 @@ function advisorCase(id){
   }else if(id==="rcap"){
     score=clamp(20+38*Math.max(0,x.hbur-.8)+45*Math.max(0,.4-x.aff)+20*Math.min(1,x.insecure/3000),0,100);
     if(x.hbur>1.05||x.aff<.22)rec="임대료 규제 강화를 우선 검토"; else if(x.rR>.55&&rentCapR()<1)rec="추가 강화는 보류하고 공급반응을 관찰";
-    why=`저소득 주거비부담 ${x.hbur.toFixed(2)}배, 감당가능 재고 ${Math.round(x.aff*100)}%, 주택부족 ${Math.round(x.rShort).toLocaleString()}명을 본다.`;trade="주거공급 자문은 규제가 신규 R/MX의 순입찰과 장기 공급유인을 낮출 수 있다고 반론한다.";
+    why=`저소득 주거비부담 ${x.hbur.toFixed(2)}배, 부담가능주택 재고 ${Math.round(x.aff*100)}%, 주택부족 ${Math.round(x.rShort).toLocaleString()}명을 본다.`;trade="주거공급 자문은 규제가 신규 R/MX의 순입찰과 장기 공급유인을 낮출 수 있다고 반론한다.";
   }else if(id==="contrib"){
     score=clamp(18+30*Math.max(0,-x.balR)+22*Math.min(1,x.tod/20)+18*Math.min(1,x.marketGap/.3)-35*x.rR,0,100);
     if(x.balR<-.1&&x.rR<.35)rec="개발이익 환수 상향을 우선 검토"; else if(x.rR>.5)rec="주택공급 병목 때문에 환수 상향은 보류";
@@ -16710,7 +16710,7 @@ function advisorCase(id){
   }else if(id==="welf"){
     score=clamp(22+38*Math.max(0,x.hbur-.85)+32*Math.max(0,.35-x.aff)+18*Math.min(1,(x.waiting+x.insecure)/4000),0,100);
     if(x.hbur>1||x.aff<.25)rec="복지지출 확대를 우선 검토"; else if(x.balR<-.2&&x.hbur<.75)rec="복지지출 축소를 검토";
-    why=`저소득 부담 ${x.hbur.toFixed(2)}배, 감당주택 ${Math.round(x.aff*100)}%, 대기·불안정 ${Math.round(x.waiting+x.insecure).toLocaleString()}명을 본다.`;trade="재정 자문은 지속가능성을, 주택 자문은 공급부족을 현금지원만으로 해결할 수 없음을 지적한다.";
+    why=`저소득 부담 ${x.hbur.toFixed(2)}배, 부담가능주택 ${Math.round(x.aff*100)}%, 대기·불안정 ${Math.round(x.waiting+x.insecure).toLocaleString()}명을 본다.`;trade="재정 자문은 지속가능성을, 주택 자문은 공급부족을 현금지원만으로 해결할 수 없음을 지적한다.";
   }else if(id==="welfauto"){
     score=clamp(25+28*Math.min(1,(x.waiting+x.insecure)/5000)+28*Math.max(0,x.hbur-.8),0,100);
     if((x.waiting+x.insecure)>1000||x.hbur>1)rec="보장선 방식으로 전환을 우선 검토"; else rec="현재 배분방식 유지";
@@ -16778,7 +16778,7 @@ function advisorDetailedHTML(q){
     <h4>1. 자문관의 역할과 편향</h4><p>${escHtml(q.bias)}</p><div class="paperCaution"><strong>편향 고지:</strong> 이 자문은 시 전체의 유일한 최적해가 아니다. 같은 도시상태를 다른 자문관은 다른 목적함수로 해석할 수 있으며, 최종 정책선택은 정책결정권자의 몫이다.</div>
     <h4>2. 현재 정책과 제안</h4><table class="paperTable"><tr><th>현재 정책</th><td>${escHtml(q.current)}</td></tr><tr><th>자문</th><td>${escHtml(q.rec)}</td></tr><tr><th>우선도</th><td>${q.urgency} · ${Math.round(q.score)}/100</td></tr></table><p>${escHtml(q.why)}</p>
     <h4>3. 이 정책이 작동하는 경로</h4><p>${escHtml(mech)}</p><p>자문관은 이 경로를 통해 자신의 소관지표를 개선할 가능성을 우선 평가한다. 정책을 적용한다고 목표값이 직접 변하는 것은 아니며 통행선택·입지·주택시장·기업입주·재정이 다시 계산된다.</p>
-    <h4>4. 현재 도시에서 함께 봐야 할 수요</h4><p>${qty}. 저소득 감당주택 ${Math.round(x.aff*100)}%, 생활권 ${Math.round(x.life*100)}%, 서비스 용량부족 ${Math.round(x.svcOver*100)}%, 월 수지 ${(x.balR*100).toFixed(0)}%다.</p>
+    <h4>4. 현재 도시에서 함께 봐야 할 수요</h4><p>${qty}. 저소득층 부담가능주택 ${Math.round(x.aff*100)}%, 생활권 ${Math.round(x.life*100)}%, 서비스 용량부족 ${Math.round(x.svcOver*100)}%, 월 수지 ${(x.balR*100).toFixed(0)}%다.</p>
     <h4>5. 다른 자문관이 제기할 반론</h4><p>${escHtml(q.trade)}</p><p>따라서 이 제안은 자기 분야의 우선순위를 분명하게 제시하는 <b>부처 의견</b>이며, 정책회의에서는 재정·형평·주택공급·교통·유지관리의 반론과 함께 비교해야 한다.</p>
     <h4>6. 검증 방법</h4><p>정책을 실제로 변경하면 정책변화 장부가 변경 전 상태와 사후관측을 별도로 저장한다. 평상시 전후변화는 인과효과로 단정하지 않고, 필요하면 분석실의 동일 기준시점 A/B로 이 자문을 검증한다.</p>`;
 }
@@ -16814,9 +16814,9 @@ function fieldAdvisorDetailedHTML(q){
     <h4>2. 분야 내부 정책 우선순위</h4><table class="paperTable">${rows}</table><p>${q.why}</p>
     <h4>3. 왜 1순위가 이 정책인가</h4><p>${escHtml(q.top.why)}</p><p>2순위 대안은 <strong>${escHtml(q.alt)}</strong>이다. 따라서 수석자문은 단순히 자기 부처의 모든 정책을 동시에 올리라는 요구가 아니라, 같은 분야의 정책수단 사이에서 현재 가장 먼저 손댈 항목을 고른 결과다.</p>
     <h4>4. 분야별 정책이 작동하는 경로</h4>${mechanisms}
-    <h4>5. 현재 도시와 연결되는 핵심 상태</h4><p>${qty}. 저소득 감당주택 ${Math.round(x.aff*100)}%, 생활권 ${Math.round(x.life*100)}%, 서비스 용량부족 ${Math.round(x.svcOver*100)}%, 월 수지 ${(x.balR*100).toFixed(0)}%, 평균 통행 ${x.avgT.toFixed(1)}분이다.</p>
+    <h4>5. 현재 도시와 연결되는 핵심 상태</h4><p>${qty}. 저소득층 부담가능주택 ${Math.round(x.aff*100)}%, 생활권 ${Math.round(x.life*100)}%, 서비스 용량부족 ${Math.round(x.svcOver*100)}%, 월 수지 ${(x.balR*100).toFixed(0)}%, 평균 통행 ${x.avgT.toFixed(1)}분이다.</p>
     <h4>6. 분야 내부 및 타 분야 반론</h4><ul>${conflicts}</ul><p>이 반론은 1순위 제안을 무효화하는 자동판정이 아니라, 정책결정권자가 다른 수석자문관의 의견과 함께 비교해야 하는 비용·부작용이다.</p>
-    <h4>7. 검증 방법</h4><p>정책을 실제로 바꾸면 정책변경 장부가 사전상태와 사후상태를 기록한다. 분야 수석의 권고를 따랐다고 결과를 성공으로 미리 판정하지 않으며, 필요하면 같은 기준시점 A/B에서 1순위 정책과 2순위 정책을 각각 시험할 수 있다.</p>`;
+    <h4>7. 검증 방법</h4><p>정책을 실제로 바꾸면 정책변경 장부가 사전상태와 사후상태를 기록한다. 분야 수석의 권고를 따랐다고 결과를 성공으로 미리 판정하지 않으며, 필요하면 같은 기준시점의 paired counterfactual simulation에서 1순위 정책과 2순위 정책을 각각 시험할 수 있다.</p>`;
 }
 
 /* ── v119 자문관회의: 자문관은 구어체 토론, 의장은 서면 종합보고서 ── */
@@ -16847,7 +16847,7 @@ function councilMemoryRemark(q,s){
   const months=Math.max(0,curMonth()-(p.h.mo||0)),old=p.f,scoreDelta=Math.round(q.score-(old.score||0));
   const x=s.x,pm=p.h.metrics||{};let delta="";
   if(q.id==="transport")delta=`평균 통행은 ${pm.avgT!=null?Number(pm.avgT).toFixed(1):"–"}→${x.avgT.toFixed(1)}분, 대중교통 접근은 ${Math.round((pm.cover||0)*100)}→${Math.round(x.transitCover*100)}%예요.`;
-  else if(q.id==="housing")delta=`감당가능 주택은 ${Math.round((pm.aff||0)*100)}→${Math.round(x.aff*100)}%, 저소득 부담은 ${Number(pm.hbur||0).toFixed(2)}→${x.hbur.toFixed(2)}배예요.`;
+  else if(q.id==="housing")delta=`부담가능 주택은 ${Math.round((pm.aff||0)*100)}→${Math.round(x.aff*100)}%, 저소득 부담은 ${Number(pm.hbur||0).toFixed(2)}→${x.hbur.toFixed(2)}배예요.`;
   else if(q.id==="welfare")delta=`불안정 가구는 ${Math.round(pm.insecure||0).toLocaleString()}→${Math.round(x.insecure).toLocaleString()}명, 대기수요는 ${Math.round(pm.waiting||0).toLocaleString()}→${Math.round(x.waiting).toLocaleString()}명이에요.`;
   else if(q.id==="management")delta=`월 수지는 ${Math.round((pm.balR||0)*100)}→${Math.round(x.balR*100)}%, 시설상태는 ${Number(pm.cond||0).toFixed(0)}→${x.cond.toFixed(0)}예요.`;
   else if(q.id==="urban")delta=`생활권은 ${Math.round((pm.life||0)*100)}→${Math.round(x.life*100)}%, 대중교통 접근은 ${Math.round((pm.cover||0)*100)}→${Math.round(x.transitCover*100)}%예요.`;
@@ -16977,7 +16977,7 @@ function councilOpinionLines(id,scenario,v){
   if(id==="housing"){
     if(scenario==="crisis")return [
       `저는 집 쪽이 더 급해 보여요. 저소득층이 감당할 수 있는 주택이 ${v.aff}%밖에 안 되고 부담도 ${v.bur}배예요. 교통이 좋아져도 그 동네에서 밀려나면 소용없잖아요. '${v.rec}'을 같이 묶어야 해요.`,
-      `주거 쪽에서는 지금 '평균 시세'보다 '누가 못 버티는가'가 더 중요해요. 감당가능 재고 ${v.aff}%면 꽤 얇습니다. 저는 '${v.rec}'을 우선안으로 봐요.`,
+      `주거 쪽에서는 지금 '평균 시세'보다 '누가 못 버티는가'가 더 중요해요. 부담가능주택 재고 ${v.aff}%면 꽤 얇습니다. 저는 '${v.rec}'을 우선안으로 봐요.`,
       `이 상태에서 역세권만 더 좋아지면 좋은 입지 가격이 먼저 뛰어요. 공급도 필요하지만 보호도 같이 걸어야 합니다. 그래서 '${v.rec}'이 먼저예요.`,
       `집값이나 임대료 문제는 나중에 따라오는 부작용이 아니라 이미 현재진행형이에요. 부담이 ${v.bur}배면 취약층은 버티기 어렵습니다. '${v.rec}'을 바로 검토해야 해요.`,
       `교통·생활권 개선을 반대하는 건 아니에요. 다만 감당 가능한 집이 ${v.aff}%면 그 효과를 누가 가져가느냐가 문제죠. 저는 '${v.rec}'으로 안전장치를 먼저 보자는 쪽입니다.`,
@@ -17354,14 +17354,14 @@ const COUNCIL_PLANNING_THEORY={
   hansen:{kind:"계획이론·고전",field:"urban",title:"접근성이 토지이용을 바꾼다",short:"Hansen의 고전적 접근성 개념을 떠올리면, 개발은 땅이 비어 있다는 이유만으로 생기지 않아요. 일자리·서비스에 얼마나 쉽게 닿는지와 실제 개발가능지가 같이 있어야 합니다. 새 역 하나가 자동으로 TOD를 만드는 게 아니라는 뜻이죠.",cite:"Hansen, W.G. (1959), How Accessibility Shapes Land Use, Journal of the American Institute of Planners 25(2), 73–76. DOI 10.1080/01944365908978307",note:"접근성과 개발가능 토지를 주거개발 배분의 핵심 변수로 다룬 고전 연구. 현대 도시의 모든 개발반응을 설명하는 완결모형은 아니다."},
   alonso:{kind:"도시경제·교재",field:"housing",title:"입찰지대와 접근성",short:"도시경제 교재에서 자주 나오는 Alonso식 입찰지대 논리로 보면, 접근성이 좋아진 땅은 더 높은 지대를 감당하려는 용도와 가구가 경쟁하게 됩니다. 그래서 교통개선은 이동시간만 줄이는 게 아니라 주변 토지시장 압력도 바꿀 수 있어요.",cite:"Alonso, W. (1964), Location and Land Use: Toward a General Theory of Land Rent, Harvard University Press. DOI 10.4159/harvard.9780674730854",note:"단핵도시·입찰지대의 고전적 이론틀. 다핵도시, 규제, 이질적 가구와 기업, 기존 건축물의 내구성은 별도 고려가 필요하다."},
   urbanland:{kind:"핸드북·일반론",field:"housing",title:"도시는 단핵모형보다 복잡하다",short:"현대 도시경제 핸드북은 단핵도시 모형을 출발점으로 쓰되 다중 중심지, 가구 이질성, 기존 건물의 내구성까지 확장해서 봅니다. 그러니까 도심 하나만 보고 모든 지가·통근을 설명하려 하면 금방 틀어져요.",cite:"Duranton, G. & Puga, D. (2015), Urban Land Use, Handbook of Regional and Urban Economics, Vol. 5, 467–560. DOI 10.1016/B978-0-444-59517-1.00008-8",note:"도시 토지이용 이론과 실증을 종합한 핸드북 장. 현 도시의 다중 중심지 구조를 해석하는 참고틀이지 계수 출처는 아니다."},
-  ewingmeta:{kind:"메타분석·교재",field:"urban",title:"형태 하나보다 접근성 묶음",short:"Ewing과 Cervero의 메타분석에선 개별 도시형태 변수 하나의 효과는 대체로 크지 않았고, VMT는 목적지 접근성과 가로망 설계에 더 강하게 연결됐습니다. 밀도 하나 올렸다고 차가 사라질 거라고 기대하면 과장이에요. 여러 요소가 같이 움직여야 합니다.",cite:"Ewing, R. & Cervero, R. (2010), Travel and the Built Environment: A Meta-Analysis, Journal of the American Planning Association 76(3), 265–294. DOI 10.1080/01944361003766766",note:"2009년까지의 연구를 종합한 메타분석. 개별 변수 효과는 대체로 비탄력적이며 자기선택 문제도 고려했다. 현재 도시의 인과효과를 직접 보장하지 않는다."},
-  fifteen:{kind:"현대 계획개념",field:"urban",title:"15분은 마법 숫자가 아니라 근접성 원칙",short:"15분 도시 논의의 핵심은 '정확히 15분이면 성공'이라는 점수놀이보다 일상 목적지를 가까운 생활권 안에 두는 근접성 원칙이에요. 현재 생활권 지수도 임계값 하나보다 서비스·혼합·보행·대중교통을 같이 봐야 맞습니다.",cite:"Moreno, C., Allam, Z., Chabaud, D., Gall, C. & Pratlong, F. (2021), Introducing the ‘15-Minute City’, Smart Cities 4(1), 93–111. DOI 10.3390/smartcities4010006",note:"근접성 중심의 계획 프레임. '15분' 자체가 보편적 인과 임계값으로 실증된 것은 아니며 도시 규모와 기능에 따라 해석이 달라진다."},
+  ewingmeta:{kind:"메타분석·교재",field:"urban",title:"형태 하나보다 접근성 묶음",short:"Ewing과 Cervero의 메타분석에선 개별 도시형태 변수 하나의 효과는 대체로 크지 않았고, VKT는 목적지 접근성과 가로망 설계에 더 강하게 연결됐습니다. 밀도 하나 올렸다고 차가 사라질 거라고 기대하면 과장이에요. 여러 요소가 같이 움직여야 합니다.",cite:"Ewing, R. & Cervero, R. (2010), Travel and the Built Environment: A Meta-Analysis, Journal of the American Planning Association 76(3), 265–294. DOI 10.1080/01944361003766766",note:"2009년까지의 연구를 종합한 메타분석. 개별 변수 효과는 대체로 비탄력적이며 자기선택 문제도 고려했다. 현재 도시의 인과효과를 직접 보장하지 않는다."},
+  fifteen:{kind:"현대 계획개념",field:"urban",title:"15분은 마법 숫자가 아니라 근접성 원칙",short:"15분 도시 논의의 핵심은 '정확히 15분이면 성공'이라는 점수놀이보다 일상 목적지를 가까운 생활권 안에 두는 근접성 원칙이에요. 현재 생활권 복합지수도 임계값 하나보다 서비스·혼합·보행·대중교통을 같이 봐야 맞습니다.",cite:"Moreno, C., Allam, Z., Chabaud, D., Gall, C. & Pratlong, F. (2021), Introducing the ‘15-Minute City’, Smart Cities 4(1), 93–111. DOI 10.3390/smartcities4010006",note:"근접성 중심의 계획 프레임. '15분' 자체가 보편적 인과 임계값으로 실증된 것은 아니며 도시 규모와 기능에 따라 해석이 달라진다."},
   southworth:{kind:"도시설계·교재",field:"urban",title:"보행성은 거리보다 네트워크 품질",short:"보행도시는 반경만 그린다고 생기지 않아요. Southworth가 정리한 보행성 논의처럼 연결성, 연속성, 안전성, 목적지와의 관계가 같이 중요합니다. 직선거리 600m인데 길이 끊기면 실제 생활권은 훨씬 멀죠.",cite:"Southworth, M. (2005), Designing the Walkable City, Journal of Urban Planning and Development 131(4), 246–257. DOI 10.1061/(ASCE)0733-9488(2005)131:4(246)",note:"보행도시 설계의 이론·설계 기준을 정리한 논문. 현 분석모형은 연결성과 네트워크 거리는 반영하지만 보도폭·쾌적성·범죄·미기후 등은 단순화한다."},
   jacobs:{kind:"계획고전·일반론",field:"urban",title:"혼합·짧은 블록·다양성",short:"Jane Jacobs가 강조했던 건 한 가지 용도만 반듯하게 분리하는 도시보다 여러 주용도가 섞이고, 블록이 짧고, 시간대가 다른 활동이 겹치는 도시의 생활력이었어요. 이건 계수 하나가 아니라 '도시를 어떻게 읽을 것인가'에 가까운 고전적 주장입니다.",cite:"Jacobs, J. (1961), The Death and Life of Great American Cities, Random House.",note:"도시계획의 영향력 있는 비판적 고전. 혼합용도·짧은 블록·도시 다양성에 대한 규범적·관찰적 논의이며, 현대의 특정 정책효과를 정량 보장하는 인과연구는 아니다."},
   perry:{kind:"계획사·교재",field:"urban",title:"근린주구론의 장점과 한계",short:"Perry의 근린주구론은 학교·공원·일상 서비스를 보행 가능한 생활단위에 묶고 통과교통을 바깥 간선으로 보내려 했습니다. 지금 보면 인간척도라는 장점도 있지만 자동차시대·가족모형을 전제한 한계도 커요. 역사적 원리로만 참고하는 게 맞습니다.",cite:"Perry, C.A. (1929), The Neighborhood Unit, Regional Survey of New York and Its Environs, Vol. VII.",note:"20세기 계획사에서 매우 영향력 있는 근린단위 개념. 현대의 다양한 가구·혼합용도·대중교통 지향 계획과 충돌하는 요소도 있어 규범적 정답으로 쓰지 않는다."},
   venables:{kind:"도시경제·사업평가",field:"transport",title:"교통편익은 시간절감만이 아닐 수 있다",short:"Venables 같은 도시경제 연구는 교통개선이 사람과 기업의 접근성을 높여 집적경제와 생산성까지 바꿀 수 있다고 봅니다. 다만 우리 모형은 그 생산성 외부효과를 정교하게 계산하지 않으니, 없는 편익을 숫자로 꾸며 넣으면 안 돼요. '모형 밖 잠재효과'로만 표시하는 게 정직합니다.",cite:"Venables, A.J. (2007), Evaluating Urban Transport Improvements: Cost-Benefit Analysis in the Presence of Agglomeration and Income Taxation, Journal of Transport Economics and Policy 41(2), 173–188.",note:"집적경제를 교통사업 평가에 포함하는 이론적 접근. 현 도시모형은 생산성·임금의 집적외부효과를 직접 추정하지 않으므로 참고사항으로만 사용한다."},
   diversitygrowth:{kind:"도시경제·실증",field:"management",title:"도시 다양성과 지식외부효과",short:"도시경제 쪽에는 서로 다른 산업이 가까이 있을 때 지식이 섞이고 성장에 도움이 될 수 있다는 Jacobs형 외부효과 논의도 있어요. Glaeser 등은 미국 도시 산업자료에서 지역 내 경쟁과 도시의 다양성이 고용성장과 연관된 결과를 보고했습니다. 하지만 현 도시모형에는 지식확산 메커니즘이 없으니 MX에 성장보너스를 임의로 얹으면 안 됩니다.",cite:"Glaeser, E.L., Kallal, H.D., Scheinkman, J.A. & Shleifer, A. (1992), Growth in Cities, Journal of Political Economy 100(6), 1126–1152. DOI 10.1086/261856",note:"미국 170개 도시의 산업성장 경험을 이용한 실증연구. 도시 다양성과 성장의 관계를 참고할 수 있으나 현 도시모형에 존재하지 않는 지식외부효과를 임의의 보너스로 추가하는 근거는 아니다."},
-  filtering:{kind:"주택시장·실증",field:"housing",title:"주택 필터링은 느린 시간축",short:"주택정책 교재에서 자주 나오는 '필터링'은 새 주택이 시간이 지나면서 더 낮은 소득계층으로 이동하는 과정이에요. Rosenthal의 미국 자료에선 임대주택에서 이런 이동이 실제로 관측됐습니다. 다만 이건 몇 달짜리 정책효과가 아니라 건물 연령과 시장주기가 얽힌 긴 시간축입니다.",cite:"Rosenthal, S.S. (2014), Are Private Markets and Filtering a Viable Source of Low-Income Housing? American Economic Review 104(2), 687–706. DOI 10.1257/aer.104.2.687",note:"1985–2011 미국 주택자료의 필터링 추정. 신규공급이 즉시 저소득 감당주택으로 바뀐다는 뜻이 아니며 지역별 가격상승과 점유형태에 따라 속도가 다르다."}
+  filtering:{kind:"주택시장·실증",field:"housing",title:"주택 필터링은 느린 시간축",short:"주택정책 교재에서 자주 나오는 '필터링'은 새 주택이 시간이 지나면서 더 낮은 소득계층으로 이동하는 과정이에요. Rosenthal의 미국 자료에선 임대주택에서 이런 이동이 실제로 관측됐습니다. 다만 이건 몇 달짜리 정책효과가 아니라 건물 연령과 시장주기가 얽힌 긴 시간축입니다.",cite:"Rosenthal, S.S. (2014), Are Private Markets and Filtering a Viable Source of Low-Income Housing? American Economic Review 104(2), 687–706. DOI 10.1257/aer.104.2.687",note:"1985–2011 미국 주택자료의 필터링 추정. 신규공급이 즉시 저소득층 부담가능주택으로 바뀐다는 뜻이 아니며 지역별 가격상승과 점유형태에 따라 속도가 다르다."}
 };
 function councilPlanningTheory(s){
   const x=s.x,items=[];
@@ -17414,7 +17414,7 @@ function councilForecast(s){
     rows.push({field:"transport",icon:"🚦",who:"교통정책 자문관",horizon:"6개월",level:Math.abs(t.delta)>.7?"주의":"관찰",tx:`최근 통행시간 추세는 '${t.label}'입니다. 다른 조건이 크게 바뀌지 않는다는 전제에서 ${Math.abs(t.delta)>.25?`6개월 뒤 평균 통행이 지금 ${x.avgT.toFixed(1)}분보다 ${t.delta>0?"더 길어질":"짧아질"} 가능성이 있습니다`:`큰 변화 없이 현재 수준 근처에서 움직일 가능성이 큽니다`}. 이건 선형 외삽이 아니라 최근 추세를 이용한 조기경보라 신뢰도는 ${t.conf}입니다.`,detail:`최근 ${Math.min(12,history.length)}개월 통행시간 이력과 현재 V/C ${x.vc.toFixed(2)}를 이용한 모형 내부 전망. 참고값 ${projected.toFixed(1)}분은 정책·사업·수요변화가 생기면 즉시 폐기해야 한다.`});
   }
   if(x.aff<.3||x.rR>.3||x.marketGap>.15){
-    rows.push({field:"housing",icon:"🏠",who:"주거·토지 자문관",horizon:"12개월",level:"주의",tx:`주택 부족률 ${Math.round(x.rR*100)}%, 감당가능 재고 ${Math.round(x.aff*100)}%, 토지시장 격차 ${Math.round(x.marketGap*100)}%를 같이 보면 주거압력이 1년 안에 더 커질 위험이 있습니다. 공급과 보호 중 하나만 건드리면 다른 쪽 반작용이 남을 가능성이 커요.`,detail:"현재 주택부족·부담가능재고·토지시장 신호를 결합한 조건부 위험판정. 가격을 직접 예측하는 통계모형은 아니다."});
+    rows.push({field:"housing",icon:"🏠",who:"주거·토지 자문관",horizon:"12개월",level:"주의",tx:`주택 부족률 ${Math.round(x.rR*100)}%, 부담가능주택 재고 ${Math.round(x.aff*100)}%, 토지시장 격차 ${Math.round(x.marketGap*100)}%를 같이 보면 주거압력이 1년 안에 더 커질 위험이 있습니다. 공급과 보호 중 하나만 건드리면 다른 쪽 반작용이 남을 가능성이 커요.`,detail:"현재 주택부족·부담가능재고·토지시장 신호를 결합한 조건부 위험판정. 가격을 직접 예측하는 통계모형은 아니다."});
   }else{
     rows.push({field:"housing",icon:"🏠",who:"주거·토지 자문관",horizon:"12개월",level:"관찰",tx:`지금 주거신호만 놓고 보면 1년 내 급격한 붕괴를 경고할 정도는 아닙니다. 다만 교통개통이나 대규모 재개발이 들어오면 입지가격과 공급반응이 동시에 바뀔 수 있으니 그때는 전망을 다시 계산해야 해요.`,detail:"현 상태 유지 가정의 정성 전망. 신규 교통·재개발은 구조적 단절점으로 취급한다."});
   }
@@ -17454,20 +17454,20 @@ function councilCompromise(s){
   if(x.life<.55)steps.push(`생활권 개선: MX·생활서비스·보행 관통로를 교통망 투자와 묶어 목적지 접근거리 자체를 줄인다.`);
   if(x.vc>.72||x.avgT>30)steps.push(`회랑 투자비교: 혼잡 회랑에서 도로 확폭·BRT·철도를 동일 OD의 사람·분 절감과 반복비용으로 비교하여 우선사업을 정한다.`);
   if(x.balR<-.1)steps.push(`재정 게이트: 월 수지 ${(x.balR*100).toFixed(0)}%를 고려해 대형사업을 단계화하고, 사후효과가 확인된 경우에만 다음 단계를 연다.`);
-  else steps.push(`사후검증: 우선사업·정책 시행 후 수렴과 균형이 다시 안정될 때까지 기다린 뒤 다음 대형개입을 결정한다.`);
+  else steps.push(`사후검증: 우선사업·정책 시행 후 Assignment gap과 OD balancing error가 다시 안정될 때까지 기다린 뒤 다음 대형개입을 결정한다.`);
   return {title:`${top.name}의 문제의식과 ${second.name}의 제약을 함께 반영`,steps:steps.slice(0,5)};
 }
 function councilChairReport(s,cp){
   const x=s.x,top=s.fields[0],second=s.fields[1],other=s.fields.slice(2).map(q=>q.name).join(" · ");
   const issue=s.fields.slice(0,3).map(q=>`${q.name}: ${q.rec}`).join(" / "),fc=councilForecast(s),evs=councilEvidence(s),ths=councilPlanningTheory(s);
   return `<div class="chairReport"><div class="crHead"><div class="crAv">⚖️</div><div><b>회의 의장 종합보고서</b><span>${fmtMonthLong(s.month)} · 현 상태 스냅샷 기준</span></div></div>`+
-    `<h4>1. 현황 요약</h4><p>평균 통행시간은 <b>${x.avgT?x.avgT.toFixed(1)+"분":"–"}</b>, 승용차 분담은 <b>${Math.round(s.car*100)}%</b>, 15분 대중교통 접근은 <b>${Math.round(x.transitCover*100)}%</b>이다. 생활권 지수는 <b>${Math.round(x.life*100)}%</b>, 저소득층 감당가능 주택은 <b>${Math.round(x.aff*100)}%</b>이며, 월 수지는 <b>${s.bal>=0?"+":"−"}₩${fmt(Math.abs(s.bal))}</b>이다. 도로 평균 V/C는 ${x.vc.toFixed(2)}, 시설 평균상태는 ${x.cond.toFixed(0)}/100, 사용중지 시설은 ${x.closed}칸이다.</p>`+
+    `<h4>1. 현황 요약</h4><p>평균 통행시간은 <b>${x.avgT?x.avgT.toFixed(1)+"분":"–"}</b>, 승용차 분담은 <b>${Math.round(s.car*100)}%</b>, 15-minute transit accessibility은 <b>${Math.round(x.transitCover*100)}%</b>이다. 생활권 복합지수는 <b>${Math.round(x.life*100)}%</b>, 저소득층 부담가능 주택은 <b>${Math.round(x.aff*100)}%</b>이며, 월 수지는 <b>${s.bal>=0?"+":"−"}₩${fmt(Math.abs(s.bal))}</b>이다. 도로 평균 V/C는 ${x.vc.toFixed(2)}, 시설 평균상태는 ${x.cond.toFixed(0)}/100, 사용중지 시설은 ${x.closed}칸이다.</p>`+
     `<h4>2. 주요 쟁점</h4><p>현재 가장 높은 우선도를 제기한 분야는 <b>${escHtml(top.name)}</b>이며, 다음 제약은 <b>${escHtml(second.name)}</b>에서 제기되었다. 다른 참여분야는 ${escHtml(other||"없음")}이다. 핵심 제안은 ${escHtml(issue)}로 요약된다.</p>`+
     `<h4>3. 토론에서 확인된 충돌</h4><p>회의에서는 이동효율과 재정지속성, 접근성 개선과 주거비 상승위험, 장기 공급과 단기 취약가구 보호가 서로 충돌하였다. 어느 한 분야의 지표만 최적화하면 다른 분야의 비용이 커질 수 있으므로 단일 대책의 일괄 집행은 적절하지 않다.</p>`+
     `<h4>4. 절충안</h4><p><b>${escHtml(cp.title)}</b></p><ol>${cp.steps.map(z=>`<li>${escHtml(z)}</li>`).join("")}</ol>`+
     `<h4>5. 조건부 미래전망</h4><ul>${fc.map(z=>`<li><b>${escHtml(z.horizon)} · ${escHtml(z.level)}</b> — ${escHtml(z.tx)}<br><span style="opacity:.75">근거: ${escHtml(z.detail)}</span></li>`).join("")||"<li>현재 이력으로는 별도 전망을 만들 만큼의 신호가 부족하다.</li>"}</ul>`+
     `<h4>6. 정책결정권자 판단사항</h4><div class="crDecision"><b>시정 운영 원칙:</b> 자동계획관은 도로·생활권·교통망·재개발 등 도시의 일상적인 실행을 담당한다. 정책결정권자는 도시 리포트, 실험·분석실, 자문관회의, 도시 연대기, 계획관 주요판단을 종합해 <b>정책 레버와 장기 방향</b>을 결정한다. 따라서 본 보고서는 개별 사업을 자동 승인하지 않으며, 최종 정책 선택은 정책결정권자의 판단사항으로 남긴다.</div>`+
-    `<h4>7. 사후검증 조건</h4><p>정책 또는 대형사업을 시행한 뒤에는 교통배정 수렴과 Furness 균형이 다시 안정되는지 확인하고, 정책 장부의 관찰기간이 지난 뒤 전후 변화를 검토한다. 원인을 분리해야 할 경우 실험·분석실에서 동일 기준시점 A/B 비교를 사용한다.</p>`+
+    `<h4>7. 사후검증 조건</h4><p>정책 또는 대형사업을 시행한 뒤에는 교통배정 수렴과 Furness/IPF balancing이 다시 안정되는지 확인하고, 정책 장부의 관찰기간이 지난 뒤 전후 변화를 검토한다. 원인을 분리해야 할 경우 실험·분석실에서 동일 기준시점 A/B 비교를 사용한다.</p>`+
     `<h4>8. 외부 연구·실제 사례 참고</h4><div class="crRefs"><ul>${councilEvidenceRefs(evs)}</ul><div class="crCaution"><b>해석주의.</b> 외부 연구와 실제 도시 사례는 정책의 방향성·상충관계·가능한 부작용을 참고하기 위한 자료다. 현 도시모형의 계수나 효과크기를 이 논문들에 맞춰 보정했다는 뜻은 아니며, 현재 도시의 결과는 내부 실험·분석 절차로 별도 검증해야 한다.</div></div>`+
     `<h4>9. 도시계획 이론·교재 일반론</h4><div class="crRefs"><ul>${councilTheoryRefs(ths)}</ul><div class="crCaution"><b>이론의 용도.</b> 아래 고전·교재·핸드북은 도시를 읽는 개념틀이다. 실증논문보다 더 일반적이거나 규범적인 항목도 있으므로 정책효과의 증명으로 사용하지 않는다. 특히 현 모형에 구현되지 않은 집적경제·범죄·보행쾌적성·가구이질성 같은 메커니즘은 '모형 밖 변수'로 남긴다.</div></div>`+
     `<h4>10. 직전 회의 대비</h4>${councilHistoryReport(s)}</div>`;
@@ -17475,7 +17475,7 @@ function councilChairReport(s,cp){
 function renderCouncilSnapshot(s){
   const state=$("councilState"),body=$("councilBody");if(!state||!body)return;
   const x=s.x;
-  state.innerHTML=`<div class="cMetric"><span>평균 통행</span><b>${x.avgT?x.avgT.toFixed(1)+"분":"–"}</b></div><div class="cMetric"><span>승용차 분담</span><b>${Math.round(s.car*100)}%</b></div><div class="cMetric"><span>대중교통 접근</span><b>${Math.round(x.transitCover*100)}%</b></div><div class="cMetric"><span>생활권</span><b>${Math.round(x.life*100)}%</b></div><div class="cMetric"><span>저소득 감당주택</span><b>${Math.round(x.aff*100)}%</b></div><div class="cMetric"><span>월 수지</span><b>${s.bal>=0?"+":"−"}₩${fmt(Math.abs(s.bal))}</b></div><div class="cMetric"><span>V/C</span><b>${x.vc.toFixed(2)}</b></div>`;
+  state.innerHTML=`<div class="cMetric"><span>평균 통행</span><b>${x.avgT?x.avgT.toFixed(1)+"분":"–"}</b></div><div class="cMetric"><span>승용차 분담</span><b>${Math.round(s.car*100)}%</b></div><div class="cMetric"><span>대중교통 접근</span><b>${Math.round(x.transitCover*100)}%</b></div><div class="cMetric"><span>생활권</span><b>${Math.round(x.life*100)}%</b></div><div class="cMetric"><span>저소득층 부담가능주택</span><b>${Math.round(x.aff*100)}%</b></div><div class="cMetric"><span>월 수지</span><b>${s.bal>=0?"+":"−"}₩${fmt(Math.abs(s.bal))}</b></div><div class="cMetric"><span>V/C</span><b>${x.vc.toFixed(2)}</b></div>`;
   const opinions=s.fields.map(q=>`<div class="cPost"><div class="cAv">${q.icon}</div><div class="cBd"><div class="cHd"><b>${escHtml(q.name)}</b>${q.urgency} · 우선도 ${Math.round(q.score)}</div><div class="cQuote">${escHtml(councilOpinionSpeech(q,s))}</div><div class="cMeta">${escHtml(councilPersonaMeta(q))}</div></div></div>`).join("");
   const rebRows=councilRebuttals(s),reb=rebRows.map(q=>{const tx=councilVoice(q.from,councilPairRecall(q.from,q.to)+q.tx,s,"rebuttal");return `<div class="cPost rebut"><div class="cAv">${q.from.icon}</div><div class="cBd"><div class="cHd"><b>${escHtml(q.from.name)}</b>↪ ${escHtml(q.to.name)}</div><div class="cQuote">${escHtml(tx)}</div></div></div>`;}).join("");
   const agree=councilAgreement(s).map(q=>`<div class="cPost"><div class="cAv">${q.a.icon}</div><div class="cBd"><div class="cHd"><b>${escHtml(q.a.name)}</b>✓ ${escHtml(q.b.name)} 일부 동의</div><div class="cQuote">${escHtml(councilVoice(q.a,q.tx,s,"agreement"))}</div></div></div>`).join("");
@@ -17516,13 +17516,13 @@ function renderPolicyCockpit(){
   setupPolicyUI();
   const bal=(S.rev||0)-(S.exp||0),car=Math.max(0,1-(S.transit||0)-(S.busSh||0)-(S.walkSh||0));
   $("policyPulse").innerHTML=`<div class="pcard"><span>월 수지</span><b style="color:${bal>=0?"#9fc2d7":"#dda05f"}">${bal>=0?"+":""}₩${fmt(Math.abs(bal))}</b></div>
-    <div class="pcard"><span>저소득 감당주택</span><b>${Math.round((S.affLowShare||0)*100)}%</b></div>
+    <div class="pcard"><span>저소득층 부담가능주택</span><b>${Math.round((S.affLowShare||0)*100)}%</b></div>
     <div class="pcard"><span>평균 통행</span><b>${S.avgT?S.avgT.toFixed(1)+"분":"–"}</b></div>
     <div class="pcard"><span>승용차 분담</span><b>${Math.round(car*100)}%</b></div>`;
   const tabs=[["all","전체"],["transport","교통"],["housing","주거·토지"],["welfare","복지"],["management","유지관리"]];
   $("policyTabs").innerHTML=tabs.map(([k,n])=>`<span class="ptab${policyTab===k?" on":""}" data-ptab="${k}">${n}</span>`).join("");
   for(const sec of document.querySelectorAll("#policy .policyGroup"))sec.style.display=(policyTab==="all"||sec.dataset.pcat===policyTab)?"":"none";
-  const act=activePolicyText();$("policyActiveSummary").innerHTML=`<b>정식 정책 레버 ${Object.keys(POLICY_META).length}개</b> · ${act.length?act.map(escHtml).join(" · "):"기본 설정"}<br><span style="opacity:.72">평상시 장부는 <b>변화 관찰</b>만 합니다. 원인 추정은 🔬 분석실에서 같은 기준시점 A/B를 비교할 때만 별도로 표시합니다.</span>`;
+  const act=activePolicyText();$("policyActiveSummary").innerHTML=`<b>정식 정책 레버 ${Object.keys(POLICY_META).length}개</b> · ${act.length?act.map(escHtml).join(" · "):"기본 설정"}<br><span style="opacity:.72">평상시 장부는 <b>변화 관찰</b>만 합니다. 원인 추정은 🔬 분석실에서 같은 기준시점의 paired counterfactual simulation를 비교할 때만 별도로 표시합니다.</span>`;
   renderPolicyAdvisors();
   const blocked=plannerDecisions.filter(q=>plannerNormalizeDecision(q).status==="blocked").length;
   $("policyBlockedBanner").innerHTML=blocked?`⛔ <b>정책제약 보류 기록 ${blocked}건</b> · 과거 포함 · 눌러서 이유 보기`:`✓ 정책제약 보류 기록 없음`;
@@ -17550,18 +17550,18 @@ const EXP_METRIC={
   transit:{nm:"철도 분담",unit:"%",fx:1,good:1,get:()=>S.transit*100},
   bus:{nm:"버스 분담",unit:"%",fx:1,good:1,get:()=>S.busSh*100},
   walk:{nm:"도보 분담",unit:"%",fx:1,good:1,get:()=>S.walkSh*100},
-  vmt:{nm:"차량 주행거리",unit:" 대·km",fx:0,good:-1,get:()=>S.vmt},
+  vmt:{nm:"PCE-weighted VKT",unit:" PCE·km",fx:0,good:-1,get:()=>S.vmt},
   vc:{nm:"평균 V/C",unit:"",fx:2,good:-1,get:()=>S.avgVC},
   life:{nm:"15분 생활권",unit:"%",fx:1,good:1,get:()=>S.life15*100},
-  urban:{nm:"보행생활권 지수",unit:"%",fx:1,good:1,get:()=>S.urbanism*100},
-  press:{nm:"생활권 압력",unit:"%",fx:1,good:-1,get:()=>S.lifePress*100},
+  urban:{nm:"생활권 복합지수 (game-defined)",unit:"%",fx:1,good:1,get:()=>S.urbanism*100},
+  press:{nm:"생활권 결핍지수",unit:"%",fx:1,good:-1,get:()=>S.lifePress*100},
   burden:{nm:"주거비 부담",unit:"배",fx:2,good:-1,get:()=>S.burden||0},
   lowshare:{nm:"저소득 가구",unit:"%",fx:1,good:0,get:()=>S.lowShare*100},highshare:{nm:"고소득 가구",unit:"%",fx:1,good:0,get:()=>S.highShare*100},burdenlow:{nm:"저소득 주거비 부담",unit:"배",fx:2,good:-1,get:()=>S.houseBurdenLo||0},
   crowd:{nm:"과밀 동거",unit:"명",fx:0,good:-1,get:()=>S.crowdPop||0},
   waiting:{nm:"미정착 인구",unit:"명",fx:0,good:-1,get:()=>S.waiting||0},
   informal:{nm:"비공식 주거",unit:"명",fx:0,good:-1,get:()=>S.informalPop||0},
   rough:{nm:"불안정 거처",unit:"명",fx:0,good:-1,get:()=>S.roughPop||0},
-  afflow:{nm:"저소득 감당가능 재고",unit:"%",fx:1,good:1,get:()=>100*(S.affLowShare||0)},
+  afflow:{nm:"저소득층 부담가능주택 재고",unit:"%",fx:1,good:1,get:()=>100*(S.affLowShare||0)},
   svc:{nm:"경찰 도달시간",unit:"분",fx:1,good:-1,get:()=>S.svcAvg||0},
   bal:{nm:"월 수지",unit:"",fx:0,good:1,get:()=>S.rev-S.exp},
   pop:{nm:"인구",unit:"명",fx:0,good:0,get:()=>S.pop},
@@ -17699,7 +17699,7 @@ function captureABBranch(kind){
   const rec={months,metrics:snapMetrics(),controls:expControlSnapshot(),gap:S.gap,pop:S.pop,jobs:S.jobs,policyEvents:expPolicyEvents().map(q=>({seq:q.seq,id:q.id,nm:q.nm,before:q.before,after:q.after})),policyAll:policyAllMetricSnapshots(),plannerCount:Math.max(0,plannerDecisionSeq-(expBase.plannerSeq||0)),rng:simRnd.state()};
   expAB[kind]=rec;
   if(kind==="control"){expAB.treatment=null;renderLab();flash(`A 무개입안 ${months}개월 결과 저장 — 이제 기준으로 복귀한 뒤 정책/시설을 바꾸세요`);return;}
-  attachControlledExperimentToPolicy();renderLab();if(policyOpen)renderPolicyCockpit();flash(`🧪 A/B 반사실 비교 저장 — 기준안 대비 개입안 차이를 확인하세요`);
+  attachControlledExperimentToPolicy();renderLab();if(policyOpen)renderPolicyCockpit();flash(`🧪 paired counterfactual simulation 저장 — 기준안 대비 개입안 차이를 확인하세요`);
 }
 function abValidity(){
   if(!expBase||!expAB.control||!expAB.treatment)return {valid:false,why:"A/B 두 분기가 아직 저장되지 않았습니다."};
@@ -17722,7 +17722,7 @@ function attachControlledExperimentToPolicy(){
 }
 function expABHTML(r){
   if(!expBase)return "";
-  let h=`<h4>5 · 같은 도시를 둘로 나눈 A/B 반사실 비교</h4><div class="tip">A는 <b>정책을 바꾸지 않은 미래</b>, B는 기준으로 되돌아가 <b>개입한 미래</b>입니다. 둘은 같은 실험 체크포인트·같은 관찰기간에서 시작하며, 배정 초기상태와 난수열도 고정합니다. 결과는 현실의 인과효과가 아니라 <b>이 모형의 단일 시드 반사실 추정</b>입니다. 같은 결과가 다른 도시 시드에서도 반복되는지는 별도의 강건성 질문입니다.</div>`;
+  let h=`<h4>5 · 같은 도시를 둘로 나눈 paired counterfactual simulation</h4><div class="tip">A는 <b>정책을 바꾸지 않은 미래</b>, B는 기준으로 되돌아가 <b>개입한 미래</b>입니다. 둘은 같은 실험 체크포인트·같은 관찰기간에서 시작하며, 배정 초기상태와 난수열도 고정합니다. 결과는 현실의 인과효과가 아니라 <b>이 모형의 단일 시드 반사실 추정</b>입니다. 같은 결과가 다른 도시 시드에서도 반복되는지는 별도의 강건성 질문입니다.</div>`;
   h+=`<div class="labBtns"><div class="btn${expAB.control?" act":""}" id="labABControl">A 무개입 결과 저장</div><div class="btn${expAB.treatment?" act":""}" id="labABTreatment">B 개입안 결과 저장</div></div>`;
   if(expAB.control)h+=`<div class="labStatus good">A 기준안 · ${expAB.control.months}개월 · 수렴 ${expAB.control.gap>=0?(expAB.control.gap*100).toFixed(1)+"%":"계산 중"}${expAB.control.plannerCount?` · 자동계획 ${expAB.control.plannerCount}건`:""}</div>`;
   if(expAB.control&&expAB.treatment){
@@ -17753,10 +17753,10 @@ function expQuality(){
 }
 function expCausalHTML(){
   const ch=expChanged(),ks=new Set(ch.map(x=>x.k)),a=[];
-  if(ks.has("toll"))a.push("혼잡통행료 → 승용차 일반화비용 → 로짓 수단선택 → 자동차 분담·VMT·혼잡");
+  if(ks.has("toll"))a.push("혼잡통행료 → 승용차 일반화비용 → 로짓 수단선택 → 자동차 분담·VKT·혼잡");
   if(ks.has("fare")||ks.has("xdisc"))a.push("운임·환승할인 → 대중교통 일반화비용 → 철도/버스 선택·환승 → 분담률과 운임수입");
   if(ks.has("fuel"))a.push("연료비 → 승용차 generalized cost → 오늘의 수단선택 + 차 보유의 logsum 편익 → 장기 차량보유 목표");
-  if(ks.has("cartax"))a.push("자동차세·보험·감가 → 월 고정 보유비 → 장기 차량보유 목표 → 약 2년에 걸친 보유재고 → captive/choice 비율 → 자동차 분담·VMT");
+  if(ks.has("cartax"))a.push("자동차세·보험·감가 → 월 고정 보유비 → 장기 차량보유 목표 → 약 2년에 걸친 보유재고 → captive/choice 비율 → 자동차 분담·VKT");
   if(ks.has("tod")||ks.has("walk")||ks.has("rail")||ks.has("bus"))a.push("대중교통·보행·TOD 주차조건 → 차 없음 대안의 generalized cost → 차 보유편익 변화 → 장기 보유재고");
   if(expRecipe==="firms")a.push("소비·외부시장·관광수요 → 업종별 필요고용 → 사업공간 수용능력과 비교 → 기업 입주율 → 실제 고용·공실·감원 → 통근·이주·지대");
   if(ks.has("road")&&expRecipe==="sprawl")a.push("외곽 도로 연장 → 자동차 접근 가능한 토지 증가 → 개발입지 변화 → 개발반경·비연속 개발 → 필요한 배전·상수도 경로 길이");
@@ -17770,7 +17770,7 @@ function expCausalHTML(){
   if(ks.has("rcap"))a.push("임대료 규제 → R과 MX의 주거 몫 순입찰 감소 → 다른 용도와의 경쟁순위/전환압력 변화 · 동시에 실현지대·주거부담·재개발 갭 변화");
   if(ks.has("pub")||ks.has("bank"))a.push("공공임대·토지비축 → 잠재 시장가격은 계속 관찰 → 해당 필지는 자동 시장전환에서 제외 → 공공소유가 가격신호와 실제 토지이용을 분리");
   if(ks.has("tod")||ks.has("contrib"))a.push("TOD·공공기여 → 허용 개발강도·주차조건·사업성 → 용도별 입찰지대 → 시장전환 압력");
-  if(ks.has("school")||ks.has("clinic")||ks.has("civic"))a.push("생활시설 → 보행 네트워크 서비스 도달 → 생활권 지수 → 주거 입지·성장");
+  if(ks.has("school")||ks.has("clinic")||ks.has("civic"))a.push("생활시설 → 보행 네트워크 서비스 도달 → 15-minute service accessibility → 주거 입지·성장");
   if(ks.has("police"))a.push("경찰서 위치 → 도로망 다익스트라 도달시간 → 서비스 사각지대·입지");
   if(!a.length)return '<div class="tip">개입의 종류가 아직 포착되지 않았습니다. 결과표는 보여도 인과 사슬은 단정하지 않습니다.</div>';
   return a.map(x=>`<div class="labNote">• ${x}</div>`).join("");
@@ -17797,7 +17797,7 @@ const OV_EDU=[
   "기본 도로색이 V/C입니다. 링크 혼잡은 절대값 지도보다 전후 차이를 함께 보세요.",
   "다섯 생활서비스 중 걸어서 닿는 종류 수. 원이 아니라 보행망을 따라 퍼집니다.","Σ 일자리×거리저항의 로그값. 높은 곳은 일자리가 시간상 가깝습니다.","Σ 인구×거리저항의 로그값. 상업·서비스가 사람에게 얼마나 가까운지 읽습니다.",
   "역까지 실제 보행망 시간. 낮을수록 좋고 슈퍼블록·간선 횡단의 우회가 그대로 들어갑니다.","그 위치에서 첨두시에 태어나는 통행. 병목의 원인 위치와 혼잡 위치를 구분할 때 씁니다.","인구+일자리. 밝다고 좋은 것이 아니라 활동이 몰린 곳입니다.","CBD·지역중심·근린중심의 형태적 계층. 숫자 차이 지도 대상은 아닙니다.",
-  "1−보행생활권 지수. 높을수록 서비스·혼합·연결성·대중교통 중 무언가가 모자랍니다.","현재 건물이 실제로 받아내는 지대. 접근성과 개발상태가 함께 반영됩니다.","잠재지대−실현지대의 비율. 높을수록 재개발 압력이 큽니다.","그 땅에 붙어 있는 소득지수. 높낮이를 가치판단으로 읽지 마세요.","실현지대 부담÷지불능력. 높을수록 주거비 압박이 큽니다.","경찰서에서 도로망을 따라 도달하는 시간. 시설 개수보다 위치와 연결성이 핵심입니다.","보행저항의 나쁨 정도. 간선·횡단·가로활동·녹지의 결과입니다.","도로 타일별 V/C. 평균값에 가려진 병목을 찾고, 차이 지도에서 개입 뒤 혼잡이 어디로 옮겨갔는지 봅니다.","전력·상수도·폐기물 중 가장 낮은 국지 공급의 부족률입니다. 0은 충족, 1은 공급원과 단절되었거나 완전히 부족한 상태입니다 (63장).",
+  "1−생활권 복합지수 (game-defined). 높을수록 서비스·혼합·연결성·대중교통 중 무언가가 모자랍니다.","현재 건물이 실제로 받아내는 지대. 접근성과 개발상태가 함께 반영됩니다.","잠재지대−실현지대의 비율. 높을수록 재개발 압력이 큽니다.","그 땅에 붙어 있는 소득지수. 높낮이를 가치판단으로 읽지 마세요.","실현지대 부담÷지불능력. 높을수록 주거비 압박이 큽니다.","경찰서에서 도로망을 따라 도달하는 시간. 시설 개수보다 위치와 연결성이 핵심입니다.","보행저항의 나쁨 정도. 간선·횡단·가로활동·녹지의 결과입니다.","도로 타일별 V/C. 평균값에 가려진 병목을 찾고, 차이 지도에서 개입 뒤 혼잡이 어디로 옮겨갔는지 봅니다.","전력·상수도·폐기물 중 가장 낮은 국지 공급의 부족률입니다. 0은 충족, 1은 공급원과 단절되었거나 완전히 부족한 상태입니다 (63장).",
   "같은 필지에서 정책후 최고 입찰용도와 현재 용도의 순입찰지대 차이입니다. 0이면 현재 용도가 최고입찰자, 1에 가까울수록 다른 용도가 훨씬 더 높은 순입찰을 냅니다. 수동 지정은 압력이 높아도 자동 전환되지 않습니다 (64·65장).",
   "재정정책 전 최고입찰과 정책후 최고 순입찰의 차이입니다. 토지가치세는 모든 용도의 토지 순수익을 같은 비율로 낮춰 상대순위를 원칙적으로 바꾸지 않고, 임대료 규제는 주거와 MX의 주거 몫에만 쐐기를 만듭니다. 공공임대·비축지는 가격은 보여도 자동 시장전환에서 잠깁니다 (65장).",
   "주거 셀 안의 저소득 가구 비율입니다. 69장부터 한 셀은 저·중·고소득 가구의 혼합으로 표현됩니다.",
@@ -17886,7 +17886,7 @@ function modelAudit(){
   add("graph","도로 그래프 유효성",badAdj===0?"pass":"fail","활성 링크는 반드시 유효한 도로노드를 가리켜야 합니다.",`${edgeN} 링크 · 잘못된 인접 ${badAdj}`);
   add("flow","링크 흐름/비용",badFlow===0&&badCost===0?"pass":"fail","교통량과 링크비용은 NaN·음수가 될 수 없습니다.",`흐름 오류 ${badFlow} · 비용 오류 ${badCost}`);
   const gap=S.gap;
-  add("gap","이용자평형 수렴",!finite(gap)||gap<0?"warn":gap<=0.03?"pass":"warn","3% 초과는 고장이 아니라 아직 평형 재탐색 중이라는 뜻입니다.",finite(gap)&&gap>=0?(gap*100).toFixed(2)+"%":"아직 미계산","health");
+  add("gap","이용자평형 수렴",!finite(gap)||gap<0?"warn":gap<=0.03?"pass":"warn","3% 초과는 고장이 아니라 아직 Trip Assignment 재탐색 중이라는 뜻입니다.",finite(gap)&&gap>=0?(gap*100).toFixed(2)+"%":"아직 미계산","health");
   const be=S.balErr;
   add("furness","Furness 도착제약",!finite(be)||be<0?"warn":be<=0.10?"pass":"warn","고정 도시에서 오차가 내려가야 합니다. 성장 중이거나 불러오기 직후 미계산 상태는 관찰값입니다.",finite(be)&&be>=0?(be*100).toFixed(2)+"%":"아직 미계산","health");
   let bidBad=0,grossBad=0,wedgeBad=0,lvtBad=0,marketN=0,protectedN=0;
@@ -18003,18 +18003,18 @@ function modelAudit(){
 function auditTag(t){return `<span class="auditTag ${t.status}">${t.status==="pass"?"PASS":t.status==="warn"?"관찰":"FAIL"}</span>`;}
 function labAuditHTML(){
   const a=auditLast||modelAudit();
-  let h=`<div class="labStatus ${a.fail?"bad":a.warn?"warn":"good"}"><b>MODEL INTEGRITY</b> · PASS ${a.pass} · 관찰 ${a.warn} · FAIL ${a.fail}<br>${a.fail?"불변량이 깨졌습니다. 새 기능보다 원인 추적이 먼저입니다.":a.warn?"핵심 불변량은 유지되지만 수렴·균형 상태를 더 지켜봐야 합니다.":"현재 상태에서 핵심 불변량이 유지됩니다."}</div>`;
+  let h=`<div class="labStatus ${a.fail?"bad":a.warn?"warn":"good"}"><b>MODEL INTEGRITY</b> · PASS ${a.pass} · 관찰 ${a.warn} · FAIL ${a.fail}<br>${a.fail?"불변량이 깨졌습니다. 새 기능보다 원인 추적이 먼저입니다.":a.warn?"핵심 불변량은 유지되지만 Assignment gap과 OD balancing error를 더 지켜봐야 합니다.":"현재 상태에서 핵심 불변량이 유지됩니다."}</div>`;
   h+=`<div class="labBtns"><div class="btn act" id="auditRun">⟳ 지금 감사</div><div class="btn" id="auditBase">📌 감사 기준 저장</div><div class="btn" id="auditBaseClear">기준 지우기</div></div>`;
   if(auditBaseline){
-    const f=a.fingerprint,b=auditBaseline.fingerprint,vals=[["인구",f.pop-b.pop,"명"],["일자리",f.jobs-b.jobs,""],["평균통행",f.avgT-b.avgT,"분"],["VMT",f.vmt-b.vmt,""],["평균 V/C",f.vc-b.vc,""],["차량보유",100*(f.own-b.own),"%p"],["최고입찰",f.bid-b.bid,""]];
+    const f=a.fingerprint,b=auditBaseline.fingerprint,vals=[["인구",f.pop-b.pop,"명"],["일자리",f.jobs-b.jobs,""],["평균통행",f.avgT-b.avgT,"분"],["VKT",f.vmt-b.vmt,""],["평균 V/C",f.vc-b.vc,""],["차량보유",100*(f.own-b.own),"%p"],["최고입찰",f.bid-b.bid,""]];
     h+=`<h4>감사 기준과의 상태 변화</h4><div class="tip">이 표는 <b>고장 판정이 아닙니다.</b> 정책·성장 때문에 바뀔 수 있는 상태값과, 절대 깨지면 안 되는 불변량을 분리합니다.</div>`;
-    for(const [nm,d,u] of vals)h+=`<div class="kv"><span>${nm}</span><span>${d>=0?"+":""}${Number(d).toFixed(nm==="인구"||nm==="일자리"||nm==="VMT"?0:2)}${u}</span></div>`;
+    for(const [nm,d,u] of vals)h+=`<div class="kv"><span>${nm}</span><span>${d>=0?"+":""}${Number(d).toFixed(nm==="인구"||nm==="일자리"||nm==="VKT"?0:2)}${u}</span></div>`;
   }
   h+=`<h4>절대 깨지면 안 되는 계약</h4>`;
   for(const t of a.tests.filter(x=>x.kind==="contract"))h+=`<div class="auditRow"><div><div class="nm">${t.nm}</div><div class="why">${t.why}${t.detail?`<br><b>${t.detail}</b>`:""}</div></div>${auditTag(t)}</div>`;
   h+=`<h4>상태를 보고 판단하는 항목</h4>`;
   for(const t of a.tests.filter(x=>x.kind==="health"))h+=`<div class="auditRow"><div><div class="nm">${t.nm}</div><div class="why">${t.why}${t.detail?`<br><b>${t.detail}</b>`:""}</div></div>${auditTag(t)}</div>`;
-  h+=`<div class="labCard"><b>왜 PASS와 ‘관찰’을 나눴나</b><div class="sm">인구가 사라지거나 최고입찰보다 현재입찰이 큰 것은 언제나 버그입니다. 반면 relative gap 5%는 도로를 막 바꾼 직후라면 정상입니다. <b>구조 불변량과 평형 상태를 같은 실패로 취급하지 않습니다.</b></div></div>`;return h;
+  h+=`<div class="labCard"><b>왜 PASS와 ‘관찰’을 나눴나</b><div class="sm">인구가 사라지거나 최고입찰보다 현재입찰이 큰 것은 언제나 버그입니다. 반면 assignment gap 5%는 도로를 막 바꾼 직후라면 정상입니다. <b>구조 불변량과 평형 상태를 같은 실패로 취급하지 않습니다.</b></div></div>`;return h;
 }
 function labMapHTML(){
   let h='<div class="tip">절대 지도는 <b>상태</b>, 차이 지도는 <b>기준 시점 대비 변화</b>를 봅니다. 차이 지도 자체는 인과지도가 아닙니다. 차이색은 좋고 나쁨이 아니라 방향만 표시합니다.</div>';
@@ -18028,11 +18028,11 @@ function labLearnHTML(){
   return `<div class="labCard"><b>① 전후변화는 인과효과가 아니다</b><div class="sm">정책 뒤 숫자가 바뀌어도 도시성장·다른 정책·자동계획·외부권 변화가 함께 움직였을 수 있습니다. 정책 콕핏은 그래서 평상시에는 ‘변화 관찰’까지만 말합니다.</div></div>`+
   `<div class="labCard"><b>② 같은 기준시점에서 A/B로 나눈다</b><div class="sm">A는 아무 개입 없이 같은 기간 진행하고, 기준으로 되돌린 B에서 정책 하나를 바꿉니다. 기준 저장은 A/B의 배정 초기상태·수요·난수열까지 맞춥니다. B−A는 이 모형의 <b>단일실행 반사실 추정</b>이며, 다른 시드에서도 방향이 반복돼야 강건하다고 말할 수 있습니다.</div></div>`+
   `<div class="labCard"><b>③ 한 번에 하나</b><div class="sm">도로도 넓히고 운임도 낮추고 공원도 지으면 B−A가 달라도 어느 레버 때문인지 분리할 수 없습니다. 개입은 가능한 한 하나씩 시험합니다.</div></div>`+
-  `<div class="labCard"><b>④ 수렴을 기다린다</b><div class="sm">도로·정책을 바꾼 직후 relative gap이 튑니다. 3% 아래가 되기 전 숫자는 평형으로 가는 중간 장면입니다.</div></div>`+
+  `<div class="labCard"><b>④ 수렴을 기다린다</b><div class="sm">도로·정책을 바꾼 직후 assignment gap이 튑니다. 3% 아래가 되기 전 숫자는 평형으로 가는 중간 장면입니다.</div></div>`+
   `<div class="labCard"><b>⑤ 상태 지도와 차이 지도를 같이 본다</b><div class="sm">현재 혼잡이 가장 심한 곳과 이번 개입으로 혼잡이 가장 늘어난 곳은 다를 수 있습니다. 절대값과 Δ를 혼동하지 마세요.</div></div>`+
   `<div class="labCard"><b>⑥ 모형이 말하지 않는 것을 말하지 않는다</b><div class="sm">실측 교통량이 없으므로 현실 도시의 계수 정합성을 검증하는 도구가 아닙니다. 이 게임 안에서 구조적 인과가 일관되는지를 시험합니다.</div></div>`+
   `<div class="labCard"><b>⑦ 스프롤은 반경 하나가 아니다</b><div class="sm">평균 개발반경·비연속 개발·1천명당 도로·기반시설망을 같이 봅니다. 멀리 퍼졌어도 철도 다핵도시일 수 있고, 면적이 작아도 자동차 의존적일 수 있습니다.</div></div>`+
-  `<div class="labCard"><b>⑧ 상태 변화와 모형 파손을 구분</b><div class="sm">정책을 바꾸면 인구·VMT·지대가 달라지는 것이 정상입니다. 반대로 수단분담 합계가 100%가 아니거나 사람이 회계에서 증발하는 것은 어떤 정책으로도 정당화되지 않습니다. ‘모형 감사’ 탭은 이 둘을 분리합니다 (66장).</div></div>`;
+  `<div class="labCard"><b>⑧ 상태 변화와 모형 파손을 구분</b><div class="sm">정책을 바꾸면 인구·VKT·지대가 달라지는 것이 정상입니다. 반대로 수단분담 합계가 100%가 아니거나 사람이 회계에서 증발하는 것은 어떤 정책으로도 정당화되지 않습니다. ‘모형 감사’ 탭은 이 둘을 분리합니다 (66장).</div></div>`;
 }
 function renderLab(){const el=$("labBody");if(!el)return;const p=$("lab"),st=p.scrollTop;el.innerHTML=labTab==="map"?labMapHTML():labTab==="audit"?labAuditHTML():labTab==="learn"?labLearnHTML():labExperimentHTML();bindLab();p.scrollTop=st;}
 function bindLab(){
@@ -18062,9 +18062,9 @@ function baseTable(){
   h+=row("평균 통근",c.avgT,b.avgT,"분",1,-1);
   h+=row("철도 분담",c.transit,b.transit,"%",1,1);
   h+=row("도보 분담",c.walk,b.walk,"%",1,1);
-  h+=row("보행생활권 지수",c.urban,b.urban,"%",1,1);
-  h+=row("생활권 압력",c.press,b.press,"%",1,-1);
-  h+=row("차량 주행거리",c.vmt,b.vmt," 대·km",0,-1);
+  h+=row("생활권 복합지수 (game-defined)",c.urban,b.urban,"%",1,1);
+  h+=row("생활권 결핍지수",c.press,b.press,"%",1,-1);
+  h+=row("PCE-weighted VKT",c.vmt,b.vmt," PCE·km",0,-1);
   h+=row("평균 V/C",c.vc,b.vc,"",2,-1);
   h+=row("인구",c.pop,b.pop,"명",0,1);
   h+=row("월 수지",c.bal,b.bal,"",0,1);
@@ -18794,7 +18794,7 @@ window.__TC={
   blFlow:()=>blFlow,busT:()=>busT,
   get overlay(){return overlay},set overlay(v){overlay=v;},
   setBase(){captureExperimentBaseline();},getBase:()=>baseline,getExperiment:()=>expBase,captureExperimentBaseline,restoreExperimentBaseline,clearExperiment,renderLab,captureOverlayGrid,
-  /* 환승·端末 내부 (검증용) */
+  /* 환승·egress 내부 (검증용) */
   processOrigin,
   xferMat:()=>xferSta,xStaArr:()=>xSta,xOutArr:()=>xOut,xOutB1Arr:()=>xOutB1,xAtS2Arr:()=>xAtS2,
   bInArr:()=>bIn,bbInArr:()=>bbIn,bS1Arr:()=>bS1,bbS1Arr:()=>bbS1,
@@ -19296,14 +19296,15 @@ window.__TC={
     gc:{label:'일반화비용',aliases:['일반화비용','GC'],short:'이동시간에 운임·통행료·대기·환승 같은 불편과 비용을 같은 척도로 합친 값입니다.',game:'경로와 교통수단 선택은 단순한 거리보다 일반화비용의 영향을 받습니다.'},
     od:{label:'OD',aliases:['OD','기종점'],short:'Origin-Destination의 약자로, 어디에서 출발해 어디로 가는지를 나타내는 통행 쌍입니다.',game:'주거·일자리·생활목적지 사이의 통행 수요를 네트워크에 배정할 때 사용합니다.'},
     vc:{label:'V/C',aliases:['V/C'],short:'교통량(Volume)을 도로 용량(Capacity)으로 나눈 비율입니다. 값이 높을수록 혼잡 압력이 큽니다.',game:'평균 V/C와 개별 회랑의 V/C는 도로가 어느 정도 포화됐는지 읽는 핵심 지표입니다.'},
-    vmt:{label:'VMT',aliases:['VMT'],short:'Vehicle Miles Traveled의 약자로 자동차가 이동한 총 거리를 나타냅니다.',game:'통행시간이 줄어도 VMT가 크게 늘면 자동차 의존이나 유발수요가 커졌을 수 있습니다.'},
+    vcGrade:{label:'V/C-based congestion grade',aliases:['V/C-based congestion grade','V/C 등급'],short:'이 게임이 평균 V/C 구간을 A–F로 나눈 game-defined 등급입니다. Highway Capacity Manual의 시설별 Level of Service(LOS)와 동일하지 않습니다.',game:'신호교차로 control delay나 freeway density 같은 HCM LOS 기준을 계산하지 않으므로 LOS라는 명칭을 사용하지 않습니다.'},
+    vmt:{label:'PCE-weighted VKT',aliases:['PCE-weighted VKT','VKT'],short:'Vehicle Kilometres Travelled는 차량의 총 주행거리입니다. 이 게임의 현재 값은 eFlow가 Passenger Car Equivalent(PCE)로 환산되어 있어 실제 차량대수 VKT가 아니라 PCE-weighted VKT입니다.',game:'단위는 PCE·km/h이며, 실제 차량대수 기반 VKT와 구분해서 해석합니다.'},
     modeShare:{label:'수단분담',aliases:['수단분담','교통수단 분담'],short:'전체 통행 중 자동차·철도·버스·도보 등 각 수단이 차지하는 비율입니다.',game:'정책이나 인프라가 사람들의 이동수단 선택을 어떻게 바꿨는지 확인할 때 봅니다.'},
-    relativeGap:{label:'relative gap',aliases:['relative gap','상대갭'],short:'현재 통행배정이 사용자균형에서 얼마나 떨어져 있는지 나타내는 수렴 지표입니다.',game:'값이 충분히 낮아질 때까지는 도로·정책 변경 직후의 중간 계산 상태일 수 있습니다.'},
+    relativeGap:{label:'Assignment gap (model-defined)',aliases:['Assignment gap','assignment gap','배정 gap'],short:'TRAFFIC CITY 2가 재배정 안정도를 추적하기 위해 만든 진단값입니다. 표준 Relative Gap과 동일한 정의가 아닙니다.',game:'성장 중 O-D 수요와 이전 MSA 흐름의 vintage 불일치를 포함할 수 있으므로 3%는 게임의 운영상 안정화 기준으로만 사용합니다.'},
     convergence:{label:'수렴',aliases:['수렴'],short:'반복 계산을 계속했을 때 결과가 더 이상 크게 변하지 않는 상태로 가까워지는 과정입니다.',game:'수렴했다고 해서 좋은 도시라는 뜻은 아니며, 계산이 안정됐다는 뜻에 가깝습니다.'},
-    equilibrium:{label:'균형',aliases:['사용자균형','교통균형','균형'],short:'개별 이용자가 혼자 경로를 바꿔도 더 유리해지기 어려운 상태입니다.',game:'균형은 시스템 전체의 최적과 다를 수 있습니다.'},
-    wardrop:{label:'Wardrop 균형',aliases:['Wardrop 균형','워드롭 균형'],short:'사용되는 경로들의 일반화비용이 같아져 이용자 개인에게 일방적인 경로 변경 이득이 없는 사용자균형입니다.',game:'교통망의 경로선택과 Braess 역설을 이해하는 기본 개념입니다.'},
+    equilibrium:{label:'User Equilibrium (UE)',aliases:['User Equilibrium','UE','사용자균형','이용자평형'],short:'각 이용자가 혼자 경로를 바꿔 자신의 일반화비용을 더 낮출 수 없는 Wardrop 제1원칙의 상태입니다.',game:'OD balancing과는 다른 개념이며 System Optimum과도 구분됩니다.'},
+    wardrop:{label:"Wardrop's First Principle",aliases:["Wardrop's First Principle",'Wardrop 제1원칙','Wardrop 균형'],short:'사용되는 경로들이 해당 O-D에서 최소 일반화비용을 가져 개인에게 일방적인 경로 변경 이득이 없는 User Equilibrium 조건입니다.',game:'Trip Assignment와 Braess Paradox를 이해하는 기본 개념입니다.'},
     systemOpt:{label:'시스템 최적',aliases:['시스템 최적','시스템최적'],short:'각 개인이 아니라 도시 전체의 총 통행비용이 최소가 되는 상태입니다.',game:'사용자균형과 시스템 최적의 차이가 크면 개인의 합리적 선택이 전체에는 비효율적일 수 있습니다.'},
-    braess:{label:'Braess 역설',aliases:['Braess 역설','브라에스 역설'],short:'도로를 하나 더 추가했는데도 이용자들의 경로선택 때문에 전체 통행시간이 오히려 늘 수 있는 현상입니다.',game:'도로 영향 검증과 A/B 분기실험에서 확인할 수 있는 대표적 네트워크 효과입니다.'},
+    braess:{label:'Braess 역설',aliases:['Braess 역설','브라에스 역설'],short:'도로를 하나 더 추가했는데도 이용자들의 경로선택 때문에 전체 통행시간이 오히려 늘 수 있는 현상입니다.',game:'도로 영향 검증과 paired counterfactual simulation에서 확인할 수 있는 대표적 네트워크 효과입니다.'},
     induced:{label:'유발수요',aliases:['유발수요','유발 수요'],short:'도로 용량이나 이동속도가 개선되면서 새 통행, 더 긴 통행, 수단전환, 입지변화 등이 생겨 교통량이 다시 늘어나는 현상입니다.',game:'도로 확장 직후와 5년·10년 뒤 결과가 다른 이유를 설명할 때 중요합니다.'},
     externality:{label:'외부효과',aliases:['외부효과','외부비용'],short:'개인의 선택이 그 선택에 참여하지 않은 다른 사람에게 비용이나 편익을 주는 효과입니다.',game:'혼잡·소음·자동차 주행비용 정책을 설명할 때 자주 등장합니다.'},
     congestionCharge:{label:'혼잡통행료',aliases:['혼잡통행료','혼잡료'],short:'혼잡한 시간·구역·도로의 자동차 진입에 가격을 부과해 혼잡 외부비용을 일부 이용자에게 반영하는 정책입니다.',game:'대체 교통수단이 부족하면 수단전환보다 부담 증가가 먼저 나타날 수 있습니다.'},
@@ -19314,17 +19315,18 @@ window.__TC={
     luti:{label:'LUTI',aliases:['LUTI','토지이용-교통 상호작용'],short:'Land Use–Transport Interaction. 교통이 입지와 토지이용을 바꾸고, 바뀐 토지이용이 다시 교통수요를 만드는 상호작용입니다.',game:'접근성→지가·개발→인구·고용→통행 변화의 장기 피드백을 읽는 틀입니다.'},
     jobsHousing:{label:'직주 균형',aliases:['직주 균형','직주균형'],short:'한 지역의 일자리와 거주하는 취업인구가 얼마나 균형을 이루는지 보는 개념입니다.',game:'일자리에 비해 주택이 지나치게 적거나 그 반대일 때 장거리 통근 압력이 커질 수 있습니다.'},
     lifeArea:{label:'생활권',aliases:['생활권'],short:'주거지에서 일상적으로 접근하는 상점·학교·공원·의료·교통 등을 묶어 보는 일상 활동권입니다.',game:'짧은 이동거리와 보행·서비스 접근성을 함께 나타내는 도시생활 지표입니다.'},
-    fifteen:{label:'15분 도시',aliases:['15분 도시','15분도시'],short:'일상에 필요한 주요 목적지를 도보·자전거·대중교통 등으로 짧은 시간 안에 접근하도록 도시구조를 만드는 계획 개념입니다.',game:'생활권과 목적지 접근거리를 읽는 참고 틀이지, 모든 통행을 15분으로 강제하는 규칙은 아닙니다.'},
-    affordable:{label:'감당가능주택',aliases:['감당가능주택','감당가능 주택'],short:'해당 가구의 소득에 비해 주거비 부담이 과도하지 않은 주택을 뜻합니다.',game:'저소득층이 실제로 부담 가능한 재고가 얼마나 남아 있는지 별도로 추적합니다.'},
+    fifteen:{label:'15-minute city',aliases:['15-minute city','15분 도시','15분도시'],short:'일상에 필요한 주요 목적지에 가까이 접근할 수 있도록 proximity와 accessibility를 중시하는 계획 개념입니다.',game:'S.life15는 이 개념 전체를 측정하지 않고 5종 서비스의 보행 접근만 집계한 15-minute service accessibility (game-defined)입니다.'},
+    affordable:{label:'Affordable Housing (부담가능주택)',aliases:['Affordable Housing','부담가능주택','부담 가능한 주택'],short:'가구의 소득 또는 지불능력에 비해 주거비 부담이 과도하지 않은 주택을 뜻합니다.',game:'게임은 저소득층이 부담 가능한 주택재고를 별도로 추적하지만 실제 정책의 법정 정의나 소득기준을 재현한 것은 아닙니다.'},
     housingBurden:{label:'주거비 부담',aliases:['주거비 부담'],short:'소득이나 지불능력에 비해 임대료·주거비가 얼마나 무거운지를 나타내는 지표입니다.',game:'평균값뿐 아니라 소득계층별 부담과 축출 위험을 함께 봅니다.'},
     gentrification:{label:'젠트리피케이션',aliases:['젠트리피케이션'],short:'지역의 가치와 투자가 상승하는 과정에서 기존 저소득 주민이나 영세 활동이 비용 상승 때문에 밀려날 수 있는 현상입니다.',game:'재개발 횟수보다 누가 새 지대를 감당하지 못하고 어디로 이동하는지를 추적합니다.'},
-    filtering:{label:'주택 필터링',aliases:['주택 필터링','필터링'],short:'주택이 노후화·시장변화를 거치면서 시간이 지나 더 낮은 소득계층이 이용할 수 있게 되는 장기 과정입니다.',game:'신규공급이 즉시 저소득 감당주택이 된다는 뜻은 아닙니다.'},
+    filtering:{label:'주택 필터링',aliases:['주택 필터링','필터링'],short:'주택이 노후화·시장변화를 거치면서 시간이 지나 더 낮은 소득계층이 이용할 수 있게 되는 장기 과정입니다.',game:'신규공급이 즉시 저소득층 부담가능주택이 된다는 뜻은 아닙니다.'},
     lvt:{label:'토지가치세',aliases:['토지가치세','LVT'],short:'건물보다 토지 자체의 입지가치에 과세하는 방식입니다.',game:'유휴토지 보유와 토지가치 상승에서 생기는 세원을 어떻게 다룰지 볼 때 등장합니다.'},
-    valueCapture:{label:'개발이익환수',aliases:['개발이익환수','개발이익 환수'],short:'공공투자나 규제변경으로 생긴 개발이익의 일부를 공공기여나 재원으로 회수하는 방식입니다.',game:'개발 수익과 공공시설·보행·주거기여 사이의 교환을 다룹니다.'},
-    counterfactual:{label:'반사실',aliases:['반사실','counterfactual'],short:'실제로 일어난 세계와 비교하기 위해 "그 정책을 하지 않았다면?"을 구성한 비교 세계입니다.',game:'A/B 분기실험에서 기준세계가 반사실 역할을 합니다.'},
+    valueCapture:{label:'Land Value Capture (LVC)',aliases:['Land Value Capture','LVC','개발이익환수','개발이익 환수'],short:'공공투자·계획·인프라로 상승한 토지가치의 일부를 공공이 회수하는 넓은 정책군입니다.',game:'게임의 contrib 레버는 그중에서도 bonus development와 현금·현물 기여를 연결하므로 Developer Obligations에 더 가깝습니다.'},
+    developerObligation:{label:'Developer Obligations',aliases:['Developer Obligations','Developer Obligation','개발기여','공공기여'],short:'개발 허가·추가 개발권과 연계해 개발자가 현금 또는 시설·주택·공공공간 등을 제공하도록 하는 제도적 의무를 뜻합니다.',game:'TOD bonus floor에 연동된 현금·보행통로·공공임대 기여를 설명할 때 이 용어를 사용합니다.'},
+    counterfactual:{label:'반사실',aliases:['반사실','counterfactual'],short:'실제로 일어난 세계와 비교하기 위해 "그 정책을 하지 않았다면?"을 구성한 비교 세계입니다.',game:'paired counterfactual simulation에서 기준세계가 반사실 역할을 합니다.'},
     control:{label:'기준세계',aliases:['기준세계','Control'],short:'실험에서 개입을 하지 않거나 현재 상태를 유지하는 비교 분기입니다.',game:'실험세계와 같은 시점·같은 초기조건으로 진행해 정책효과를 분리합니다.'},
     treatment:{label:'실험세계',aliases:['실험세계','Treatment'],short:'도로·정책·대중교통 등 특정 개입을 적용한 분기입니다.',game:'기준세계와의 차이를 시간에 따라 비교합니다.'},
-    ab:{label:'A/B 실험',aliases:['A/B 실험','A/B'],short:'같은 시작점에서 두 조건을 나눠 결과 차이를 비교하는 실험 방식입니다.',game:'현재 도시를 복제해 기준세계와 실험세계를 독립적으로 진행할 때 사용합니다.'},
+    ab:{label:'Paired counterfactual simulation',aliases:['Paired counterfactual simulation','paired counterfactual simulation','A/B'],short:'동일한 시뮬레이션 체크포인트에서 control branch와 treatment branch를 나누어 차이를 비교하는 모형 내 반사실 실험입니다.',game:'웹서비스의 무작위 사용자 A/B test와 구분합니다. 단일 시드 결과는 현실세계의 인과효과를 증명하지 않습니다.'},
     seed:{label:'시드',aliases:['seed','Seed','시드'],short:'난수 생성의 시작값입니다. 같은 시드를 쓰면 의도된 무작위 순서를 재현할 수 있습니다.',game:'같은 초기상태와 같은 시드를 사용하면 분기 간 차이를 개입의 영향에 더 가깝게 볼 수 있습니다.'},
     determinism:{label:'결정론',aliases:['결정론','결정론적'],short:'같은 초기조건과 같은 입력이면 같은 결과가 나오는 성질입니다.',game:'동일상태 A/B 결정론 검사는 숨은 시간의존·저장누락·난수오염을 찾습니다.'},
     regression:{label:'회귀시험',aliases:['회귀시험','회귀 시험'],short:'새 수정이 예전에 정상 작동하던 기능을 다시 깨뜨리지 않았는지 반복 확인하는 시험입니다.',game:'단일도로·병렬도로·Braess·대중교통 압박 같은 고정 시나리오가 회귀시험이 됩니다.'},
@@ -19335,21 +19337,24 @@ window.__TC={
     sprawl:{label:'스프롤',aliases:['스프롤'],short:'도시개발이 낮은 밀도와 긴 이동거리, 비연속적 패턴으로 외곽에 퍼지는 현상을 말합니다.',game:'개발반경 하나가 아니라 비연속 개발·도로량·대중교통·생활권을 함께 봅니다.'},
     mixedUse:{label:'혼합용도',aliases:['혼합용도','혼합 용도'],short:'주거·상업·업무 등 여러 기능을 가까이 배치하는 토지이용 방식입니다.',game:'생활목적지 거리를 줄일 수 있지만 혼합 자체가 자동으로 좋은 접근성을 보장하지는 않습니다.'},
     threeDs:{label:'3Ds',aliases:['3Ds','3D 지표'],short:'도시형태 연구에서 Density, Diversity, Design을 묶어 통행행태와의 관계를 설명하는 고전적 틀입니다.',game:'밀도·혼합용도·보행환경을 한 요소만 보지 않고 함께 읽는 참고 틀입니다.'},
-    furness:{label:'Furness 균형',aliases:['Furness 균형','퍼니스 균형','Furness'],short:'기종점 행렬의 행 합계와 열 합계를 목표값에 맞추도록 반복 조정하는 균형 절차입니다.',game:'생성된 출발 통행과 도착 통행의 회계를 맞춰 사람이 통행행렬에서 증발하거나 생기지 않게 합니다.'},
+    furness:{label:'Furness / Iterative Proportional Fitting (IPF)',aliases:['Furness','IPF','Iterative Proportional Fitting','반복비례맞춤'],short:'O-D 행렬의 행 합과 열 합을 주어진 production·attraction 제약에 맞추도록 반복 조정하는 matrix balancing 절차입니다.',game:'User Equilibrium과는 별개의 O-D balancing 절차이며 HUD의 OD balancing error가 이 제약오차를 보여 줍니다.'},
     vot:{label:'VOT',aliases:['VOT','시간가치'],short:'Value of Time. 이동시간 1분 또는 1시간을 금전가치로 환산할 때 쓰는 값입니다.',game:'통행료·운임 같은 돈 비용을 시간과 함께 일반화비용으로 비교할 때 사용합니다.'},
     amenity:{label:'어메니티',aliases:['어메니티','amenity'],short:'공원·수변·생활서비스·쾌적성처럼 장소의 생활가치를 높이는 특성을 묶어 부르는 말입니다.',game:'주거·혼합용도 입지와 생활권의 매력에 영향을 주지만, 접근성과는 별도 요소입니다.'},
-    density:{label:'개발밀도',aliases:['개발밀도','밀도'],short:'일정 면적 안에 사람·주택·일자리·건물이 얼마나 집중되어 있는지를 나타냅니다.',game:'높은 밀도는 대중교통과 생활서비스 수요를 받쳐줄 수 있지만 그 자체로 좋은 도시를 보장하지 않습니다.'},
+    density:{label:'Density (밀도)',aliases:['Density','density','밀도'],short:'인구·주택·고용·연면적 등 특정 양을 명시된 면적으로 나눈 값입니다. 무엇의 밀도인지 분자와 분모를 함께 밝혀야 합니다.',game:"리포트의 '개발지 평균 층수'는 density 자체가 아니라 development intensity proxy이며, 주거셀 명/km² 지표와 구분합니다."},
     rent:{label:'지대',aliases:['입찰지대','지대'],short:'어떤 입지에 자리잡기 위해 토지 이용자가 지불할 의사가 있는 위치가치 또는 토지수익입니다.',game:'접근성·수요·규제에 따라 주거·상업·업무가 서로 다른 입찰을 내고 토지이용 변화 압력이 생깁니다.'},
+    rentGapTerm:{label:'Rent Gap (지대 격차)',aliases:['Rent Gap','지대 격차'],short:'잠재적 ground rent와 현재 토지이용에서 자본화된 ground rent의 차이를 설명하는 개념입니다.',game:'게임의 rentGap은 이를 단순화한 redevelopment-pressure proxy이며, 값 하나만으로 gentrification을 판정하지 않습니다.'},
     bidrent:{label:'입찰지대',aliases:['bid-rent','Bid-rent','입찰 지대'],short:'가구나 기업이 특정 위치를 차지하기 위해 지불할 수 있는 최대 지대를 위치별로 비교하는 개념입니다.',game:'접근성이 높은 곳의 높은 지대와 용도경쟁을 설명하는 토지시장 개념입니다.'},
     zoning:{label:'용도지역',aliases:['용도지역','용도지정','zoning'],short:'토지에 허용되는 주거·상업·업무·산업 등의 이용과 개발조건을 정하는 계획 규칙입니다.',game:'자동계획관과 플레이어의 용도지정이 토지시장 수요와 만나 실제 개발로 이어집니다.'},
     vacancy:{label:'공실률',aliases:['공실률','공실'],short:'사용 가능한 주택이나 업무공간 중 실제로 점유되지 않은 비율입니다.',game:'기업공실과 주거공실은 단순 건물 수가 아니라 실제 수요 부족이나 조정과정을 보여줍니다.'},
     occupancy:{label:'입주율',aliases:['입주율','가동률'],short:'전체 수용능력 중 실제 거주자나 실제 고용이 차지하는 비율입니다.',game:'건물이 남아 있어도 기업 입주율이 떨어지면 실제 일자리는 감소할 수 있습니다.'},
-    frequency:{label:'운행빈도',aliases:['운행빈도','배차간격','배차'],short:'버스나 철도가 일정 시간 동안 얼마나 자주 운행되는지를 나타냅니다.',game:'빈도가 높아지면 대기시간이 줄지만 운영비가 늘고, 수요가 낮으면 과잉서비스가 될 수 있습니다.'},
+    frequency:{label:'Frequency (운행빈도)',aliases:['Frequency','frequency','운행빈도'],short:'단위시간 동안 차량이나 열차가 몇 회 운행하는지를 나타냅니다. 예: 회/시간.',game:'Frequency가 높아질수록 일반적으로 headway는 짧아집니다.'},
+    headway:{label:'Headway (배차간격)',aliases:['Headway','headway','배차간격','배차'],short:'연속한 두 차량 또는 열차 사이의 시간간격입니다. 보통 분 단위로 표시합니다.',game:'TRAFFIC CITY 2의 노선 조정값은 headway이며, 대기시간은 임의도착 가정에서 대략 headway/2로 계산합니다.'},
     carStock:{label:'차량보유 재고',aliases:['차량보유 재고','차량보유'],short:'한 시점의 자동차 통행 선택이 아니라 가구가 자동차를 보유하고 있는 장기 상태를 뜻합니다.',game:'교통서비스가 바뀌어도 차량보유는 느리게 변하므로 수단분담이 즉시 완전히 바뀌지 않습니다.'},
     equity:{label:'이동형평',aliases:['이동형평','교통형평'],short:'평균 효율뿐 아니라 소득·지역·교통수단에 따라 이동기회와 부담이 어떻게 나뉘는지 보는 관점입니다.',game:'저소득 운임부담, 대중교통 접근, 차량보유 차이를 함께 봅니다.'},
     tdm:{label:'교통수요관리',aliases:['교통수요관리','TDM'],short:'도로 공급을 늘리는 대신 가격·주차·운영·수단전환 등을 이용해 통행수요와 이용방식을 관리하는 정책군입니다.',game:'혼잡통행료·주차가격·대중교통 서비스 조정 등을 비교할 때 쓸 수 있는 상위 개념입니다.'},
     polycentric:{label:'다핵도시',aliases:['다핵도시','다핵 도시'],short:'하나의 중심업무지구만이 아니라 여러 중심지가 역할을 나누는 도시공간 구조입니다.',game:'멀리 퍼진 도시라도 철도와 여러 중심지가 연결되면 단순 스프롤과 다른 형태가 될 수 있습니다.'},
-    landUse:{label:'토지이용',aliases:['토지이용','토지 이용'],short:'토지가 주거·상업·업무·산업·공원 등 어떤 기능으로 사용되는지를 뜻합니다.',game:'교통 접근성과 토지시장이 장기적으로 토지이용을 바꾸고, 바뀐 토지이용이 다시 통행을 만듭니다.'}
+    landUse:{label:'토지이용',aliases:['토지이용','토지 이용'],short:'토지가 주거·상업·업무·산업·공원 등 어떤 기능으로 사용되는지를 뜻합니다.',game:'교통 접근성과 토지시장이 장기적으로 토지이용을 바꾸고, 바뀐 토지이용이 다시 통행을 만듭니다.'},
+    climateProfile:{label:'Climate profile',aliases:['Climate profile','Temperate','Tropical rainforest','Hot desert','Snow-cold'],short:'게임의 시각·환경 설정 묶음입니다. Köppen–Geiger 같은 공식 기후분류 판정 결과가 아닙니다.',game:'v140까지는 시각효과와 프로파일 저장만 하며 교통·재정·성장 수치에는 직접 영향을 주지 않습니다.'}
   };
 
   const aliasToKey = new Map();
@@ -20540,7 +20545,7 @@ window.__TC={
 
   const PROFILES = {
     temperate:{
-      id:'temperate', label:'온대', icon:'🌳',
+      id:'temperate', label:'Temperate', icon:'🌳',
       subtitle:'사계절 온대 도시',
       description:'현재 기본 도시의 색감과 식생을 유지합니다.',
       climate:{
@@ -20554,7 +20559,7 @@ window.__TC={
       tint:'rgba(116,139,96,.035)'
     },
     tropical:{
-      id:'tropical', label:'열대우림', icon:'🌴',
+      id:'tropical', label:'Tropical rainforest', icon:'🌴',
       subtitle:'고온다습 · 울창한 녹음',
       description:'녹음을 짙게 하고 습윤한 대기와 스콜성 빗줄기를 표현합니다.',
       climate:{
@@ -20568,7 +20573,7 @@ window.__TC={
       tint:'rgba(22,92,50,.115)'
     },
     desert:{
-      id:'desert', label:'고온사막', icon:'🏜️',
+      id:'desert', label:'Hot desert', icon:'🏜️',
       subtitle:'고온건조 · 강한 일사',
       description:'지면을 건조한 황갈색으로 바꾸고 먼지와 열기를 표현합니다.',
       climate:{
@@ -20582,7 +20587,7 @@ window.__TC={
       tint:'rgba(214,160,78,.135)'
     },
     snowcold:{
-      id:'snowcold', label:'적설한랭', icon:'❄️',
+      id:'snowcold', label:'Snow-cold', icon:'❄️',
       subtitle:'장기 적설 · 한랭 도시',
       description:'도시 전체를 눈빛으로 밝히고 지표 적설과 약한 강설을 표현합니다.',
       climate:{
@@ -20781,8 +20786,8 @@ window.__TC={
     const sec=document.createElement('section');
     sec.className='tcClimateSection137';
     sec.innerHTML=`
-      <h3>도시 기후대</h3>
-      <p>1차 시각 스킨 + 2차 기후 프로파일입니다. 아직 교통·재정·성장 계산은 바꾸지 않습니다.</p>
+      <h3>Climate profile</h3>
+      <p>Visual skin + Climate profile입니다. 공식 기후분류가 아니며, v140까지는 교통·재정·성장 계산을 바꾸지 않습니다.</p>
       <div class="tcClimateGrid137">
         ${Object.values(PROFILES).map(p=>`
           <button type="button" class="tcClimateBtn137" data-climate="${p.id}">
@@ -21176,7 +21181,7 @@ window.__TC={
     try{window.close()}catch(_){}
     setTimeout(()=>{
       if(document.visibilityState!=='hidden'){
-        exitStatus('이 APK에는 종료 브리지가 없습니다. Android 셸을 v139 bridge로 한 번만 갱신하면 이 버튼이 실제 앱을 닫습니다.');
+        exitStatus('이 APK에는 종료 브리지가 없습니다. Android 셸에 native exit bridge를 한 번만 추가하면 이 버튼이 실제 앱을 닫습니다.');
       }
     },220);
     return false;
@@ -21238,5 +21243,237 @@ window.__TC={
   console.info('[TRAFFIC CITY 2] Snow Weather Fix & Exit v139 loaded');
 })();
 </script>
+
+<!-- TC2_ACADEMIC_CONSISTENCY_V140 -->
+<script>
+/* TRAFFIC CITY 2 — ACADEMIC CONSISTENCY & BUILD CONTRACT v140
+   Marker: TC2_ACADEMIC_CONSISTENCY_V140
+   One build identity, terminology audit, weather consistency, save metadata.
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_V140?.loaded) return;
+
+  const BUILD_INFO = Object.freeze({
+    product:'TRAFFIC CITY 2',
+    version:'v140',
+    build:140,
+    saveSchemaVersion:47,
+    terminology:'academic-consistency-1',
+    title:'ACADEMIC CONSISTENCY & BUILD CONTRACT'
+  });
+  const WEB_URL='https://byanka-rail.github.io/traffic-city-2/';
+
+  function runtimeSource(){
+    const p=location.protocol;
+    if(p==='https:' && /byanka-rail\.github\.io$/i.test(location.hostname)) return 'GitHub Pages';
+    if(p==='content:') return 'local content:// file';
+    if(p==='file:') return 'local file';
+    if(window.TC2Android||window.AndroidBridge||window.AppBridge) return 'APK/WebView';
+    return p.replace(':','')||'unknown';
+  }
+
+  function installStyle(){
+    if(document.getElementById('tcV140Style'))return;
+    const st=document.createElement('style');
+    st.id='tcV140Style';
+    st.textContent=`
+      body[data-tc-climate="snowcold"]:not(.tcSnowing140) #tcClimateFx137::before{opacity:0!important}
+      body[data-tc-climate="snowcold"].tcSnowing140 #tcClimateFx137::before{opacity:.42!important}
+      .tcAcademicTag140{display:inline-block;padding:2px 6px;border-radius:999px;
+        border:1px solid rgba(105,169,202,.28);background:rgba(53,109,141,.12);
+        color:#b9dbea;font-size:9px;font-weight:800}
+      #tcVersionSheet .tcV140Audit{margin:10px 0;padding:10px;border-radius:10px;
+        border:1px solid rgba(105,169,202,.24);background:rgba(53,109,141,.08);
+        font-size:10.5px;line-height:1.55;color:#cbd9de}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function syncWeather(){
+    try{
+      const snow=(document.body?.dataset?.tcClimate==='snowcold') && (typeof wx!=='undefined' && wx===2);
+      document.body?.classList.toggle('tcSnowing140',!!snow);
+    }catch(_){}
+  }
+
+  function stamp(){
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+BUILD_INFO.version;
+    const b=document.getElementById('tcBuildBadge');
+    if(b){b.textContent=BUILD_INFO.version;b.title=`${BUILD_INFO.version} · ${runtimeSource()} · 버전/변경이력`;}
+    const mv=document.querySelector('.tcMainVersion136');
+    if(mv)mv.textContent=BUILD_INFO.version;
+
+    const h=[...document.querySelectorAll('h1,h2')].find(x=>/TRAFFIC\s*CITY\s*2/i.test(x.textContent||''));
+    if(h){
+      [...h.querySelectorAll('small')].forEach(x=>{if(/\bv1(?:3[0-9]|40)\b/i.test(x.textContent||''))x.remove();});
+      let sm=h.querySelector('[data-tc-build140]');
+      if(!sm){sm=document.createElement('small');sm.dataset.tcBuild140='1';sm.style.cssText='font-size:.48em;opacity:.64;font-weight:700';h.appendChild(sm);}
+      sm.textContent=' '+BUILD_INFO.version;
+    }
+    window.TC2_BUILD=BUILD_INFO;
+    window.TC2_BUILD_VERSION=BUILD_INFO.version;
+  }
+
+  function wrapSave(){
+    try{
+      const fn=window.saveStateObject || (typeof saveStateObject==='function'?saveStateObject:null);
+      if(typeof fn!=='function'||fn.__tcBuild140)return;
+      const wrapped=function(...args){
+        const o=fn.apply(this,args);
+        if(o&&typeof o==='object'){
+          o.buildVersion=BUILD_INFO.version;
+          o.buildNumber=BUILD_INFO.build;
+          o.saveSchemaVersion=Number.isFinite(+o.v)?+o.v:BUILD_INFO.saveSchemaVersion;
+          o.terminologyVersion=BUILD_INFO.terminology;
+        }
+        return o;
+      };
+      wrapped.__tcBuild140=true;
+      window.saveStateObject=wrapped;
+      try{saveStateObject=wrapped}catch(_){}
+    }catch(e){console.warn('[v140] save wrapper',e);}
+  }
+
+  function academicAudit(){
+    const source=document.documentElement.innerHTML;
+    const tests=[
+      ['build-title',document.title.includes('v140'),'document.title = v140'],
+      ['build-badge',document.getElementById('tcBuildBadge')?.textContent==='v140','HUD build badge = v140'],
+      ['main-version',document.querySelector('.tcMainVersion136')?.textContent==='v140','main menu = v140'],
+      ['gap-label',/Assignment gap/.test(document.getElementById('gapBox')?.textContent||''),'Assignment gap label'],
+      ['los-label',[...document.querySelectorAll('.stat .k')].some(x=>/V\/C 등급/.test(x.textContent||'')),'LOS replaced by V/C grade'],
+      ['snow-rain-sync',source.includes('TC2_V139_SNOW_WEATHER_SYNC'),'Snow-cold legacy rain suppression'],
+      ['snow-accum',source.includes('TC2_V139_SNOW_ACCUM_VISIBILITY'),'settled snow renderer'],
+      ['courtyard-grid',source.includes('TC2_V138_COURTYARD_GRID_PLANNER'),'2×3/3×2 courtyard-grid planner'],
+      ['tri-courtyard',source.includes('TC2_V138_TRI_COURTYARD_RENDER'),'triangular courtyard renderer'],
+      ['airport-road',source.includes('TC2_V138_AIRPORT_ACCESS_PLANNER'),'airport access road planner'],
+      ['resolver',source.includes('TC2_COUNCIL_RESOLVER_V134'),'Council Recommendation Resolver'],
+      ['validation',source.includes('TC2_VALIDATION_LAB_V132'),'Validation Lab'],
+    ];
+    return {
+      version:BUILD_INFO.version,
+      source:runtimeSource(),
+      pass:tests.filter(x=>x[1]).length,
+      total:tests.length,
+      tests:tests.map(([id,ok,note])=>({id,ok,note}))
+    };
+  }
+
+  function versionHTML(){
+    const a=academicAudit();
+    return `
+      <div class="tcVHead">
+        <div><b>TRAFFIC CITY 2 · ${BUILD_INFO.version}</b><small>${BUILD_INFO.title}</small></div>
+        <button class="tcVClose" type="button" data-tc-vclose>×</button>
+      </div>
+      <div class="tcVSource"><span class="tcVChip">${runtimeSource()}</span><span>Build ${BUILD_INFO.build} · save schema ${BUILD_INFO.saveSchemaVersion}</span></div>
+      <section class="tcVEntry">
+        <div class="tcVTitle"><b>v140</b><span>ACADEMIC CONSISTENCY & BUILD CONTRACT</span></div>
+        <ul>
+          <li>HUD·메인·title·저장 buildVersion을 v140 단일 build identity로 통합</li>
+          <li>Assignment gap과 표준 Relative Gap을 구분하고 OD balancing error와 User Equilibrium을 분리</li>
+          <li>LOS 오표기를 V/C-based congestion grade로 교정</li>
+          <li>현재 주행거리 지표를 PCE-weighted VKT로 명시</li>
+          <li>Frequency와 Headway를 분리하고 4항 Multinomial Logit 설명을 현재 코드에 맞춤</li>
+          <li>Affordable Housing, Rent Gap, Developer Obligations, Climate profile 용어 정규화</li>
+          <li>생활권 복합지수·결핍지수에 game-defined 표시</li>
+          <li>분석실 A/B 표현을 paired counterfactual simulation으로 정리</li>
+          <li>Snow-cold 강수 때 비 아이콘·빗소리를 제거하고 실제 강수시에만 눈 FX 표시</li>
+        </ul>
+      </section>
+      <div class="tcV140Audit"><b>정합성 런타임 감사 ${a.pass}/${a.total} PASS</b><br>
+        ${a.tests.map(t=>`${t.ok?'✓':'✕'} ${t.note}`).join('<br>')}
+      </div>
+      <section class="tcVEntry">
+        <div class="tcVTitle"><b>v139</b><span>SNOW WEATHER FIX & EXIT</span></div>
+        <ul><li>Snow-cold legacy rain rendering suppression</li><li>settled snow visibility 강화</li><li>메인 화면 게임 종료 버튼</li></ul>
+      </section>
+      <section class="tcVEntry">
+        <div class="tcVTitle"><b>v138</b><span>CLIMATE ACCUMULATION & URBAN FORM</span></div>
+        <ul><li>적설·사구 지면/지붕 형상</li><li>2×3·3×2 중정격자와 삼각 중정</li><li>공항 자동 진입·서비스도로</li></ul>
+      </section>
+      <section class="tcVEntry"><div class="tcVTitle"><b>v137</b><span>CLIMATE PROFILES</span></div></section>
+      <section class="tcVEntry"><div class="tcVTitle"><b>v136</b><span>MAIN MENU & READABILITY THEMES</span></div></section>
+      <section class="tcVEntry"><div class="tcVTitle"><b>v135</b><span>VERSION & CHANGELOG</span></div></section>
+      <section class="tcVEntry"><div class="tcVTitle"><b>v134</b><span>COUNCIL RECOMMENDATION RESOLVER</span></div></section>
+      <section class="tcVEntry"><div class="tcVTitle"><b>v133</b><span>CONTEXTUAL LEARNING</span></div></section>
+      <section class="tcVEntry"><div class="tcVTitle"><b>v132</b><span>VALIDATION LAB</span></div></section>
+      <div class="tcVNote">Build version과 save schema version은 별개입니다. 학술 표준과 다른 게임 정의 지표는 (model-defined) 또는 (game-defined)로 표시합니다.</div>`;
+  }
+
+  function closeSheet(){document.getElementById('tcVersionBackdrop')?.classList.remove('open');}
+  function openSheet(){
+    let bg=document.getElementById('tcVersionBackdrop');
+    if(!bg){
+      bg=document.createElement('div');bg.id='tcVersionBackdrop';
+      bg.innerHTML='<div id="tcVersionSheet"></div>';
+      bg.addEventListener('click',e=>{if(e.target===bg)closeSheet();});
+      document.body.appendChild(bg);
+    }
+    let sh=document.getElementById('tcVersionSheet');
+    if(!sh){sh=document.createElement('div');sh.id='tcVersionSheet';bg.appendChild(sh);}
+    sh.innerHTML=versionHTML();
+    bg.classList.add('open');
+    sh.querySelector('[data-tc-vclose]')?.addEventListener('click',closeSheet);
+  }
+
+  function bindBadge(){
+    const old=document.getElementById('tcBuildBadge');
+    if(!old)return;
+    if(old.__tcBuild140)return;
+    const b=old.cloneNode(true); // remove v135-v139 accumulated click listeners
+    b.__tcBuild140=true;
+    old.replaceWith(b);
+    b.addEventListener('click',openSheet);
+    stamp();
+  }
+
+  function normalizeStaticDOM(){
+    // The IDs are legacy component names, not build versions. Only their visible labels are normalized.
+    const map={
+      kGap:'Assignment gap (model-defined)',
+      kBal:'OD balancing error (Furness/IPF)'
+    };
+    // labels are preceding span siblings; set only when structure matches.
+    for(const [id,label] of Object.entries(map)){
+      const v=document.getElementById(id);
+      const p=v?.previousElementSibling;if(p)p.textContent=label;
+    }
+  }
+
+  function init(){
+    installStyle();
+    stamp();
+    wrapSave();
+    bindBadge();
+    normalizeStaticDOM();
+    syncWeather();
+    setInterval(syncWeather,500);
+    setTimeout(()=>{stamp();bindBadge();normalizeStaticDOM();},250);
+    window.__TC2_BUILD_META={
+      version:BUILD_INFO.version,
+      build:BUILD_INFO.build,
+      saveSchemaVersion:BUILD_INFO.saveSchemaVersion,
+      source:runtimeSource,
+      open:openSheet,
+      webUrl:WEB_URL,
+      academicAudit
+    };
+  }
+
+  window.__TC2_V140={
+    loaded:true,
+    build:BUILD_INFO,
+    stamp,openSheet,academicAudit,syncWeather
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+
+  console.info('[TRAFFIC CITY 2] Academic Consistency & Build Contract v140 loaded');
+})();
+</script>
+
 </body>
 </html>
