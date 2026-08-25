@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v131</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v135</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -18586,6 +18586,1197 @@ window.__TC={
   attachLand,computeRent,growStep,clearAssignmentMemory,snapshot,restore,saveStateObject,saveText,
   force(){netDirty=true;rebuildNet();},
 };
+</script>
+
+<!-- TC2_VALIDATION_LAB_V132 -->
+<script>
+/* TRAFFIC CITY 2 — Validation Lab v132
+   Add-on for v131. Uses the production simulation/audit/save-load functions directly.
+   Marker: TC2_VALIDATION_LAB_V132
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_VALIDATION && window.__TC2_VALIDATION.version === 'v132') return;
+
+  const VERSION = 'v132';
+  const HISTORY_KEY = 'traffic-city-2-validation-history-v1';
+  const MAX_HISTORY = 24;
+  const state = {
+    busy: false,
+    progress: '',
+    history: [],
+    failureState: null,
+    failureMeta: null,
+  };
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const nowText = () => {
+    try { return new Date().toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); }
+    catch (_) { return '지금'; }
+  };
+  const finite = (v) => Number.isFinite(Number(v));
+  const safe = (fn, fallback = null) => { try { return fn(); } catch (_) { return fallback; } };
+
+  function loadHistory(){
+    try {
+      const a = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      return Array.isArray(a) ? a.slice(0, MAX_HISTORY) : [];
+    } catch (_) { return []; }
+  }
+  function persistHistory(){
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(state.history.slice(0, MAX_HISTORY))); }
+    catch (_) {}
+  }
+  state.history = loadHistory();
+
+  function canonical(v){
+    if (v === null || typeof v !== 'object') {
+      if (typeof v === 'number' && !Number.isFinite(v)) return String(v);
+      return v;
+    }
+    if (Array.isArray(v)) return v.map(canonical);
+    const o = {};
+    for (const k of Object.keys(v).sort()) {
+      if (k === 'savedAt') continue; // wall-clock metadata, not model state
+      o[k] = canonical(v[k]);
+    }
+    return o;
+  }
+  function fnv1a(str){
+    let h = 0x811c9dc5;
+    for (let i=0; i<str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(16).padStart(8, '0');
+  }
+  function stateHash(){
+    const obj = saveStateObject();
+    return fnv1a(JSON.stringify(canonical(obj)));
+  }
+
+  function T(id, name, status, detail, group='CORE'){
+    return {id, name, status, detail:String(detail ?? ''), group};
+  }
+  function summarize(tests){
+    const pass = tests.filter(x=>x.status==='pass').length;
+    const warn = tests.filter(x=>x.status==='warn').length;
+    const fail = tests.filter(x=>x.status==='fail').length;
+    return {pass, warn, fail, status: fail ? 'fail' : warn ? 'warn' : 'pass'};
+  }
+  function statusKo(s){ return s==='pass'?'PASS':s==='warn'?'관찰':'FAIL'; }
+
+  function addRecord(kind, label, tests, elapsedMs=0, note=''){
+    const sum = summarize(tests);
+    const rec = {
+      stamp: Date.now(), month: safe(()=>curMonth(), -1), kind, label,
+      pass:sum.pass, warn:sum.warn, fail:sum.fail, status:sum.status,
+      elapsedMs:Math.round(elapsedMs), hash:safe(()=>stateHash(), ''), note,
+      tests:tests.slice(0, 80),
+    };
+    state.history.unshift(rec);
+    state.history = state.history.slice(0, MAX_HISTORY);
+    persistHistory();
+    return rec;
+  }
+
+  function currentTests(){
+    const out = [];
+    try {
+      const a = modelAudit();
+      out.push(T('V-CORE-001','기존 MODEL INTEGRITY', a.fail?'fail':a.warn?'warn':'pass',
+        `PASS ${a.pass} · 관찰 ${a.warn} · FAIL ${a.fail}`, 'CORE'));
+      for (const q of (a.tests || [])) {
+        if (q.status === 'pass') continue;
+        out.push(T(`AUD-${q.id || 'CHECK'}`, q.name || q.id || '감사 항목', q.status,
+          `${q.value || ''}${q.why ? ' · ' + q.why : ''}`, 'AUDIT'));
+      }
+    } catch (e) {
+      out.push(T('V-CORE-001','기존 MODEL INTEGRITY','fail',`modelAudit 실행 오류: ${e.message}`,'CORE'));
+    }
+
+    const nums = {
+      population:safe(()=>S.pop), jobs:safe(()=>S.jobs), avgT:safe(()=>S.avgT), avgVC:safe(()=>S.avgVC),
+      vmt:safe(()=>S.vmt), money:safe(()=>money), tick:safe(()=>tick), gap:safe(()=>S.gap)
+    };
+    const bad = Object.entries(nums).filter(([k,v]) => !finite(v) || ((k==='population'||k==='jobs'||k==='vmt'||k==='tick') && Number(v)<0));
+    out.push(T('V-FINITE-001','핵심 상태 유한값', bad.length?'fail':'pass',
+      bad.length ? bad.map(([k,v])=>`${k}=${v}`).join(', ') : `인구 ${Math.round(nums.population||0).toLocaleString()} · 평균통행 ${(Number(nums.avgT)||0).toFixed(1)}분 · V/C ${(Number(nums.avgVC)||0).toFixed(2)}`, 'CORE'));
+
+    try {
+      const car = Math.max(0, 1-(S.transit||0)-(S.busSh||0)-(S.walkSh||0));
+      const sum = car + (S.transit||0) + (S.busSh||0) + (S.walkSh||0);
+      const ok = Number.isFinite(sum) && Math.abs(sum-1) < 0.003;
+      out.push(T('V-MODE-001','수단분담 보존', ok?'pass':'fail',
+        `승용차 ${(car*100).toFixed(1)}% · 철도 ${((S.transit||0)*100).toFixed(1)}% · 버스 ${((S.busSh||0)*100).toFixed(1)}% · 도보 ${((S.walkSh||0)*100).toFixed(1)}% · 합계 ${(sum*100).toFixed(2)}%`, 'TRANSPORT'));
+    } catch (e) {
+      out.push(T('V-MODE-001','수단분담 보존','fail',e.message,'TRANSPORT'));
+    }
+
+    if (typeof autoTransitBackboneNeed === 'function') {
+      try {
+        const n = autoTransitBackboneNeed();
+        const d = typeof autoTransitDiagnostic === 'function' ? autoTransitDiagnostic() : null;
+        let st = 'pass';
+        if (n.severe && !safe(()=>autoOn,false)) st = 'warn';
+        else if (n.severe && safe(()=>autoOn,false) && !safe(()=>autoProject,null)) st = 'warn';
+        const reason = d && (d.reason || d.status) ? `${d.status || ''}${d.reason ? ' · '+d.reason : ''}` : '';
+        out.push(T('V-PT-001','대중교통 공급공백 진단', st,
+          `승용차 ${(n.car*100).toFixed(1)}% · PT ${(n.pt*100).toFixed(1)}% · 15분 접근 ${(n.cover*100).toFixed(1)}% · 버스정류장 ${n.usableBus} · 철도역 ${n.usableRail}${reason?' · '+reason:''}`, 'PLANNER'));
+      } catch (e) {
+        out.push(T('V-PT-001','대중교통 공급공백 진단','fail',`진단 오류: ${e.message}`,'PLANNER'));
+      }
+    } else {
+      out.push(T('V-PT-001','대중교통 공급공백 진단','warn','autoTransitBackboneNeed()를 찾지 못했습니다.','PLANNER'));
+    }
+    return out;
+  }
+
+  function memoLocalStorage(){
+    const keys = [];
+    try {
+      if (typeof AUTO_SAVE_KEY !== 'undefined') keys.push(AUTO_SAVE_KEY);
+      if (typeof AUTO_BACKUP_KEY !== 'undefined') keys.push(AUTO_BACKUP_KEY);
+    } catch (_) {}
+    return keys.map(k=>[k, localStorage.getItem(k)]);
+  }
+  function restoreLocalStorage(memo){
+    for (const [k,v] of memo || []) {
+      try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k,v); }
+      catch (_) {}
+    }
+  }
+
+  function captureEphemeral(){
+    const m={};
+    try{m.history=history.slice();}catch(_){}
+    try{m.feedUnread=feedUnread;m.snsFilter=snsFilter;}catch(_){}
+    try{m.baseline=baseline;m.expBase=expBase;m.expAB=expAB;m.expDiff=expDiff;m.expRecipe=expRecipe;m.labLastMonth=labLastMonth;}catch(_){}
+    try{m.auditLast=auditLast;m.auditBaseline=auditBaseline;m.auditHistory=auditHistory.slice();}catch(_){}
+    try{m.timeFrames=timeFrames.slice();m.tlIndex=tlIndex;m.chronLastCap=chronLastCap;m.chronLastYear=chronLastYear;m.tlMode=tlMode;m.tlPlaying=tlPlaying;m.tlLast=tlLast;m.tlRate=tlRate;m.placeDirty=placeDirty;}catch(_){}
+    try{m.tickMs=tickMs;m.batchScale=batchScale;}catch(_){}
+    try{m.msgText=msgText;m.msgUntil=msgUntil;}catch(_){}
+    try{m.policyTab=policyTab;}catch(_){}
+    try{m.plannerLogFilter=plannerLogFilter;}catch(_){}
+    try{m.councilSpeechMemory={...councilSpeechMemory};}catch(_){}
+    return m;
+  }
+  function restoreEphemeral(m){
+    if(!m)return;
+    try{if(m.history){history.length=0;history.push(...m.history);}}catch(_){}
+    try{if('feedUnread' in m)feedUnread=m.feedUnread;if('snsFilter' in m)snsFilter=m.snsFilter;}catch(_){}
+    try{if('baseline' in m)baseline=m.baseline;if('expBase' in m)expBase=m.expBase;if('expAB' in m)expAB=m.expAB;if('expDiff' in m)expDiff=m.expDiff;if('expRecipe' in m)expRecipe=m.expRecipe;if('labLastMonth' in m)labLastMonth=m.labLastMonth;}catch(_){}
+    try{if('auditLast' in m)auditLast=m.auditLast;if('auditBaseline' in m)auditBaseline=m.auditBaseline;if(m.auditHistory){auditHistory.length=0;auditHistory.push(...m.auditHistory);}}catch(_){}
+    try{if(m.timeFrames){timeFrames.length=0;timeFrames.push(...m.timeFrames);}if('tlIndex' in m)tlIndex=m.tlIndex;if('chronLastCap' in m)chronLastCap=m.chronLastCap;if('chronLastYear' in m)chronLastYear=m.chronLastYear;if('tlMode' in m)tlMode=m.tlMode;if('tlPlaying' in m)tlPlaying=m.tlPlaying;if('tlLast' in m)tlLast=m.tlLast;if('tlRate' in m)tlRate=m.tlRate;if('placeDirty' in m)placeDirty=m.placeDirty;}catch(_){}
+    try{if('tickMs' in m)tickMs=m.tickMs;if('batchScale' in m)batchScale=m.batchScale;}catch(_){}
+    try{if('msgText' in m)msgText=m.msgText;if('msgUntil' in m)msgUntil=m.msgUntil;}catch(_){}
+    try{if('policyTab' in m)policyTab=m.policyTab;}catch(_){}
+    try{if('plannerLogFilter' in m)plannerLogFilter=m.plannerLogFilter;}catch(_){}
+    try{if(m.councilSpeechMemory){for(const k in councilSpeechMemory)delete councilSpeechMemory[k];Object.assign(councilSpeechMemory,m.councilSpeechMemory);}}catch(_){}
+  }
+  function loadSilent(txt){
+    const raf=window.requestAnimationFrame;
+    try{
+      // loadGame normally schedules a timelapse frame. Validation restores must leave the user's chronicle untouched.
+      window.requestAnimationFrame=()=>0;
+      return loadGame(txt,{noUndo:true,noAutoSave:true,silent:true});
+    }finally{window.requestAnimationFrame=raf;}
+  }
+  async function isolated(fn){
+    const saved = saveText();
+    const run0 = safe(()=>running,false);
+    const store = memoLocalStorage();
+    const ephemeral = captureEphemeral();
+    try {
+      running = false;
+      return await fn(saved);
+    } finally {
+      try { loadSilent(saved); } catch (_) {}
+      restoreEphemeral(ephemeral);
+      try { running = run0; } catch (_) {}
+      restoreLocalStorage(store);
+      safe(()=>updateHUD());
+      safe(()=>markStatic());
+    }
+  }
+
+  function setProgress(text){
+    state.progress = text;
+    const el = document.getElementById('valProgress');
+    if (el) el.textContent = text;
+  }
+  const yieldUI = () => new Promise(resolve=>setTimeout(resolve,0));
+
+  async function advanceTicks(n, hook){
+    const total = Math.max(0,n|0), chunk = 96;
+    for (let i=0;i<total;i++) {
+      doTick();
+      if (hook) hook(i+1,total);
+      if ((i+1)%chunk===0) {
+        setProgress(`시뮬레이션 ${Math.round((i+1)/total*100)}% · ${(i+1).toLocaleString()}/${total.toLocaleString()} ticks`);
+        await yieldUI();
+      }
+    }
+  }
+
+  async function roundTripTests(){
+    return isolated(async () => {
+      const before = stateHash();
+      const txt = saveText();
+      const ok = loadSilent(txt);
+      const after = stateHash();
+      return [T('V-STATE-001','저장→불러오기 상태 동일성', ok && before===after ? 'pass':'fail',
+        `before ${before} · after ${after}${ok?'':' · loadGame=false'}`, 'STATE')];
+    });
+  }
+
+  async function determinismTests(years=1){
+    const saved = saveText();
+    const run0 = safe(()=>running,false);
+    const store = memoLocalStorage();
+    const ephemeral = captureEphemeral();
+    try {
+      running = false;
+      setProgress(`결정론 A 분기 ${years}년`);
+      await advanceTicks(years*YEAR);
+      const hashA = stateHash();
+      const fpA = safe(()=>auditFingerprint(),{});
+
+      loadSilent(saved);
+      setProgress(`결정론 B 분기 ${years}년`);
+      await advanceTicks(years*YEAR);
+      const hashB = stateHash();
+      const fpB = safe(()=>auditFingerprint(),{});
+      const same = hashA===hashB;
+      return [T('V-DET-001',`${years}년 동일조건 결정론`,same?'pass':'fail',
+        `A ${hashA} · B ${hashB}${same?' · 상태 해시 일치':` · 주요지표 A ${JSON.stringify(fpA)} / B ${JSON.stringify(fpB)}`}`, 'DETERMINISM')];
+    } finally {
+      try { loadSilent(saved); } catch (_) {}
+      restoreEphemeral(ephemeral);
+      try { running = run0; } catch (_) {}
+      restoreLocalStorage(store);
+      safe(()=>updateHUD()); safe(()=>markStatic());
+    }
+  }
+
+  async function soakTests(years){
+    return isolated(async () => {
+      const out = [];
+      let auditRuns=0, firstFail=null, maxVC=Number(safe(()=>S.avgVC,0))||0;
+      let severeStreak=0, maxSevereStreak=0, severeMonths=0;
+      let ptStart = {bus:safe(()=>stops.filter(s=>s.usable).length,0), rail:safe(()=>stations.filter(s=>s.usable).length,0)};
+      let ptEnd = {...ptStart};
+      let monthSeq=0;
+
+      await advanceTicks(years*YEAR, () => {
+        maxVC = Math.max(maxVC, Number(safe(()=>S.avgVC,0))||0);
+        if (tick % MONTH === 0) {
+          monthSeq++;
+          if (typeof autoTransitBackboneNeed === 'function') {
+            const n = safe(()=>autoTransitBackboneNeed(),null);
+            if (n && safe(()=>autoOn,false) && n.severe && (n.needBus || n.needRail) && !safe(()=>autoProject,null)) {
+              severeStreak++; severeMonths++;
+              maxSevereStreak = Math.max(maxSevereStreak,severeStreak);
+            } else severeStreak = 0;
+          }
+          if (monthSeq % 3 === 0) {
+            const a = safe(()=>modelAudit(),null); auditRuns++;
+            if (a && a.fail && !firstFail) {
+              firstFail = {month:safe(()=>curMonth(),-1), audit:a};
+              try { state.failureState = saveText(); state.failureMeta = {years,month:firstFail.month,reason:'MODEL INTEGRITY FAIL'}; } catch (_) {}
+            }
+          }
+        }
+      });
+
+      ptEnd = {bus:safe(()=>stops.filter(s=>s.usable).length,0), rail:safe(()=>stations.filter(s=>s.usable).length,0)};
+      const endAudit = safe(()=>modelAudit(),null);
+      if (endAudit) auditRuns++;
+      const invFail = !!firstFail || !!(endAudit && endAudit.fail);
+      const invWarn = !invFail && !!(endAudit && endAudit.warn);
+      out.push(T('V-SOAK-001',`${years}년 장기 불변량`,invFail?'fail':invWarn?'warn':'pass',
+        `${auditRuns}회 감사 · 최고 평균 V/C ${maxVC.toFixed(2)}${firstFail?` · 첫 FAIL ${firstFail.month}개월차`:''}`, 'SOAK'));
+
+      let ptStatus='pass', ptDetail='심각한 대중교통 공급공백이 장기간 지속되지 않았습니다.';
+      if (!safe(()=>autoOn,false)) {
+        ptStatus='warn'; ptDetail='자동계획관이 OFF라 자동 대중교통 대응은 검증하지 않았습니다.';
+      } else if (maxSevereStreak >= 24 && ptEnd.bus<=ptStart.bus && ptEnd.rail<=ptStart.rail) {
+        ptStatus='fail';
+        ptDetail=`심각 공급공백 최대 ${maxSevereStreak}개월 연속 · 버스정류장 ${ptStart.bus}→${ptEnd.bus} · 철도역 ${ptStart.rail}→${ptEnd.rail}`;
+        if (!state.failureState) {
+          try { state.failureState=saveText(); state.failureMeta={years,month:safe(()=>curMonth(),-1),reason:'대중교통 계획 starvation'}; } catch (_) {}
+        }
+      } else if (maxSevereStreak >= 12) {
+        ptStatus='warn';
+        ptDetail=`심각 공급공백 최대 ${maxSevereStreak}개월 연속 · 전체 심각월 ${severeMonths}개월 · 버스정류장 ${ptStart.bus}→${ptEnd.bus} · 철도역 ${ptStart.rail}→${ptEnd.rail}`;
+      } else {
+        ptDetail=`최대 심각공백 ${maxSevereStreak}개월 · 버스정류장 ${ptStart.bus}→${ptEnd.bus} · 철도역 ${ptStart.rail}→${ptEnd.rail}`;
+      }
+      out.push(T('V-PT-002',`${years}년 자동계획관 대중교통 starvation`,ptStatus,ptDetail,'PLANNER'));
+
+      const nums=[S.pop,S.jobs,S.avgT,S.avgVC,S.vmt,money,tick];
+      out.push(T('V-SOAK-002',`${years}년 종료 상태 유효성`,nums.every(finite)?'pass':'fail',
+        `인구 ${Math.round(S.pop||0).toLocaleString()} · 일자리 ${Math.round(S.jobs||0).toLocaleString()} · 평균통행 ${(Number(S.avgT)||0).toFixed(1)}분 · V/C ${(Number(S.avgVC)||0).toFixed(2)}`, 'SOAK'));
+      return out;
+    });
+  }
+
+  async function execute(kind, label, runner){
+    if (state.busy) return;
+    state.busy = true; state.progress = `${label} 시작`;
+    renderValidationIfOpen();
+    const t0=performance.now();
+    let tests=[];
+    try { tests = await runner(); }
+    catch (e) { tests=[T('V-RUN-ERR',label,'fail',`${e.name||'Error'}: ${e.message}`,'RUNNER')]; }
+    const rec=addRecord(kind,label,tests,performance.now()-t0);
+    state.busy=false; state.progress=`${label} 완료 · ${statusKo(rec.status)} · PASS ${rec.pass} / 관찰 ${rec.warn} / FAIL ${rec.fail}`;
+    renderValidationIfOpen();
+    return rec;
+  }
+
+  async function runCurrent(){ return execute('current','현재 상태 점검',async()=>currentTests()); }
+  async function runRoundTrip(){ return execute('roundtrip','저장/복원 회귀',roundTripTests); }
+  async function runDeterminism(years=1){ return execute('determinism',`${years}년 결정론`,()=>determinismTests(years)); }
+  async function runSoak(years){ return execute('soak',`${years}년 장기검증`,()=>soakTests(years)); }
+  async function runAll(){
+    if (state.busy) return;
+    state.busy=true; state.progress='전체 검증 시작'; renderValidationIfOpen();
+    const t0=performance.now(); const all=[];
+    try {
+      setProgress('1/4 현재 상태 점검'); all.push(...currentTests());
+      setProgress('2/4 저장/복원 회귀'); all.push(...await roundTripTests());
+      setProgress('3/4 1년 장기검증'); all.push(...await soakTests(1));
+      setProgress('4/4 1년 결정론'); all.push(...await determinismTests(1));
+    } catch(e) { all.push(T('V-RUN-ERR','전체 검증','fail',e.message,'RUNNER')); }
+    const rec=addRecord('all','전체 검증',all,performance.now()-t0);
+    state.busy=false; state.progress=`전체 검증 완료 · ${statusKo(rec.status)} · PASS ${rec.pass} / 관찰 ${rec.warn} / FAIL ${rec.fail}`;
+    renderValidationIfOpen();
+    return rec;
+  }
+
+  function downloadFailure(){
+    if (!state.failureState) { safe(()=>flash('실패 상태 스냅샷이 아직 없습니다')); return; }
+    try {
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([state.failureState],{type:'application/json'}));
+      const mo=state.failureMeta&&state.failureMeta.month>=0?state.failureMeta.month:'unknown';
+      a.download=`traffic-city-2-validation-failure-m${mo}.json`;
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+    } catch(e) { safe(()=>flash('실패 스냅샷 저장 실패: '+e.message)); }
+  }
+
+  function testRows(tests){
+    if (!tests || !tests.length) return '<div class="valEmpty">검사 결과가 없습니다.</div>';
+    return tests.map(q=>`<div class="valTest ${q.status}"><div class="valTestTop"><span class="valBadge">${statusKo(q.status)}</span><b>${esc(q.name)}</b><code>${esc(q.id)}</code></div><div class="valDetail">${esc(q.detail)}</div></div>`).join('');
+  }
+  function historyHTML(){
+    if (!state.history.length) return '<div class="valEmpty">아직 검증 기록이 없습니다.</div>';
+    return state.history.slice(0,10).map((r,i)=>`<details class="valLog ${r.status}" ${i===0?'open':''}><summary><span class="valBadge">${statusKo(r.status)}</span><b>${esc(r.label)}</b><span>${new Date(r.stamp).toLocaleString('ko-KR')} · ${r.elapsedMs}ms</span></summary><div class="valLogMeta">PASS ${r.pass} · 관찰 ${r.warn} · FAIL ${r.fail}${r.hash?' · hash '+esc(r.hash):''}</div>${testRows(r.tests)}</details>`).join('');
+  }
+  function validationHTML(){
+    const last=state.history[0], sum=last?`최근 ${statusKo(last.status)} · PASS ${last.pass} / 관찰 ${last.warn} / FAIL ${last.fail}`:'검증 대기';
+    return `<div class="valHero ${last?last.status:''}"><b>VALIDATION LAB ${VERSION}</b><span>${esc(sum)}</span><p>본편의 <code>modelAudit()</code>, <code>doTick()</code>, <code>save/load</code>, 자동계획관 진단을 그대로 호출합니다. 장기검증은 현재 도시를 복제해 돌린 뒤 원상복구합니다.</p></div>
+      <div id="valProgress" class="valProgress ${state.busy?'busy':''}">${esc(state.progress || '검증할 항목을 선택하세요.')}</div>
+      <div class="valActions">
+        <button class="btn act" data-val="all" ${state.busy?'disabled':''}>▶ 전체 검증</button>
+        <button class="btn" data-val="current" ${state.busy?'disabled':''}>현재 상태</button>
+        <button class="btn" data-val="roundtrip" ${state.busy?'disabled':''}>저장/복원</button>
+        <button class="btn" data-val="det1" ${state.busy?'disabled':''}>결정론 1년</button>
+      </div>
+      <h4>LONG RUN · 실제 도시를 격리 실행</h4>
+      <div class="valActions">
+        <button class="btn" data-val="soak1" ${state.busy?'disabled':''}>1년</button>
+        <button class="btn" data-val="soak10" ${state.busy?'disabled':''}>10년</button>
+        <button class="btn" data-val="soak30" ${state.busy?'disabled':''}>30년</button>
+        <button class="btn" data-val="soak100" ${state.busy?'disabled':''}>100년</button>
+      </div>
+      <div class="valNote"><b>대중교통 starvation:</b> 자동계획관 ON 상태에서 심각한 공급공백이 24개월 이상 연속인데 버스정류장·철도역이 하나도 늘지 않으면 FAIL로 잡습니다. 12~23개월은 관찰입니다.</div>
+      <div class="valActions"><button class="btn" data-val="failure" ${state.failureState?'':'disabled'}>⬇ 실패 상태 JSON</button><button class="btn" data-val="clearlog" ${state.busy?'disabled':''}>기록 지우기</button></div>
+      <h4>AUDIT LOG</h4>${historyHTML()}`;
+  }
+
+  function bindValidation(){
+    document.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.val;
+      if(k==='all')runAll(); else if(k==='current')runCurrent(); else if(k==='roundtrip')runRoundTrip();
+      else if(k==='det1')runDeterminism(1); else if(k==='soak1')runSoak(1); else if(k==='soak10')runSoak(10);
+      else if(k==='soak30')runSoak(30); else if(k==='soak100')runSoak(100); else if(k==='failure')downloadFailure();
+      else if(k==='clearlog'){state.history=[];persistHistory();state.progress='검증 기록을 지웠습니다.';renderValidationIfOpen();}
+    });
+  }
+
+  function installStyle(){
+    if(document.getElementById('tc2ValidationStyle'))return;
+    const s=document.createElement('style');s.id='tc2ValidationStyle';s.textContent=`
+      .valHero{padding:11px 12px;border:1px solid rgba(255,255,255,.10);border-radius:12px;background:rgba(255,255,255,.035);margin:6px 0 8px}.valHero>b{display:block;font-size:14px;color:#efe7d9}.valHero>span{display:block;margin-top:3px;font-size:11px;color:#bcb09f}.valHero>p{font-size:10.5px;line-height:1.55;color:#a99e90;margin:7px 0 0}.valHero.pass{border-color:rgba(99,153,96,.35)}.valHero.warn{border-color:rgba(197,148,74,.45)}.valHero.fail{border-color:rgba(176,52,38,.55)}
+      .valProgress{padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.04);font-size:11px;color:#cfc3b3;margin:7px 0}.valProgress.busy{background:rgba(47,111,143,.16);color:#dcebf2}
+      .valActions{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 10px}.valActions button{appearance:none;color:inherit}.valActions button[disabled]{opacity:.35;pointer-events:none}
+      .valNote{font-size:10.5px;line-height:1.55;color:#aaa092;padding:8px 10px;border-left:3px solid rgba(197,148,74,.55);background:rgba(197,148,74,.06);margin:7px 0 10px}.valNote b{color:#dbc18e}
+      .valTest{padding:8px 3px;border-bottom:1px solid rgba(255,255,255,.065)}.valTestTop{display:flex;gap:7px;align-items:center;min-width:0}.valTestTop b{font-size:11.5px;color:#e5dccf;flex:1}.valTestTop code{font-size:9px;color:#82786c}.valBadge{display:inline-flex;align-items:center;justify-content:center;min-width:42px;padding:3px 6px;border-radius:999px;font-size:9px;font-weight:900;background:rgba(79,122,74,.23);color:#a8cf9d}.warn>.valTestTop .valBadge,.valLog.warn>.valBadge,.valLog.warn summary .valBadge{background:rgba(197,148,74,.16);color:#ddbd7f}.fail>.valTestTop .valBadge,.valLog.fail>.valBadge,.valLog.fail summary .valBadge{background:rgba(176,52,38,.18);color:#e58e82}.valDetail{font-size:10.5px;line-height:1.48;color:#a99e90;margin:4px 0 0 49px;word-break:break-word}
+      .valLog{margin:7px 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 9px;background:rgba(255,255,255,.025)}.valLog summary{display:flex;align-items:center;gap:7px;cursor:pointer;list-style:none}.valLog summary::-webkit-details-marker{display:none}.valLog summary b{font-size:11.5px;flex:1}.valLog summary span:last-child{font-size:9.5px;color:#8e8377}.valLogMeta{font-size:9.5px;color:#958a7e;margin:7px 0 2px}.valEmpty{font-size:11px;color:#8f8579;padding:10px 2px}
+    `;document.head.appendChild(s);
+  }
+
+  function installTab(){
+    const tabs=document.querySelector('#lab .labTabs') || document.querySelector('.labTabs');
+    if(!tabs || tabs.querySelector('[data-labtab="validate"]'))return;
+    const n=document.createElement('div');n.className='labTab';n.dataset.labtab='validate';n.textContent='검증';
+    const learn=tabs.querySelector('[data-labtab="learn"]');tabs.insertBefore(n,learn||null);
+  }
+
+  const originalRender = typeof renderLab === 'function' ? renderLab : null;
+  if (originalRender) {
+    renderLab = function(){
+      if (safe(()=>labTab,'') !== 'validate') return originalRender();
+      const el=document.getElementById('labBody'); if(!el)return;
+      const p=document.getElementById('lab'), st=p?p.scrollTop:0;
+      el.innerHTML=validationHTML();
+      if (typeof bindLab === 'function') bindLab();
+      bindValidation();
+      if(p)p.scrollTop=st;
+    };
+  }
+  function renderValidationIfOpen(){
+    if (safe(()=>labTab,'')==='validate' && document.getElementById('lab')?.classList.contains('open')) safe(()=>renderLab());
+  }
+
+  function init(){
+    installStyle(); installTab();
+    try { if (typeof bindLab === 'function') bindLab(); } catch (_) {}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
+
+  window.__TC2_VALIDATION={version:VERSION,runAll,runCurrent,runRoundTrip,runDeterminism,runSoak,stateHash,get history(){return state.history.slice();}};
+  console.info('[TRAFFIC CITY 2] Validation Lab v132 loaded');
+})();
+</script>
+
+<!-- TC2_CONTEXTUAL_LEARNING_V133 -->
+<script>
+/* TRAFFIC CITY 2 — Contextual Learning + Glossary v133
+   Add-on for v131/v132.
+   - Moves council evidence/theory into the relevant advisor dialogue instead of separate rounds.
+   - Auto-links core planning/model terms and opens compact definitions on tap.
+   Marker: TC2_CONTEXTUAL_LEARNING_V133
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_CONTEXT_LEARNING?.version === 'v133') return;
+
+  const VERSION = 'v133';
+
+  const GLOSSARY = {
+    accessibility:{label:'접근성',aliases:['접근성'],short:'사람이 원하는 일자리·상점·학교·서비스 등에 얼마나 쉽게 도달할 수 있는지를 나타내는 개념입니다.',game:'이 게임에서는 단순 거리보다 이동시간과 교통망을 통해 접근 가능한 목적지의 양을 봅니다.'},
+    gc:{label:'일반화비용',aliases:['일반화비용','GC'],short:'이동시간에 운임·통행료·대기·환승 같은 불편과 비용을 같은 척도로 합친 값입니다.',game:'경로와 교통수단 선택은 단순한 거리보다 일반화비용의 영향을 받습니다.'},
+    od:{label:'OD',aliases:['OD','기종점'],short:'Origin-Destination의 약자로, 어디에서 출발해 어디로 가는지를 나타내는 통행 쌍입니다.',game:'주거·일자리·생활목적지 사이의 통행 수요를 네트워크에 배정할 때 사용합니다.'},
+    vc:{label:'V/C',aliases:['V/C'],short:'교통량(Volume)을 도로 용량(Capacity)으로 나눈 비율입니다. 값이 높을수록 혼잡 압력이 큽니다.',game:'평균 V/C와 개별 회랑의 V/C는 도로가 어느 정도 포화됐는지 읽는 핵심 지표입니다.'},
+    vmt:{label:'VMT',aliases:['VMT'],short:'Vehicle Miles Traveled의 약자로 자동차가 이동한 총 거리를 나타냅니다.',game:'통행시간이 줄어도 VMT가 크게 늘면 자동차 의존이나 유발수요가 커졌을 수 있습니다.'},
+    modeShare:{label:'수단분담',aliases:['수단분담','교통수단 분담'],short:'전체 통행 중 자동차·철도·버스·도보 등 각 수단이 차지하는 비율입니다.',game:'정책이나 인프라가 사람들의 이동수단 선택을 어떻게 바꿨는지 확인할 때 봅니다.'},
+    relativeGap:{label:'relative gap',aliases:['relative gap','상대갭'],short:'현재 통행배정이 사용자균형에서 얼마나 떨어져 있는지 나타내는 수렴 지표입니다.',game:'값이 충분히 낮아질 때까지는 도로·정책 변경 직후의 중간 계산 상태일 수 있습니다.'},
+    convergence:{label:'수렴',aliases:['수렴'],short:'반복 계산을 계속했을 때 결과가 더 이상 크게 변하지 않는 상태로 가까워지는 과정입니다.',game:'수렴했다고 해서 좋은 도시라는 뜻은 아니며, 계산이 안정됐다는 뜻에 가깝습니다.'},
+    equilibrium:{label:'균형',aliases:['사용자균형','교통균형','균형'],short:'개별 이용자가 혼자 경로를 바꿔도 더 유리해지기 어려운 상태입니다.',game:'균형은 시스템 전체의 최적과 다를 수 있습니다.'},
+    wardrop:{label:'Wardrop 균형',aliases:['Wardrop 균형','워드롭 균형'],short:'사용되는 경로들의 일반화비용이 같아져 이용자 개인에게 일방적인 경로 변경 이득이 없는 사용자균형입니다.',game:'교통망의 경로선택과 Braess 역설을 이해하는 기본 개념입니다.'},
+    systemOpt:{label:'시스템 최적',aliases:['시스템 최적','시스템최적'],short:'각 개인이 아니라 도시 전체의 총 통행비용이 최소가 되는 상태입니다.',game:'사용자균형과 시스템 최적의 차이가 크면 개인의 합리적 선택이 전체에는 비효율적일 수 있습니다.'},
+    braess:{label:'Braess 역설',aliases:['Braess 역설','브라에스 역설'],short:'도로를 하나 더 추가했는데도 이용자들의 경로선택 때문에 전체 통행시간이 오히려 늘 수 있는 현상입니다.',game:'도로 영향 검증과 A/B 분기실험에서 확인할 수 있는 대표적 네트워크 효과입니다.'},
+    induced:{label:'유발수요',aliases:['유발수요','유발 수요'],short:'도로 용량이나 이동속도가 개선되면서 새 통행, 더 긴 통행, 수단전환, 입지변화 등이 생겨 교통량이 다시 늘어나는 현상입니다.',game:'도로 확장 직후와 5년·10년 뒤 결과가 다른 이유를 설명할 때 중요합니다.'},
+    externality:{label:'외부효과',aliases:['외부효과','외부비용'],short:'개인의 선택이 그 선택에 참여하지 않은 다른 사람에게 비용이나 편익을 주는 효과입니다.',game:'혼잡·소음·자동차 주행비용 정책을 설명할 때 자주 등장합니다.'},
+    congestionCharge:{label:'혼잡통행료',aliases:['혼잡통행료','혼잡료'],short:'혼잡한 시간·구역·도로의 자동차 진입에 가격을 부과해 혼잡 외부비용을 일부 이용자에게 반영하는 정책입니다.',game:'대체 교통수단이 부족하면 수단전환보다 부담 증가가 먼저 나타날 수 있습니다.'},
+    transferPenalty:{label:'환승저항',aliases:['환승저항','환승 저항'],short:'환승할 때 생기는 대기·이동·불확실성·심리적 불편을 추가 비용처럼 보는 개념입니다.',game:'버스와 철도가 있어도 연결이 불편하면 대중교통 네트워크 효과가 약해집니다.'},
+    mohring:{label:'Mohring 효과',aliases:['Mohring 효과','모링 효과'],short:'대중교통 이용자가 늘어 운행빈도가 높아지면 대기시간이 줄어 다시 이용이 늘 수 있는 네트워크 규모 효과입니다.',game:'배차와 수요가 서로 영향을 주는 이유를 설명할 때 사용합니다.'},
+    tod:{label:'TOD',aliases:['TOD','대중교통지향개발'],short:'Transit-Oriented Development. 역·정류장 접근성이 좋은 곳에 주거·업무·상업을 밀도 있게 배치하는 개발 방식입니다.',game:'역세권의 접근성, 주차, 개발밀도와 토지이용 변화를 함께 볼 때 사용합니다.'},
+    brt:{label:'BRT',aliases:['BRT','간선급행버스체계'],short:'Bus Rapid Transit. 전용차로·우선신호·정류장 개선 등으로 버스를 철도에 가까운 간선서비스로 운영하는 방식입니다.',game:'혼잡 회랑에서 도로 확폭이나 철도와 비교 가능한 대안입니다.'},
+    luti:{label:'LUTI',aliases:['LUTI','토지이용-교통 상호작용'],short:'Land Use–Transport Interaction. 교통이 입지와 토지이용을 바꾸고, 바뀐 토지이용이 다시 교통수요를 만드는 상호작용입니다.',game:'접근성→지가·개발→인구·고용→통행 변화의 장기 피드백을 읽는 틀입니다.'},
+    jobsHousing:{label:'직주 균형',aliases:['직주 균형','직주균형'],short:'한 지역의 일자리와 거주하는 취업인구가 얼마나 균형을 이루는지 보는 개념입니다.',game:'일자리에 비해 주택이 지나치게 적거나 그 반대일 때 장거리 통근 압력이 커질 수 있습니다.'},
+    lifeArea:{label:'생활권',aliases:['생활권'],short:'주거지에서 일상적으로 접근하는 상점·학교·공원·의료·교통 등을 묶어 보는 일상 활동권입니다.',game:'짧은 이동거리와 보행·서비스 접근성을 함께 나타내는 도시생활 지표입니다.'},
+    fifteen:{label:'15분 도시',aliases:['15분 도시','15분도시'],short:'일상에 필요한 주요 목적지를 도보·자전거·대중교통 등으로 짧은 시간 안에 접근하도록 도시구조를 만드는 계획 개념입니다.',game:'생활권과 목적지 접근거리를 읽는 참고 틀이지, 모든 통행을 15분으로 강제하는 규칙은 아닙니다.'},
+    affordable:{label:'감당가능주택',aliases:['감당가능주택','감당가능 주택'],short:'해당 가구의 소득에 비해 주거비 부담이 과도하지 않은 주택을 뜻합니다.',game:'저소득층이 실제로 부담 가능한 재고가 얼마나 남아 있는지 별도로 추적합니다.'},
+    housingBurden:{label:'주거비 부담',aliases:['주거비 부담'],short:'소득이나 지불능력에 비해 임대료·주거비가 얼마나 무거운지를 나타내는 지표입니다.',game:'평균값뿐 아니라 소득계층별 부담과 축출 위험을 함께 봅니다.'},
+    gentrification:{label:'젠트리피케이션',aliases:['젠트리피케이션'],short:'지역의 가치와 투자가 상승하는 과정에서 기존 저소득 주민이나 영세 활동이 비용 상승 때문에 밀려날 수 있는 현상입니다.',game:'재개발 횟수보다 누가 새 지대를 감당하지 못하고 어디로 이동하는지를 추적합니다.'},
+    filtering:{label:'주택 필터링',aliases:['주택 필터링','필터링'],short:'주택이 노후화·시장변화를 거치면서 시간이 지나 더 낮은 소득계층이 이용할 수 있게 되는 장기 과정입니다.',game:'신규공급이 즉시 저소득 감당주택이 된다는 뜻은 아닙니다.'},
+    lvt:{label:'토지가치세',aliases:['토지가치세','LVT'],short:'건물보다 토지 자체의 입지가치에 과세하는 방식입니다.',game:'유휴토지 보유와 토지가치 상승에서 생기는 세원을 어떻게 다룰지 볼 때 등장합니다.'},
+    valueCapture:{label:'개발이익환수',aliases:['개발이익환수','개발이익 환수'],short:'공공투자나 규제변경으로 생긴 개발이익의 일부를 공공기여나 재원으로 회수하는 방식입니다.',game:'개발 수익과 공공시설·보행·주거기여 사이의 교환을 다룹니다.'},
+    counterfactual:{label:'반사실',aliases:['반사실','counterfactual'],short:'실제로 일어난 세계와 비교하기 위해 "그 정책을 하지 않았다면?"을 구성한 비교 세계입니다.',game:'A/B 분기실험에서 기준세계가 반사실 역할을 합니다.'},
+    control:{label:'기준세계',aliases:['기준세계','Control'],short:'실험에서 개입을 하지 않거나 현재 상태를 유지하는 비교 분기입니다.',game:'실험세계와 같은 시점·같은 초기조건으로 진행해 정책효과를 분리합니다.'},
+    treatment:{label:'실험세계',aliases:['실험세계','Treatment'],short:'도로·정책·대중교통 등 특정 개입을 적용한 분기입니다.',game:'기준세계와의 차이를 시간에 따라 비교합니다.'},
+    ab:{label:'A/B 실험',aliases:['A/B 실험','A/B'],short:'같은 시작점에서 두 조건을 나눠 결과 차이를 비교하는 실험 방식입니다.',game:'현재 도시를 복제해 기준세계와 실험세계를 독립적으로 진행할 때 사용합니다.'},
+    seed:{label:'시드',aliases:['seed','Seed','시드'],short:'난수 생성의 시작값입니다. 같은 시드를 쓰면 의도된 무작위 순서를 재현할 수 있습니다.',game:'같은 초기상태와 같은 시드를 사용하면 분기 간 차이를 개입의 영향에 더 가깝게 볼 수 있습니다.'},
+    determinism:{label:'결정론',aliases:['결정론','결정론적'],short:'같은 초기조건과 같은 입력이면 같은 결과가 나오는 성질입니다.',game:'동일상태 A/B 결정론 검사는 숨은 시간의존·저장누락·난수오염을 찾습니다.'},
+    regression:{label:'회귀시험',aliases:['회귀시험','회귀 시험'],short:'새 수정이 예전에 정상 작동하던 기능을 다시 깨뜨리지 않았는지 반복 확인하는 시험입니다.',game:'단일도로·병렬도로·Braess·대중교통 압박 같은 고정 시나리오가 회귀시험이 됩니다.'},
+    soak:{label:'장기검증',aliases:['장기검증','장기 검증','soak test'],short:'시뮬레이션을 오랫동안 자동 진행해 누적오류·정체·발산을 찾는 시험입니다.',game:'1·10·30·100년 검증으로 재정·교통·계획관·저장상태의 장기 안정성을 봅니다.'},
+    audit:{label:'모형 감사',aliases:['모형 감사','MODEL INTEGRITY'],short:'정책 결과가 마음에 드는지와 별개로, 회계·수단분담·상태값 같은 모형 불변량이 깨졌는지 검사하는 절차입니다.',game:'도시가 나빠진 것과 코드가 고장난 것을 구분합니다.'},
+    assignment:{label:'통행배정',aliases:['통행배정','통행 배정'],short:'OD 수요를 실제 도로·철도·버스 경로에 나누어 실어 각 링크의 흐름과 통행시간을 계산하는 과정입니다.',game:'혼잡과 경로선택, 수렴 계산의 중심 절차입니다.'},
+    networkEffect:{label:'네트워크 효과',aliases:['네트워크 효과'],short:'개별 링크나 노선의 가치가 그 자체만이 아니라 전체 연결구조에 따라 달라지는 현상입니다.',game:'도로 하나, 환승 하나의 변화가 먼 곳의 경로선택까지 바꿀 수 있습니다.'},
+    sprawl:{label:'스프롤',aliases:['스프롤'],short:'도시개발이 낮은 밀도와 긴 이동거리, 비연속적 패턴으로 외곽에 퍼지는 현상을 말합니다.',game:'개발반경 하나가 아니라 비연속 개발·도로량·대중교통·생활권을 함께 봅니다.'},
+    mixedUse:{label:'혼합용도',aliases:['혼합용도','혼합 용도'],short:'주거·상업·업무 등 여러 기능을 가까이 배치하는 토지이용 방식입니다.',game:'생활목적지 거리를 줄일 수 있지만 혼합 자체가 자동으로 좋은 접근성을 보장하지는 않습니다.'},
+    threeDs:{label:'3Ds',aliases:['3Ds','3D 지표'],short:'도시형태 연구에서 Density, Diversity, Design을 묶어 통행행태와의 관계를 설명하는 고전적 틀입니다.',game:'밀도·혼합용도·보행환경을 한 요소만 보지 않고 함께 읽는 참고 틀입니다.'},
+    furness:{label:'Furness 균형',aliases:['Furness 균형','퍼니스 균형','Furness'],short:'기종점 행렬의 행 합계와 열 합계를 목표값에 맞추도록 반복 조정하는 균형 절차입니다.',game:'생성된 출발 통행과 도착 통행의 회계를 맞춰 사람이 통행행렬에서 증발하거나 생기지 않게 합니다.'},
+    vot:{label:'VOT',aliases:['VOT','시간가치'],short:'Value of Time. 이동시간 1분 또는 1시간을 금전가치로 환산할 때 쓰는 값입니다.',game:'통행료·운임 같은 돈 비용을 시간과 함께 일반화비용으로 비교할 때 사용합니다.'},
+    amenity:{label:'어메니티',aliases:['어메니티','amenity'],short:'공원·수변·생활서비스·쾌적성처럼 장소의 생활가치를 높이는 특성을 묶어 부르는 말입니다.',game:'주거·혼합용도 입지와 생활권의 매력에 영향을 주지만, 접근성과는 별도 요소입니다.'},
+    density:{label:'개발밀도',aliases:['개발밀도','밀도'],short:'일정 면적 안에 사람·주택·일자리·건물이 얼마나 집중되어 있는지를 나타냅니다.',game:'높은 밀도는 대중교통과 생활서비스 수요를 받쳐줄 수 있지만 그 자체로 좋은 도시를 보장하지 않습니다.'},
+    rent:{label:'지대',aliases:['입찰지대','지대'],short:'어떤 입지에 자리잡기 위해 토지 이용자가 지불할 의사가 있는 위치가치 또는 토지수익입니다.',game:'접근성·수요·규제에 따라 주거·상업·업무가 서로 다른 입찰을 내고 토지이용 변화 압력이 생깁니다.'},
+    bidrent:{label:'입찰지대',aliases:['bid-rent','Bid-rent','입찰 지대'],short:'가구나 기업이 특정 위치를 차지하기 위해 지불할 수 있는 최대 지대를 위치별로 비교하는 개념입니다.',game:'접근성이 높은 곳의 높은 지대와 용도경쟁을 설명하는 토지시장 개념입니다.'},
+    zoning:{label:'용도지역',aliases:['용도지역','용도지정','zoning'],short:'토지에 허용되는 주거·상업·업무·산업 등의 이용과 개발조건을 정하는 계획 규칙입니다.',game:'자동계획관과 플레이어의 용도지정이 토지시장 수요와 만나 실제 개발로 이어집니다.'},
+    vacancy:{label:'공실률',aliases:['공실률','공실'],short:'사용 가능한 주택이나 업무공간 중 실제로 점유되지 않은 비율입니다.',game:'기업공실과 주거공실은 단순 건물 수가 아니라 실제 수요 부족이나 조정과정을 보여줍니다.'},
+    occupancy:{label:'입주율',aliases:['입주율','가동률'],short:'전체 수용능력 중 실제 거주자나 실제 고용이 차지하는 비율입니다.',game:'건물이 남아 있어도 기업 입주율이 떨어지면 실제 일자리는 감소할 수 있습니다.'},
+    frequency:{label:'운행빈도',aliases:['운행빈도','배차간격','배차'],short:'버스나 철도가 일정 시간 동안 얼마나 자주 운행되는지를 나타냅니다.',game:'빈도가 높아지면 대기시간이 줄지만 운영비가 늘고, 수요가 낮으면 과잉서비스가 될 수 있습니다.'},
+    carStock:{label:'차량보유 재고',aliases:['차량보유 재고','차량보유'],short:'한 시점의 자동차 통행 선택이 아니라 가구가 자동차를 보유하고 있는 장기 상태를 뜻합니다.',game:'교통서비스가 바뀌어도 차량보유는 느리게 변하므로 수단분담이 즉시 완전히 바뀌지 않습니다.'},
+    equity:{label:'이동형평',aliases:['이동형평','교통형평'],short:'평균 효율뿐 아니라 소득·지역·교통수단에 따라 이동기회와 부담이 어떻게 나뉘는지 보는 관점입니다.',game:'저소득 운임부담, 대중교통 접근, 차량보유 차이를 함께 봅니다.'},
+    tdm:{label:'교통수요관리',aliases:['교통수요관리','TDM'],short:'도로 공급을 늘리는 대신 가격·주차·운영·수단전환 등을 이용해 통행수요와 이용방식을 관리하는 정책군입니다.',game:'혼잡통행료·주차가격·대중교통 서비스 조정 등을 비교할 때 쓸 수 있는 상위 개념입니다.'},
+    polycentric:{label:'다핵도시',aliases:['다핵도시','다핵 도시'],short:'하나의 중심업무지구만이 아니라 여러 중심지가 역할을 나누는 도시공간 구조입니다.',game:'멀리 퍼진 도시라도 철도와 여러 중심지가 연결되면 단순 스프롤과 다른 형태가 될 수 있습니다.'},
+    landUse:{label:'토지이용',aliases:['토지이용','토지 이용'],short:'토지가 주거·상업·업무·산업·공원 등 어떤 기능으로 사용되는지를 뜻합니다.',game:'교통 접근성과 토지시장이 장기적으로 토지이용을 바꾸고, 바뀐 토지이용이 다시 통행을 만듭니다.'}
+  };
+
+  const aliasToKey = new Map();
+  for (const [key, item] of Object.entries(GLOSSARY)) for (const a of item.aliases) aliasToKey.set(a, key);
+  const aliases = [...aliasToKey.keys()].sort((a,b)=>b.length-a.length);
+  const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const termRe = new RegExp(aliases.map(escRe).join('|'),'g');
+
+  function installStyle(){
+    if (document.getElementById('tcContextLearningStyle')) return;
+    const s=document.createElement('style');s.id='tcContextLearningStyle';s.textContent=`
+      .tcTerm{appearance:none;border:0;background:none;padding:0;margin:0;color:#79b7d7;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;font:inherit;font-weight:inherit;display:inline;cursor:pointer;touch-action:manipulation}
+      .tcTerm:active{color:#b9d9ea}.tcInlineKnowledge{display:block;margin-top:7px;padding-top:7px;border-top:1px dotted rgba(255,255,255,.16);color:#e0d7c8}.tcInlineCite{display:block;margin-top:4px;font-size:9.5px;line-height:1.45;color:#9f9383}
+      #tcGlossaryBackdrop{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.48);display:none;align-items:flex-end;justify-content:center;padding:0 0 env(safe-area-inset-bottom)}#tcGlossaryBackdrop.open{display:flex}
+      #tcGlossarySheet{width:min(680px,100%);max-height:58vh;overflow:auto;background:#211b15;border:1px solid rgba(255,255,255,.14);border-bottom:0;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.35);padding:15px 16px 18px;color:#eee5d8;touch-action:pan-y}
+      #tcGlossarySheet .gh{display:flex;gap:10px;align-items:flex-start}#tcGlossarySheet .gh b{font-size:16px;flex:1}#tcGlossaryClose{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#d9cfbf;border-radius:999px;width:30px;height:30px;font-size:17px}
+      #tcGlossarySheet p{font-size:12px;line-height:1.65;margin:10px 0 0;color:#d4cabc}#tcGlossarySheet .game{margin-top:10px;padding:9px 10px;border-left:3px solid #4e8eaf;background:rgba(78,142,175,.08);font-size:11px;line-height:1.6;color:#bfd2dc}
+    `;document.head.appendChild(s);
+  }
+
+  function ensureGlossarySheet(){
+    let back=document.getElementById('tcGlossaryBackdrop'); if(back) return back;
+    back=document.createElement('div');back.id='tcGlossaryBackdrop';back.innerHTML=`<div id="tcGlossarySheet" role="dialog" aria-modal="true" aria-labelledby="tcGlossaryTitle"><div class="gh"><b id="tcGlossaryTitle">용어</b><button id="tcGlossaryClose" type="button" aria-label="닫기">×</button></div><p id="tcGlossaryText"></p><div class="game" id="tcGlossaryGame"></div></div>`;
+    document.body.appendChild(back);
+    const close=()=>back.classList.remove('open');
+    back.addEventListener('click',e=>{if(e.target===back)close();});
+    back.querySelector('#tcGlossaryClose').addEventListener('click',close);
+    return back;
+  }
+
+  function showTerm(key){
+    const item=GLOSSARY[key]; if(!item) return;
+    const back=ensureGlossarySheet();
+    back.querySelector('#tcGlossaryTitle').textContent=item.label;
+    back.querySelector('#tcGlossaryText').textContent=item.short;
+    back.querySelector('#tcGlossaryGame').textContent='게임에서: '+item.game;
+    back.classList.add('open');
+  }
+
+  function skipTextNode(node){
+    const p=node.parentElement;if(!p)return true;
+    if(p.closest('.tcTerm,#tcGlossaryBackdrop,script,style,pre,code,textarea,input,select,option,button,a'))return true;
+    if(p.closest('[contenteditable="true"]'))return true;
+    return false;
+  }
+
+  function linkify(root){
+    if(!root||!termRe)return;
+    const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(n){
+      if(skipTextNode(n))return NodeFilter.FILTER_REJECT;
+      const t=n.nodeValue||'';termRe.lastIndex=0;return termRe.test(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;
+    }});
+    const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+    for(const node of nodes){
+      const text=node.nodeValue||'';termRe.lastIndex=0;let m,last=0,hit=false;const frag=document.createDocumentFragment();
+      while((m=termRe.exec(text))){
+        hit=true;if(m.index>last)frag.appendChild(document.createTextNode(text.slice(last,m.index)));
+        const raw=m[0],key=aliasToKey.get(raw); if(!key){frag.appendChild(document.createTextNode(raw));}else{const b=document.createElement('button');b.type='button';b.className='tcTerm';b.dataset.tcTerm=key;b.textContent=raw;frag.appendChild(b);}last=m.index+raw.length;
+      }
+      if(hit){if(last<text.length)frag.appendChild(document.createTextNode(text.slice(last)));node.replaceWith(frag);}
+    }
+  }
+
+  function sectionNodes(round){
+    const out=[];let n=round?.nextElementSibling;while(n&&!n.classList.contains('cRound')){out.push(n);n=n.nextElementSibling;}return out;
+  }
+  function findAdvisorTarget(body,name,beforeRound,type){
+    const posts=[...body.querySelectorAll('.cPost:not(.cEvidence):not(.cForecast)')];
+    const before=posts.filter(p=>(p.compareDocumentPosition(beforeRound)&Node.DOCUMENT_POSITION_FOLLOWING) && p.querySelector('.cHd b')?.textContent.trim()===name);
+    // Empirical cases work naturally as support in a rebuttal; planning theory reads better in the opening opinion.
+    if(type==='evidence')return before.find(p=>p.classList.contains('rebut'))||before[0]||posts.find(p=>p.querySelector('.cHd b')?.textContent.trim()===name)||null;
+    return before.find(p=>!p.classList.contains('rebut'))||before[0]||posts.find(p=>p.querySelector('.cHd b')?.textContent.trim()===name)||null;
+  }
+  function mergeSection(body,round,type){
+    const nodes=sectionNodes(round),used=new Set();
+    for(const p of nodes.filter(n=>n.matches?.('.cPost.cEvidence'))){
+      const name=p.querySelector('.cHd b')?.textContent.trim()||'';if(!name||used.has(name))continue;used.add(name);
+      const target=findAdvisorTarget(body,name,round,type);if(!target)continue;
+      const quote=p.querySelector('.cQuote')?.textContent.trim()||'';const cite=p.querySelector('.cMeta')?.textContent.trim()||'';
+      const q=target.querySelector('.cQuote');if(!q||!quote)continue;
+      const k=document.createElement('span');k.className='tcInlineKnowledge';k.textContent=quote;q.appendChild(k);
+      if(cite){const c=document.createElement('span');c.className='tcInlineCite';c.textContent=(type==='evidence'?'근거 · ':'참고 · ')+cite;q.appendChild(c);}
+    }
+    for(const n of nodes)n.remove();round.remove();
+  }
+  function mergeCouncilKnowledge(){
+    const body=document.getElementById('councilBody');if(!body)return;
+    const rounds=[...body.querySelectorAll('.cRound')];
+    const evidence=rounds.find(r=>r.textContent.trim()==='실제 사례·실증연구');if(evidence)mergeSection(body,evidence,'evidence');
+    const theory=[...body.querySelectorAll('.cRound')].find(r=>r.textContent.trim()==='도시계획 교재·고전 원리');if(theory)mergeSection(body,theory,'theory');
+    // The chair report used to repeat evidence/theory as two appendix-like sections.
+    // They are now already spoken in context, so remove both heading + reference block.
+    const chair=body.querySelector('.chairReport');
+    if(chair){
+      for(const h of [...chair.querySelectorAll('h4')]){
+        const t=h.textContent.trim();
+        if(/^8\.\s*외부 연구·실제 사례 참고/.test(t)||/^9\.\s*도시계획 이론·교재 일반론/.test(t)){
+          const nx=h.nextElementSibling;if(nx?.classList.contains('crRefs'))nx.remove();h.remove();
+        }else if(/^10\.\s*직전 회의 대비/.test(t))h.textContent=t.replace(/^10\./,'8.');
+      }
+      chair.querySelectorAll('.crRefs').forEach(n=>n.remove());
+    }
+    linkify(body);
+  }
+
+  function wrapRender(name,after){
+    const fn=window[name];if(typeof fn!=='function'||fn.__tcContextWrapped)return;
+    const wrapped=function(...args){const r=fn.apply(this,args);try{after(...args);}catch(e){console.warn('[TC2 v133]',name,e);}return r;};
+    wrapped.__tcContextWrapped=true;window[name]=wrapped;
+    try{eval(`${name}=window[${JSON.stringify(name)}]`);}catch(_){ }
+  }
+
+  function observeRoots(){
+    const roots=['councilBody','policy','lab','panel','insight','paperReport','planlog','gapBox','snsBody'].map(id=>document.getElementById(id)).filter(Boolean);
+    let raf=0;const schedule=()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;for(const r of roots)linkify(r);});};
+    const mo=new MutationObserver(schedule);for(const r of roots)mo.observe(r,{subtree:true,childList:true,characterData:true});schedule();
+    window.__TC2_CONTEXT_LEARNING_OBSERVER=mo;
+  }
+
+  function init(){
+    installStyle();ensureGlossarySheet();
+    document.addEventListener('click',e=>{const t=e.target.closest?.('.tcTerm');if(t){e.preventDefault();e.stopPropagation();showTerm(t.dataset.tcTerm);}},true);
+    wrapRender('renderCouncilSnapshot',()=>mergeCouncilKnowledge());
+    for(const n of ['renderLab','renderPolicyAdvisors','updatePanel','updateInsight','renderFeed','renderPlannerLog'])wrapRender(n,()=>{const id={renderLab:'lab',renderPolicyAdvisors:'policyAdvisorBox',updatePanel:'panel',updateInsight:'insight',renderFeed:'snsBody',renderPlannerLog:'planlog'}[n];linkify(document.getElementById(id));});
+    observeRoots();
+    // If the council was already open when the module loaded, normalize it immediately.
+    if(document.getElementById('councilBody')?.children.length)mergeCouncilKnowledge();
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  window.__TC2_CONTEXT_LEARNING={version:VERSION,glossary:GLOSSARY,linkify,showTerm,mergeCouncilKnowledge};
+  console.info('[TRAFFIC CITY 2] Contextual Learning v133 loaded');
+})();
+</script>
+
+<!-- TC2_COUNCIL_RESOLVER_V134 -->
+<script>
+/* TRAFFIC CITY 2 — Council Recommendation Resolver v134
+   Add-on for v131+ (recommended with v132 Validation + v133 Contextual Learning).
+   Marker: TC2_COUNCIL_RESOLVER_V134
+   Goal: turn council goals into executable recommendations using existing policy levers first.
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_COUNCIL_RESOLVER?.version === 'v134') return;
+
+  const VERSION = 'v134';
+  const GAP_KEY = 'tc2-council-policy-gaps-v134';
+  const MAX_ACTIONS = 3;
+  let lastPlan = null;
+
+  const ID_ALIASES = {
+    toll:['혼잡통행료'], fare:['기본운임','대중교통 운임','운임'], xdisc:['환승할인'],
+    fuel:['연료비'], cartax:['자동차 보유비','자동차보유비','자동차세'], tfare:['저소득 교통할인','저소득 운임할인'],
+    trstd:['최소 서비스 기준','대중교통 서비스 기준'], trprio:['투자 우선도','대중교통 투자 우선도'],
+    parksup:['주차공급 기준'], parkfee:['목적지 주차요금'], todpark:['TOD 주차상한'],
+    lvt:['토지가치세'], rcap:['임대료 규제'], contrib:['개발이익 환수','공공기여'],
+    devsub:['개발지원 강도','개발 지원 강도'], devtarget:['개발지원 대상','개발 지원 대상'], devmode:['개발지원 방식','개발 지원 방식'],
+    welf:['복지 지출'], guard:['보장선'], welfmode:['대상'], welfauto:['정하는 방식'],
+    maint:['유지보수율','유지관리'], pubsvc:['공공서비스 투자','공공서비스 투자 기준'], utilres:['기반시설 예비용량']
+  };
+
+  const URBAN_POLICY_MAP = {
+    lifeAndTransit:['pubsvc','trprio','contrib'],
+    life:['pubsvc','contrib','devtarget'],
+    transit:['trprio','trstd','parkfee']
+  };
+
+  const esc = s => String(s ?? '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const norm = s => String(s ?? '').replace(/\s+/g,'').replace(/[·()（）/]/g,'').toLowerCase();
+
+  function safeCall(name, ...args){
+    try { const f = window[name] || (typeof globalThis[name] === 'function' ? globalThis[name] : null); return typeof f === 'function' ? f(...args) : undefined; }
+    catch (_) { return undefined; }
+  }
+  function policyMeta(id){ try { return (typeof POLICY_META !== 'undefined' && POLICY_META[id]) || null; } catch (_) { return null; } }
+  function policyName(id){ return policyMeta(id)?.nm || ID_ALIASES[id]?.[0] || id; }
+  function policyValueSafe(id){ try { return typeof policyValue === 'function' ? policyValue(id) : undefined; } catch (_) { return undefined; } }
+  function policyFmtSafe(id,v){
+    try { if(typeof policyFmt === 'function') return policyFmt(id,v); } catch(_){}
+    return v === undefined ? '현재값 확인 필요' : String(v);
+  }
+  function advisorCaseSafe(id){ try { return typeof advisorCase === 'function' ? advisorCase(id) : null; } catch (_) { return null; } }
+
+  function detectDirection(rec,id){
+    const t=String(rec||'');
+    if(!t || /유지|보류|관찰|현행/.test(t)) return 0;
+    if(/하향|인하|축소|감축|완화|낮추|줄이|감소|억제/.test(t)) return -1;
+    if(/상향|인상|확대|증액|강화|높이|늘리|증가|적극|확충/.test(t)) return 1;
+    // Known categorical recommendations: open the exact policy row rather than guessing a cycle direction.
+    if(['devtarget','devmode','welfmode','welfauto'].includes(id)) return null;
+    return null;
+  }
+
+  function findPolicyRow(id){
+    const root=document.getElementById('policy'); if(!root) return null;
+    const labels=[policyName(id),...(ID_ALIASES[id]||[])].map(norm).filter(Boolean);
+    for(const row of root.querySelectorAll('.lineRow')){
+      const nm=norm(row.querySelector('.nm')?.textContent || '');
+      if(labels.some(x=>nm===x || nm.includes(x) || x.includes(nm))) return row;
+    }
+    return null;
+  }
+
+  function actionForPolicy(id, source, fallbackWhy=''){
+    const q=advisorCaseSafe(id);
+    const rec=q?.rec || fallbackWhy || `${policyName(id)} 조정 검토`;
+    const direction=detectDirection(rec,id);
+    const current=q?.current || policyFmtSafe(id,policyValueSafe(id));
+    const meta=policyMeta(id);
+    return {
+      id, name:policyName(id), source:source?.name || source?.id || '자문회의',
+      score:Number(q?.score ?? source?.score ?? 30), urgency:q?.urgency || source?.urgency || '보통',
+      rec, why:q?.why || fallbackWhy || source?.why || '', trade:q?.trade || source?.trade || '',
+      current, direction, horizon:Number(meta?.h || (id==='trstd'||id==='trprio'?6:12)),
+      expected:meta?.expected || '', route:source?.id==='urban'?'간접 대응':'직접 대응', rowFound:!!findPolicyRow(id)
+    };
+  }
+
+  function fieldActions(field,s){
+    if(field.id==='urban'){
+      const x=s.x||{};
+      let ids=[];
+      if(x.life<.4 && x.transitCover<.15) ids=URBAN_POLICY_MAP.lifeAndTransit;
+      else if(x.life<.55) ids=URBAN_POLICY_MAP.life;
+      else if(x.transitCover<.18) ids=URBAN_POLICY_MAP.transit;
+      else return [];
+      return ids.map(id=>actionForPolicy(id,field,field.rec)).filter(Boolean);
+    }
+    const opts=Array.isArray(field.options)?field.options:[];
+    if(opts.length){
+      return opts.slice(0,4).map(o=>({
+        id:o.id,name:policyName(o.id),source:field.name||field.id,score:Number(o.score||field.score||0),urgency:o.urgency||field.urgency,
+        rec:o.rec||field.rec,why:o.why||field.why,trade:o.trade||field.trade,current:o.current||policyFmtSafe(o.id,policyValueSafe(o.id)),
+        direction:detectDirection(o.rec||field.rec,o.id),horizon:Number(policyMeta(o.id)?.h||12),expected:policyMeta(o.id)?.expected||'',route:'직접 대응',rowFound:!!findPolicyRow(o.id)
+      }));
+    }
+    if(field.top?.id) return [actionForPolicy(field.top.id,field,field.rec)];
+    return [];
+  }
+
+  function resolve(snapshot){
+    const fields=Array.isArray(snapshot?.fields)?snapshot.fields:[];
+    const byField=[];
+    for(const f of fields){
+      const raw=fieldActions(f,snapshot);
+      const usable=raw.filter(a=>a && a.id && (a.direction!==0 || a.direction===null));
+      byField.push({field:f,actions:usable,hasLever:raw.length>0});
+    }
+
+    const merged=new Map();
+    for(const g of byField){
+      for(const a of g.actions){
+        const k=a.id;
+        if(!merged.has(k)) merged.set(k,{...a,votes:[],sources:[]});
+        const m=merged.get(k); m.votes.push({dir:a.direction,score:a.score,source:a.source}); m.sources.push(a.source);
+        if(a.score>m.score) Object.assign(m,{...a,votes:m.votes,sources:m.sources});
+      }
+    }
+    const consolidated=[];
+    for(const m of merged.values()){
+      const pos=m.votes.filter(v=>v.dir===1).reduce((a,v)=>a+v.score,0);
+      const neg=m.votes.filter(v=>v.dir===-1).reduce((a,v)=>a+v.score,0);
+      if(pos&&neg){m.conflict=true;m.direction=pos===neg?null:(pos>neg?1:-1);m.autoApply=false;}
+      else {m.conflict=false;m.direction=pos?1:neg?-1:m.direction;m.autoApply=(m.direction===1||m.direction===-1)&&m.rowFound;}
+      m.weight=Math.max(pos,neg,m.score||0);m.sources=[...new Set(m.sources)];
+      consolidated.push(m);
+    }
+    consolidated.sort((a,b)=>(b.weight||0)-(a.weight||0));
+
+    const actionable=consolidated.filter(a=>a.autoApply&&!a.conflict).slice(0,MAX_ACTIONS);
+    const review=consolidated.filter(a=>!a.autoApply||a.conflict).slice(0,MAX_ACTIONS);
+    const gaps=byField.filter(g=>g.field?.score>=35 && !g.hasLever).map(g=>({field:g.field.id,name:g.field.name,goal:g.field.rec,score:g.field.score,month:snapshot?.month}));
+    const deferred=byField.filter(g=>g.field?.score>=35 && g.hasLever && g.actions.length===0).map(g=>({field:g.field.id,name:g.field.name,goal:g.field.rec,score:g.field.score}));
+    return {snapshot,byField,consolidated,actionable,review,gaps,deferred,createdAt:Date.now()};
+  }
+
+  function loadGaps(){ try{return JSON.parse(localStorage.getItem(GAP_KEY)||'[]');}catch(_){return [];} }
+  function recordGaps(gaps){
+    if(!gaps.length)return;
+    const hist=loadGaps();
+    for(const g of gaps){
+      const sig=`${g.field}|${g.goal}`;
+      const old=hist.find(x=>x.sig===sig);
+      if(old){
+        if(old.lastMonth!==g.month) old.count=(old.count||1)+1;
+        old.last=Date.now();old.lastMonth=g.month;old.score=g.score;
+      }
+      else hist.unshift({...g,sig,count:1,first:Date.now(),last:Date.now(),lastMonth:g.month});
+    }
+    localStorage.setItem(GAP_KEY,JSON.stringify(hist.slice(0,50)));
+  }
+
+  function recommendationLine(a){
+    const dir=a.direction===1?'1단계 상향':a.direction===-1?'1단계 하향':'정책값 선택';
+    const badge=a.conflict?'의견충돌':a.autoApply?'적용 가능':'직접 검토';
+    const route=a.route||'직접 대응';
+    return `<div class="tcRecItem${a.conflict?' conflict':''}">
+      <div class="tcRecTop"><b>${esc(a.name)}</b><span>${esc(route)} · ${esc(badge)}</span></div>
+      <div class="tcRecChange">${esc(a.current)} → <strong>${esc(dir)}</strong></div>
+      <div class="tcRecWhy">${esc(a.rec)}${a.why?` · ${esc(a.why)}`:''}</div>
+      ${a.expected?`<div class="tcRecExpected">예상 · ${esc(a.expected)}</div>`:''}
+      ${a.trade?`<div class="tcRecTrade">대가 · ${esc(a.trade)}</div>`:''}
+      <div class="tcRecMeta">관찰 ${a.horizon}개월${a.sources?.length>1?` · ${a.sources.length}개 자문분야가 같은 수단을 지목`:''}</div>
+    </div>`;
+  }
+
+  function ensureStyle(){ if(document.getElementById('tcResolver134Style'))return; const st=document.createElement('style');st.id='tcResolver134Style';st.textContent=`
+    .tcResolver{margin:14px 0 4px;padding:11px;border-radius:12px;border:1px solid rgba(105,169,202,.25);background:rgba(47,111,143,.08)}
+    .tcResolver h4{margin:0 0 5px!important;padding:0!important;border:0!important;color:#eef0e9!important;font-size:13px!important}.tcResolverLead{font-size:10.8px;line-height:1.5;color:#bcb2a4;margin-bottom:8px}
+    .tcRecItem{padding:8px 0;border-top:1px solid rgba(255,255,255,.07)}.tcRecItem:first-of-type{border-top:0}.tcRecTop{display:flex;align-items:center;justify-content:space-between;gap:8px}.tcRecTop b{font-size:11.5px;color:#f0e7d9}.tcRecTop span{font-size:9px;padding:2px 6px;border-radius:999px;background:rgba(105,169,202,.14);color:#abd1e3}.tcRecChange{font-size:11px;color:#d8c28d;margin-top:4px}.tcRecChange strong{color:#f0d990}.tcRecWhy{font-size:10.5px;line-height:1.48;color:#c9beaf;margin-top:3px}.tcRecExpected{font-size:9.8px;line-height:1.42;color:#a8c5d5;margin-top:3px}.tcRecTrade{font-size:9.8px;line-height:1.42;color:#b99d7b;margin-top:3px}.tcRecMeta{font-size:9px;color:#8f8579;margin-top:4px}.tcRecItem.conflict{border-left:2px solid #b98645;padding-left:7px}
+    .tcResolverBtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.tcResolverBtns button{border:1px solid rgba(105,169,202,.30);background:rgba(47,111,143,.18);color:#dceaf1;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:800}.tcResolverBtns button.primary{background:#356d8d;color:white}.tcResolverBtns button:disabled{opacity:.42}.tcGap{margin-top:7px;padding:7px;border-radius:8px;background:rgba(176,78,55,.10);border:1px solid rgba(176,78,55,.23);color:#d9a695;font-size:10px;line-height:1.45}
+    .tcApplied{color:#9fc995!important;border-color:rgba(111,163,95,.38)!important;background:rgba(79,122,74,.18)!important}
+  `;document.head.appendChild(st); }
+
+  function openPolicy(){
+    const p=document.getElementById('policy');
+    if(p && !p.classList.contains('open')){
+      const b=document.getElementById('bPolicyQuick'); if(b) b.click();
+      else { try{ if(typeof togglePanel==='function')togglePanel('policy'); }catch(_){} }
+    }
+  }
+
+  function clickAction(a){
+    const row=findPolicyRow(a.id); if(!row || (a.direction!==1&&a.direction!==-1)) return false;
+    const btns=[...row.querySelectorAll('.hbtn')].filter(b=>!b.disabled);
+    if(btns.length<1)return false;
+    const btn=a.direction<0?btns[0]:btns[btns.length-1];
+    const before=policyValueSafe(a.id); btn.click(); const after=policyValueSafe(a.id);
+    return String(before)!==String(after);
+  }
+
+  function applyPlan(plan,host){
+    const done=[],failed=[];
+    for(const a of plan.actionable){(clickAction(a)?done:failed).push(a);}
+    const status=host?.querySelector('.tcResolverStatus');
+    if(status){status.textContent=done.length?`${done.length}개 정책을 권고대로 1단계 조정했습니다.${failed.length?` ${failed.length}개는 한계값 또는 UI 상태 때문에 변경되지 않았습니다.`:''}`:'변경된 정책이 없습니다.';status.classList.add('tcApplied');}
+    const b=host?.querySelector('[data-tc-apply]');if(b)b.disabled=true;
+    return {done,failed};
+  }
+
+  function renderPlan(plan){
+    const body=document.getElementById('councilBody');if(!body)return;
+    body.querySelector('.tcResolver')?.remove();
+    const host=document.createElement('section');host.className='tcResolver';
+    const items=plan.actionable.length?plan.actionable:plan.review;
+    host.innerHTML=`<h4>실행 가능한 회의 권고</h4>
+      <div class="tcResolverLead">회의 결론을 현재 도시에서 실제로 조정할 수 있는 정책수단으로 다시 번역했습니다. 새 정책을 만들기 전에 기존 수단을 우선 사용하며, 결과는 보장하지 않고 관찰기간 뒤 다시 평가합니다.</div>
+      ${items.slice(0,MAX_ACTIONS).map(recommendationLine).join('') || '<div class="tcRecWhy">현재 즉시 조정할 정책보다 관찰이 우선입니다.</div>'}
+      ${plan.review.filter(x=>!items.includes(x)).slice(0,2).map(recommendationLine).join('')}
+      ${plan.deferred?.length?`<div class="tcRecWhy"><b>조정 보류</b> · ${plan.deferred.map(g=>esc(g.name)).join(', ')}은 연결되는 기존 정책은 있지만 현재 개별 정책진단이 변경을 지지하지 않습니다. 정책을 억지로 움직이지 않고 다음 관찰 때 다시 판단합니다.</div>`:''}
+      ${plan.gaps.length?`<div class="tcGap"><b>POLICY GAP</b> · ${plan.gaps.map(g=>esc(g.name+': '+g.goal)).join(' / ')}<br>기존 정책으로 대응할 수 없어 신규 정책 후보 로그에 기록했습니다.</div>`:''}
+      <div class="tcResolverBtns"><button class="primary" data-tc-apply ${plan.actionable.length?'':'disabled'}>권고안 적용</button><button data-tc-open>정책에서 직접 조정</button></div>
+      <div class="tcResolverStatus tcRecMeta"></div>`;
+    const chair=body.querySelector('.chairReport'); if(chair) chair.insertAdjacentElement('afterend',host); else body.appendChild(host);
+    host.querySelector('[data-tc-apply]')?.addEventListener('click',()=>applyPlan(plan,host));
+    host.querySelector('[data-tc-open]')?.addEventListener('click',openPolicy);
+    try{window.__TC2_CONTEXT_LEARNING?.linkify?.(host);}catch(_){}
+  }
+
+  function afterCouncil(){
+    try{
+      // v133 first folds theory/evidence into dialogue. Run it before adding the actionable closeout.
+      window.__TC2_CONTEXT_LEARNING?.mergeCouncilKnowledge?.();
+      const snap=(typeof councilSnapshot==='function')?councilSnapshot():null;if(!snap)return;
+      lastPlan=resolve(snap);recordGaps(lastPlan.gaps);renderPlan(lastPlan);
+    }catch(e){console.warn('[TC2 v134] council resolver',e);}
+  }
+
+  function wrapCouncil(){
+    const fn=window.renderCouncilSnapshot || (typeof renderCouncilSnapshot==='function'?renderCouncilSnapshot:null);
+    if(typeof fn!=='function'||fn.__tcResolver134)return;
+    const wrapped=function(...args){const r=fn.apply(this,args);queueMicrotask(afterCouncil);return r;};wrapped.__tcResolver134=true;
+    window.renderCouncilSnapshot=wrapped;try{renderCouncilSnapshot=wrapped;}catch(_){}
+  }
+
+  function init(){ensureStyle();wrapCouncil();if(document.getElementById('councilBody')?.children.length)afterCouncil();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+
+  window.__TC2_COUNCIL_RESOLVER={version:VERSION,resolve,afterCouncil,findPolicyRow,applyPlan,get lastPlan(){return lastPlan;},get policyGaps(){return loadGaps();}};
+  console.info('[TRAFFIC CITY 2] Council Recommendation Resolver v134 loaded');
+})();
+</script>
+
+<!-- TC2_VERSION_CHANGELOG_V135 -->
+<script>
+/* TRAFFIC CITY 2 — Version & Changelog v135
+   Marker: TC2_VERSION_CHANGELOG_V135
+   Adds visible build identity, changelog, runtime source indicator,
+   save buildVersion metadata, and a fresh-web launcher.
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_BUILD_META?.version === 'v135') return;
+
+  const VERSION = 'v135';
+  const BUILD = 135;
+  const WEB_URL = 'https://byanka-rail.github.io/traffic-city-2/';
+  const CHANGELOG = [
+    {
+      version:'v135', title:'VERSION & CHANGELOG',
+      items:[
+        'HUD에 현재 빌드를 항상 표시',
+        '버전 배지를 누르면 변경이력과 실행 소스를 표시',
+        '저장 데이터에 buildVersion 기록',
+        '최신 GitHub Pages 열기 및 원격 버전 확인 기능'
+      ]
+    },
+    {
+      version:'v134', title:'Council Recommendation Resolver',
+      items:[
+        '자문회의 목표를 기존 정책수단으로 우선 번역',
+        '현재값 → 권고값 → 예상효과 → 대가 → 관찰기간 표시',
+        '권고안 실제 적용, 정책 충돌 감지, POLICY GAP 기록'
+      ]
+    },
+    {
+      version:'v133', title:'Contextual Learning',
+      items:[
+        '실제 사례·도시계획 이론을 별도 강의 대신 상황에 맞춰 자문대화에 통합',
+        '전문용어 탭 설명 사전 추가'
+      ]
+    },
+    {
+      version:'v132', title:'Validation Lab',
+      items:[
+        '모델 정합성·저장복원·결정론 검증',
+        '1/10/30/100년 장기검증',
+        '대중교통 공급공백 및 자동계획관 starvation 감시'
+      ]
+    },
+    {
+      version:'v131', title:'Observer SNS Bugfix Baseline',
+      items:['관찰시민 SNS·생애주기·세대교체 기준본']
+    }
+  ];
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  function runtimeSource(){
+    const p = location.protocol;
+    if (p === 'https:' || p === 'http:') {
+      const isGithub = /byanka-rail\.github\.io$/i.test(location.hostname);
+      return {
+        kind:isGithub?'web':'web-other',
+        label:isGithub?'GitHub Pages · 실시간 웹본':'웹 실행',
+        detail:location.href
+      };
+    }
+    if (p === 'file:' || p === 'content:') {
+      return {kind:'local',label:'로컬 파일',detail:'이 파일은 GitHub의 이후 변경을 자동으로 받지 않습니다.'};
+    }
+    return {kind:'other',label:p.replace(':','') || '알 수 없음',detail:location.href};
+  }
+
+  function savedBuild(){
+    try {
+      const key = typeof AUTO_SAVE_KEY !== 'undefined' ? AUTO_SAVE_KEY : 'traffic-city-2-autosave-v1';
+      const txt = localStorage.getItem(key);
+      if (!txt) return null;
+      const o = JSON.parse(txt);
+      return o?.buildVersion || null;
+    } catch (_) { return null; }
+  }
+
+  function installStyles(){
+    if (document.getElementById('tcVersion135Style')) return;
+    const st = document.createElement('style');
+    st.id='tcVersion135Style';
+    st.textContent=`
+      #tcBuildBadge{
+        pointer-events:auto;appearance:none;border:1px solid rgba(105,169,202,.34);
+        background:rgba(47,111,143,.18);color:#cfe5ef;border-radius:999px;
+        min-height:28px;padding:4px 8px;font:800 10px/1 system-ui,-apple-system,sans-serif;
+        letter-spacing:.03em;white-space:nowrap;touch-action:manipulation;cursor:pointer;
+      }
+      #tcBuildBadge.web{border-color:rgba(111,163,95,.46);background:rgba(79,122,74,.20);color:#bfe0b8}
+      #tcBuildBadge.local{border-color:rgba(197,148,74,.45);background:rgba(197,148,74,.10);color:#e2c98c}
+      #tcVersionBackdrop{
+        position:fixed;inset:0;z-index:190;background:rgba(0,0,0,.52);display:none;
+        align-items:flex-end;justify-content:center;padding:0;touch-action:manipulation
+      }
+      #tcVersionBackdrop.open{display:flex}
+      #tcVersionSheet{
+        width:min(680px,100vw);max-height:min(84vh,760px);overflow:auto;
+        border:1px solid rgba(255,255,255,.14);border-bottom:0;border-radius:18px 18px 0 0;
+        background:#211b15;color:#e9e0d3;padding:15px 16px calc(env(safe-area-inset-bottom) + 18px);
+        box-shadow:0 -16px 48px rgba(0,0,0,.42);-webkit-overflow-scrolling:touch
+      }
+      .tcVHead{display:flex;gap:10px;align-items:flex-start;position:sticky;top:-15px;
+        background:linear-gradient(#211b15 80%,rgba(33,27,21,0));padding:15px 0 12px;z-index:2}
+      .tcVHeadText{flex:1;min-width:0}.tcVHead h3{margin:0;font-size:17px;color:#f4ecdf}
+      .tcVSub{font-size:10.5px;color:#9f9486;margin-top:3px;line-height:1.45}
+      .tcVClose{appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);
+        color:#ded4c5;border-radius:999px;width:34px;height:34px;font-size:18px}
+      .tcVSource{padding:10px 11px;border:1px solid rgba(255,255,255,.10);border-radius:11px;
+        background:rgba(255,255,255,.035);font-size:11px;line-height:1.55;color:#cfc4b4}
+      .tcVSource b{color:#fff}.tcVLocal{color:#dfbd78}.tcVWeb{color:#a9cf9f}
+      .tcVBtns{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 12px}
+      .tcVBtns button{appearance:none;border:1px solid rgba(105,169,202,.28);background:rgba(47,111,143,.16);
+        color:#cfe4ef;border-radius:9px;padding:8px 10px;font-size:10.5px;font-weight:800}
+      .tcVStatus{font-size:10px;color:#a99d8e;line-height:1.45;margin:4px 0 12px}
+      .tcVEntry{padding:11px 0;border-top:1px solid rgba(255,255,255,.075)}
+      .tcVTitle{display:flex;gap:8px;align-items:baseline}.tcVTitle b{font-size:12px;color:#f0e7d9}
+      .tcVTitle span{font-size:10.5px;color:#94b9cb}
+      .tcVEntry ul{margin:6px 0 0;padding-left:18px}.tcVEntry li{font-size:10.5px;line-height:1.55;color:#c6bbad;margin:2px 0}
+      .tcVNote{margin-top:11px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);
+        font-size:9.8px;line-height:1.5;color:#8f8579}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function changelogHTML(){
+    const src=runtimeSource(), sb=savedBuild();
+    const cls=src.kind==='local'?'tcVLocal':'tcVWeb';
+    return `
+      <div class="tcVHead">
+        <div class="tcVHeadText"><h3>TRAFFIC CITY 2 · ${VERSION}</h3>
+          <div class="tcVSub">빌드 ${BUILD} · 버전/변경이력</div></div>
+        <button class="tcVClose" type="button" aria-label="닫기">×</button>
+      </div>
+      <div class="tcVSource">
+        현재 실행: <b class="${cls}">${esc(src.label)}</b><br>
+        ${esc(src.detail)}
+        ${sb?`<br>최근 자동저장 빌드: <b>${esc(sb)}</b>`:''}
+      </div>
+      <div class="tcVBtns">
+        <button type="button" data-tc-check>GitHub 최신본 확인</button>
+        <button type="button" data-tc-openweb>최신 웹버전 열기</button>
+      </div>
+      <div class="tcVStatus" data-tc-vstatus>웹본 확인 전</div>
+      ${CHANGELOG.map(c=>`
+        <section class="tcVEntry">
+          <div class="tcVTitle"><b>${esc(c.version)}</b><span>${esc(c.title)}</span></div>
+          <ul>${c.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+        </section>`).join('')}
+      <div class="tcVNote">버전 번호는 게임의 기능 빌드입니다. 저장 스키마 번호와 별개입니다.</div>`;
+  }
+
+  function openSheet(){
+    const bg=document.getElementById('tcVersionBackdrop'); if(!bg)return;
+    const sh=document.getElementById('tcVersionSheet'); if(sh)sh.innerHTML=changelogHTML();
+    bg.classList.add('open');
+    bindSheet();
+  }
+  function closeSheet(){document.getElementById('tcVersionBackdrop')?.classList.remove('open');}
+
+  async function checkRemote(){
+    const st=document.querySelector('[data-tc-vstatus]'); if(st)st.textContent='GitHub Pages 확인 중…';
+    try{
+      const u=WEB_URL+'?tc2-version-check='+Date.now();
+      const r=await fetch(u,{cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const tx=await r.text();
+      const title=(tx.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'';
+      const versions=[...tx.matchAll(/TC2_[A-Z0-9_]*_V(\d{3})/g)].map(m=>+m[1]);
+      const titleV=+(title.match(/\bv(\d{2,4})\b/i)||[])[1]||0;
+      const remote=Math.max(titleV,...versions,0);
+      if(st){
+        if(remote>BUILD) st.innerHTML=`GitHub Pages: <b>v${remote}</b> · 현재 ${VERSION}보다 새 버전`;
+        else if(remote===BUILD) st.innerHTML=`GitHub Pages: <b>v${remote}</b> · 현재 빌드가 최신`;
+        else if(remote>0) st.innerHTML=`GitHub Pages 감지: <b>v${remote}</b> · 현재 파일 ${VERSION}`;
+        else st.textContent='GitHub Pages는 열렸지만 버전 표기를 읽지 못했습니다.';
+      }
+    }catch(e){
+      if(st)st.textContent='원격 확인 실패: '+(e?.message||e)+' · 아래 "최신 웹버전 열기"는 계속 사용할 수 있습니다.';
+    }
+  }
+
+  function bindSheet(){
+    const bg=document.getElementById('tcVersionBackdrop'); if(!bg)return;
+    bg.querySelector('.tcVClose')?.addEventListener('click',closeSheet,{once:true});
+    bg.querySelector('[data-tc-check]')?.addEventListener('click',checkRemote,{once:true});
+    bg.querySelector('[data-tc-openweb]')?.addEventListener('click',()=>{
+      const u=WEB_URL+'?from=tc2-v135&t='+Date.now();
+      location.href=u;
+    },{once:true});
+  }
+
+  function installUI(){
+    installStyles();
+    let bg=document.getElementById('tcVersionBackdrop');
+    if(!bg){
+      bg=document.createElement('div');bg.id='tcVersionBackdrop';
+      bg.innerHTML='<div id="tcVersionSheet"></div>';
+      bg.addEventListener('click',e=>{if(e.target===bg)closeSheet();});
+      document.body.appendChild(bg);
+    }
+    let badge=document.getElementById('tcBuildBadge');
+    if(!badge){
+      badge=document.createElement('button');badge.id='tcBuildBadge';badge.type='button';
+      const src=runtimeSource();
+      badge.classList.add(src.kind==='local'?'local':'web');
+      badge.textContent=VERSION;
+      badge.title='버전 및 변경이력';
+      badge.addEventListener('click',openSheet);
+      const row2=document.querySelector('#hud .row2') || document.querySelector('.row2');
+      if(row2){
+        const date=document.getElementById('dateBox');
+        if(date?.nextSibling) row2.insertBefore(badge,date.nextSibling); else row2.appendChild(badge);
+      }else{
+        badge.style.position='fixed';badge.style.right='8px';badge.style.top='8px';badge.style.zIndex='90';
+        document.body.appendChild(badge);
+      }
+    }
+  }
+
+  function wrapSave(){
+    try{
+      const fn=window.saveStateObject || (typeof saveStateObject==='function'?saveStateObject:null);
+      if(typeof fn!=='function'||fn.__tcBuild135)return;
+      const wrapped=function(...args){
+        const o=fn.apply(this,args);
+        if(o && typeof o==='object') o.buildVersion=VERSION;
+        return o;
+      };
+      wrapped.__tcBuild135=true;
+      window.saveStateObject=wrapped;
+      try{saveStateObject=wrapped;}catch(_){}
+    }catch(_){}
+  }
+
+  function stampDocument(){
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+VERSION;
+    try{
+      const h=[...document.querySelectorAll('h1,h2')].find(x=>/TRAFFIC\s*CITY\s*2/i.test(x.textContent||''));
+      if(h && !/\bv135\b/i.test(h.textContent||'')){
+        const s=document.createElement('small');
+        s.textContent=' '+VERSION;s.style.cssText='font-size:.48em;opacity:.64;font-weight:700';
+        h.appendChild(s);
+      }
+    }catch(_){}
+  }
+
+  function init(){
+    stampDocument();wrapSave();installUI();
+  }
+
+  window.__TC2_BUILD_META={
+    version:VERSION,build:BUILD,webUrl:WEB_URL,changelog:CHANGELOG,
+    source:runtimeSource,open:openSheet,checkRemote
+  };
+  window.TC2_BUILD_VERSION=VERSION;
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+
+  console.info('[TRAFFIC CITY 2] Version & Changelog v135 loaded');
+})();
 </script>
 </body>
 </html>
