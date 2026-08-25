@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v137</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v139</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -8649,7 +8649,9 @@ function courtGroup(i){
     h++;
   }
   if(w<2||h<2)return null;                // 2×2는 되어야 가운데가 생긴다
-  if(h32(x*13+7,y*29+3)>=0.42)return null;// 가끔만 — 전부 그러면 단조롭다
+  /* TC2_V138_COURTYARD_GRID_PLANNER */
+  const courtChance=(typeof zoneOwner!=="undefined"&&zoneOwner[i]===ZONE_AUTO)?0.70:0.42;
+  if(h32(x*13+7,y*29+3)>=courtChance)return null;// 수동도시는 기존 빈도, 자동계획 블록은 의도적으로 더 자주
   return {w,h};
 }
 /* 이 칸이 다른 칸의 묶음에 <b>먹혔는지</b> — 먹혔으면 아무것도 그리지 않는다 */
@@ -9350,6 +9352,17 @@ function autoPatternPlan(cx,cy,name){
     const hy=h===0?[-3,1]:h===1?[-2,2]:[-1,3];
     for(const ox of vx)orth(cx+ox,cy-4,cx+ox,cy+4);
     for(const oy of hy)orth(cx-4,cy+oy,cx+4,cy+oy);
+  }else if(name==="courtgrid"){
+    /* 9×9 안에서 2×3 또는 3×2 내부블록이 반복되도록 도로 간격을 의도적으로 잡는다.
+       중정형 렌더러의 최대 4×3과 정확히 맞물린다. */
+    const rot=h32(cx+101,cy+37)>.5;
+    if(rot){
+      for(const ox of [-3,0,3])orth(cx+ox,cy-4,cx+ox,cy+4);
+      for(const oy of [-3,1])orth(cx-4,cy+oy,cx+4,cy+oy);
+    }else{
+      for(const ox of [-3,1])orth(cx+ox,cy-4,cx+ox,cy+4);
+      for(const oy of [-3,0,3])orth(cx-4,cy+oy,cx+4,cy+oy);
+    }
   }else if(name==="diagonal"){
     const skew=(h32(cx+17,cy+31)>.5)?2:-2;
     orth(cx+skew,cy-4,cx+skew,cy+4);orth(cx-4,cy-skew,cx+4,cy-skew);diag(cx-4,cy+4,cx+4,cy-4);
@@ -9443,16 +9456,17 @@ function autoPatternScore(p,c,role){
   if(p.roundCell>=0&&(role==="neighborhood"||role==="office"||role==="center"))sc+=2.2;
   if(p.name==="river"&&autoWaterAxis(c.x,c.y)!==null)sc+=4.5;
   if(p.name==="canal")sc+=(role==="industry"?-2.0:3.6);
-  const salt=p.name==="grid"?11:p.name==="diagonal"?23:p.name==="radial"?37:p.name==="river"?53:61;
+  if(p.name==="courtgrid")sc+=(role==="neighborhood"||role==="center"?4.2:role==="office"?2.1:-4.0);
+  const salt=p.name==="grid"?11:p.name==="courtgrid"?17:p.name==="diagonal"?23:p.name==="radial"?37:p.name==="river"?53:61;
   sc+=(h32(c.x*7+salt+(mapSeed&31),c.y*11+salt)-.5)*7;
   return sc;
 }
 function autoChoosePattern(c,role){
-  const names=role==="industry"?["grid","diagonal","radial","river"]:["grid","diagonal","radial","river","canal"];
+  const names=role==="industry"?["grid","diagonal","radial","river"]:["grid","courtgrid","diagonal","radial","river","canal"];
   let best=null,bs=-1e9;for(const nm of names){const p=autoPatternPlan(c.x,c.y,nm),sc=autoPatternScore(p,c,role);if(sc>bs){bs=sc;best=p;}}
   return best||autoPatternPlan(c.x,c.y,"grid");
 }
-function autoPatternLabel(n){return n==="grid"?"격자형":n==="diagonal"?"대각축형":n==="radial"?"방사·로터리형":n==="river"?"수변평행형":"운하정원형";}
+function autoPatternLabel(n){return n==="grid"?"격자형":n==="courtgrid"?"중정격자형":n==="diagonal"?"대각축형":n==="radial"?"방사·로터리형":n==="river"?"수변평행형":"운하정원형";}
 function autoCreateProject(){
   const role=autoProjectRole();if(!role)return false;
   const c=autoDistrictCandidate(role);
@@ -9499,6 +9513,12 @@ function autoProjectZoneKind(i,p){
   let best=ks[0],bs=-1e9;
   for(const k of ks){
     let sc=landScore(k,i,nd,congPen).score;
+    if(p.pattern==="courtgrid"){
+      /* courtGroup은 R과 MX를 한 묶음으로 볼 수 있다. 상업이 블록 가운데 끼어 고리를 끊지 않게 한다. */
+      if(k===K_R)sc+=.58;
+      else if(k===K_MX)sc+=.50;
+      else if(k===K_C)sc-=.42;
+    }
     const h=((i*1103515245+p.id*97)>>>0)%10;
     if(p.role==="neighborhood"){
       const pr=pressureN[nd]||0,hs=autoHousingState();
@@ -9671,6 +9691,72 @@ function autoUtilityStep(){
   }
   return false;
 }
+
+/* TC2_V138_AIRPORT_ACCESS_PLANNER
+   공항은 도로가 없으면 관광·고용 관문이 꺼진다. 계획관이 빈 땅을 통해 가장 짧은 진입/서비스도로를 만든다. */
+function tcAirportRoadNear138(c){
+  const x=c%W,y=(c/W)|0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;
+    if(kind[idx(nx,ny)]===K_ROAD)return true;
+  }
+  return false;
+}
+function autoAirportAccessStep(){
+  if(typeof airportClusters!=="function")return false;
+  const groups=airportClusters();if(!groups.length)return false;
+  let isolated=null;
+  for(const grp of groups){
+    const q=grp.filter(c=>!tcAirportRoadNear138(c));
+    if(q.length){isolated=q;break;}
+  }
+  if(!isolated)return false;
+
+  const prev=new Int32Array(NC);prev.fill(-2);
+  const dist=new Int16Array(NC);
+  const queue=[];
+
+  /* 활주로 자체를 도로로 덮지 않고, 공항 외곽의 빈 셀에서 탐색을 시작한다. */
+  for(const c of isolated){
+    const x=c%W,y=(c/W)|0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||water[j]||gbelt[j])continue;
+      prev[j]=-1;dist[j]=0;queue.push(j);
+    }
+  }
+  if(!queue.length)return false;
+
+  let end=-1;
+  for(let h=0;h<queue.length&&end<0;h++){
+    const c=queue[h],x=c%W,y=(c/W)|0,d=dist[c];
+    /* 현재 후보 셀이 기존 도로와 닿으면 여기까지가 진입로다. */
+    for(let dy=-1;dy<=1&&end<0;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;
+      if(kind[idx(nx,ny)]===K_ROAD){end=c;break;}
+    }
+    if(end>=0||d>=20)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||water[j]||gbelt[j])continue;
+      prev[j]=c;dist[j]=d+1;queue.push(j);
+    }
+  }
+  if(end<0)return false;
+
+  const path=[];for(let c=end;c>=0;c=prev[c])path.push(c);
+  path.reverse();
+  if(!path.length)return false;
+  let cost=0;for(const i of path)cost+=autoRoadCost(i,1);
+  return autoAct(cost,()=>{
+    for(const i of path){
+      kind[i]=K_ROAD;rlev[i]=1;forest[i]=0;
+      try{cond[i]=100;}catch(_){}
+    }
+    netDirty=true;markStatic();
+  },'✈ 도시공항 진입·서비스도로 '+path.length+'칸을 연결했습니다.');
+}
+
 function autoSignalStep(){
   if(S.satInt<=0)return false;
   let bi=-1,bv=0;
@@ -11034,6 +11120,8 @@ function autoStep(){
     return;
   }
 
+  if(autoAirportAccessStep())return;
+
   let localDone=false;
   if(autoServiceStep())localDone=true;
   else if(autoUrbanismStep())localDone=true;
@@ -11558,8 +11646,30 @@ function drawTriParcels(g,t,tx,ty,ax,ay,bx,by){
       for(let q=0;q<3;q++){
         const n=(q+1)%3;g.beginPath();g.moveTo(foot[q][0],foot[q][1]);g.lineTo(foot[n][0],foot[n][1]);g.lineTo(roof[n][0],roof[n][1]);g.lineTo(roof[q][0],roof[q][1]);g.closePath();g.fillStyle=sideC;g.fill();
       }
-      g.fillStyle=jitCol(ROOF[k]||"#eee",h32(x*3+s,y*5+s),age);drawPoly(g,roof);g.fill();
-      g.strokeStyle="rgba(43,38,32,.52)";g.lineWidth=Math.max(.5,t*.015);g.stroke();
+      /* TC2_V138_TRI_COURTYARD_RENDER
+         R/MX 반필지가 충분히 개발되면 삼각형 외곽을 둘러싼 작은 중정형 블록이 된다. */
+      const triCourt=(k===K_R||k===K_MX)&&dv>=2&&h32(x*89+s*17+5,y*97+s*23+7)<.72;
+      const roofCol=jitCol(ROOF[k]||"#eee",h32(x*3+s,y*5+s),age);
+      if(triCourt){
+        const fc=[(foot[0][0]+foot[1][0]+foot[2][0])/3,(foot[0][1]+foot[1][1]+foot[2][1])/3];
+        const rc=[(roof[0][0]+roof[1][0]+roof[2][0])/3,(roof[0][1]+roof[1][1]+roof[2][1])/3];
+        const innerFoot=foot.map(v=>[fc[0]+(v[0]-fc[0])*.43,fc[1]+(v[1]-fc[1])*.43]);
+        const innerRoof=roof.map(v=>[rc[0]+(v[0]-rc[0])*.43,rc[1]+(v[1]-rc[1])*.43]);
+        /* 안뜰 바닥과 안쪽 입면. */
+        g.fillStyle=k===K_R?"rgba(119,151,91,.48)":"rgba(154,139,101,.46)";drawPoly(g,innerFoot);g.fill();
+        for(let q=0;q<3;q++){
+          const n=(q+1)%3;g.beginPath();g.moveTo(innerFoot[q][0],innerFoot[q][1]);g.lineTo(innerFoot[n][0],innerFoot[n][1]);
+          g.lineTo(innerRoof[n][0],innerRoof[n][1]);g.lineTo(innerRoof[q][0],innerRoof[q][1]);g.closePath();
+          g.fillStyle=jitCol(SIDE2[k]||"#999",h32(x*11+s+q,y*13+s+q),age);g.fill();
+        }
+        tcRingPath138(g,roof,innerRoof);g.fillStyle=roofCol;g.fill("evenodd");
+        g.strokeStyle="rgba(43,38,32,.52)";g.lineWidth=Math.max(.5,t*.015);drawPoly(g,roof);g.stroke();drawPoly(g,innerRoof);g.stroke();
+        tcClimatePolyRoof138(g,roof,innerRoof,t,x*2+s,y);
+      }else{
+        g.fillStyle=roofCol;drawPoly(g,roof);g.fill();
+        g.strokeStyle="rgba(43,38,32,.52)";g.lineWidth=Math.max(.5,t*.015);g.stroke();
+        tcClimatePolyRoof138(g,roof,null,t,x*2+s,y);
+      }
       if(detail>=2&&t>17&&(k===K_C||k===K_MX||k===K_OFF)){
         const a=roof[0],b=roof[1],mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
         g.fillStyle=k===K_OFF?"rgba(96,133,153,.55)":"rgba(176,91,62,.58)";
@@ -12011,6 +12121,115 @@ function drawStatic(){
   drawGround();
   if(floorView<0)drawUnderground();
 }
+
+/* TC2_V138_CLIMATE_ACCUMULATION_RENDER
+   v137 기후 프로파일을 지면·도로·지붕의 실제 적설/사구 형상으로 그린다. */
+function tcClimateKind138(){
+  try{return document.body&&document.body.dataset?document.body.dataset.tcClimate||"temperate":"temperate";}catch(_){return "temperate";}
+}
+function tcRingPath138(g,outer,inner){
+  g.beginPath();
+  g.moveTo(outer[0][0],outer[0][1]);
+  for(let q=1;q<outer.length;q++)g.lineTo(outer[q][0],outer[q][1]);
+  g.closePath();
+  if(inner&&inner.length){
+    g.moveTo(inner[inner.length-1][0],inner[inner.length-1][1]);
+    for(let q=inner.length-2;q>=0;q--)g.lineTo(inner[q][0],inner[q][1]);
+    g.closePath();
+  }
+}
+/* TC2_V139_SNOW_ACCUM_VISIBILITY */
+function tcClimateGround138(g,t,tx,ty,ax,ay,bx,by){
+  const cl=tcClimateKind138();if(cl!=="snowcold"&&cl!=="desert")return;
+  g.save();
+  for(let y=ay;y<=by;y++)for(let x=ax;x<=bx;x++){
+    if(!inb(x,y))continue;const i=idx(x,y);
+    if(water[i])continue;
+    const px=tx(x),py=ty(y),k=kind[i],r=h32(x*47+11,y*53+7);
+    if(cl==="snowcold"){
+      if(k===K_ROAD){
+        const e=t*(.135+r*.055);
+        g.fillStyle="rgba(246,252,255,.97)";
+        g.fillRect(px,py,t,e);g.fillRect(px,py+t-e,t,e);
+        g.fillRect(px,py,e,t);g.fillRect(px+t-e,py,e,t);
+        if(t>10){
+          g.fillStyle="rgba(255,255,255,.72)";
+          g.beginPath();g.arc(px+t*.12,py+t*.15,t*(.055+r*.025),0,6.3);g.fill();
+          g.beginPath();g.arc(px+t*.86,py+t*.82,t*(.045+(1-r)*.025),0,6.3);g.fill();
+        }
+      }else{
+        g.fillStyle=`rgba(239,247,251,${(.78+r*.18).toFixed(3)})`;g.fillRect(px,py,t,t);
+        if(t>8){
+          g.fillStyle="rgba(255,255,255,.72)";
+          const q1=h32(x*61+3,y*37+17),q2=h32(x*23+19,y*71+5);
+          g.beginPath();g.ellipse(px+t*(.18+q1*.15),py+t*(.22+q2*.10),t*(.16+q2*.08),t*(.08+q1*.05),-.25,0,6.3);g.fill();
+          g.beginPath();g.ellipse(px+t*(.74-q2*.10),py+t*(.76-q1*.08),t*(.20+q1*.07),t*(.07+q2*.05),.18,0,6.3);g.fill();
+        }
+      }
+    }else{
+      if(k===K_ROAD||k===K_AIR){
+        const e=t*(.055+r*.035);
+        g.fillStyle="rgba(218,174,103,.38)";
+        g.fillRect(px,py+t-e,t,e);g.fillRect(px+t-e,py,e,t);
+        if(t>11){
+          g.fillStyle="rgba(232,193,124,.45)";
+          g.beginPath();g.ellipse(px+t*.82,py+t*.78,t*(.13+r*.04),t*.055,.20,0,6.3);g.fill();
+        }
+      }else{
+        g.fillStyle=`rgba(221,177,103,${(.20+r*.13).toFixed(3)})`;g.fillRect(px,py,t,t);
+        if(t>8){
+          const q=h32(x*31+13,y*43+29);
+          g.strokeStyle="rgba(239,207,148,.48)";g.lineWidth=Math.max(.7,t*.025);
+          g.beginPath();g.moveTo(px+t*(.05+q*.08),py+t*.76);
+          g.quadraticCurveTo(px+t*.48,py+t*(.60-q*.08),px+t*.96,py+t*.72);g.stroke();
+          g.fillStyle="rgba(229,191,124,.42)";
+          g.beginPath();g.ellipse(px+t*(.72-q*.16),py+t*(.80-q*.12),t*(.23+q*.06),t*(.065+q*.025),-.12,0,6.3);g.fill();
+        }
+      }
+    }
+  }
+  g.restore();
+}
+function tcClimateRoofRect138(g,x,y,w,h,t,sx,sy,ty){
+  const cl=tcClimateKind138();if(cl!=="snowcold"&&cl!=="desert")return;
+  const r=h32((sx|0)*67+17,(sy|0)*59+23);
+  g.save();
+  if(cl==="snowcold"){
+    const p=Math.max(.7,t*.012);
+    g.fillStyle=`rgba(247,252,255,${(.94+r*.055).toFixed(3)})`;
+    g.fillRect(x-p,y-p,w+p*2,h+p*2);
+    const lip=Math.min(h*.30,t*(.065+r*.024));
+    g.fillStyle="rgba(220,237,246,.98)";g.fillRect(x-p,y+h-lip,w+p*2,lip+p);
+    g.strokeStyle="rgba(151,176,190,.42)";g.lineWidth=Math.max(.55,t*.013);g.strokeRect(x-p,y-p,w+p*2,h+p*2);
+  }else{
+    const lip=Math.min(h*.32,t*(.045+r*.025));
+    g.fillStyle="rgba(218,169,91,.62)";g.fillRect(x,y+h-lip,w,lip);
+    const side=Math.min(w*.26,t*(.035+(1-r)*.025));
+    g.fillStyle="rgba(232,190,115,.48)";g.fillRect(x+w-side,y,side,h);
+    if(w>t*.12&&h>t*.08){
+      g.fillStyle="rgba(239,203,139,.50)";
+      g.beginPath();g.ellipse(x+w*.76,y+h*.72,Math.min(w*.22,t*.11),Math.min(h*.16,t*.045),-.18,0,6.3);g.fill();
+    }
+  }
+  g.restore();
+}
+function tcClimatePolyRoof138(g,outer,inner,t,sx,sy){
+  const cl=tcClimateKind138();if(cl!=="snowcold"&&cl!=="desert")return;
+  const r=h32((sx|0)*79+31,(sy|0)*83+13);
+  g.save();
+  if(cl==="snowcold"){
+    tcRingPath138(g,outer,inner);g.fillStyle=`rgba(247,252,255,${(.93+r*.06).toFixed(3)})`;g.fill("evenodd");
+    g.strokeStyle="rgba(150,176,190,.42)";g.lineWidth=Math.max(.55,t*.013);drawPoly(g,outer);g.stroke();
+    if(inner){drawPoly(g,inner);g.stroke();}
+  }else{
+    tcRingPath138(g,outer,inner);g.fillStyle=`rgba(220,171,94,${(.32+r*.14).toFixed(3)})`;g.fill("evenodd");
+    const a=outer[1],b=outer[2];
+    g.strokeStyle="rgba(238,202,135,.70)";g.lineWidth=Math.max(1,t*.035);
+    g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();
+  }
+  g.restore();
+}
+
 function drawGround(){
   const g=stCx,t=TS*zoom;
   g.setTransform(dpr,0,0,dpr,0,0);
@@ -12162,6 +12381,8 @@ function drawGround(){
       }
     }
   }
+  /* v138 지면 적설·사구 */
+  tcClimateGround138(g,t,tx,ty,ax,ay,bx,by);
   /* 건물 — 그림자 패스 → 본체 패스 (광원 좌상단 통일) */
   winRects.length=0;
   const cellsB=[];
@@ -12729,8 +12950,10 @@ function drawGround(){
           else{g.moveTo(px2,py2+ph/2);g.lineTo(px2+pw,py2+ph/2);}
           g.stroke();
           g.strokeStyle=INK_L;g.lineWidth=lw;g.strokeRect(px2,py2,pw,ph);
+          tcClimateRoofRect138(g,px2,py2,pw,ph,t,cx0,cy0,"pitch");
         }else{
         g.fillStyle=roofC2;g.fillRect(rx,ry,fw,fh);
+        tcClimateRoofRect138(g,rx,ry,fw,fh,t,cx0,cy0,ty2);
         if(ty2==="pagoda"){                        // 목탑 — 처마가 겹친 지붕
           for(let L=0;L<3;L++){
             const e2=fw*(0.26-L*0.07);
@@ -13933,7 +14156,8 @@ function draw(){
         cx.fill();
       }
       cx.globalAlpha=1;
-      if(wx===2&&wxAmt>0.25){                 // 비 — 가라앉는 색과 빗줄기
+      /* TC2_V139_SNOW_WEATHER_SYNC */
+      if(wx===2&&wxAmt>0.25&&!(typeof tcClimateKind138==="function"&&tcClimateKind138()==="snowcold")){                 // 적설한랭 외에는 기존 비
         cx.setTransform(dpr,0,0,dpr,0,0);
         cx.fillStyle="rgba(96,118,148,"+(0.24*wxAmt).toFixed(3)+")";
         cx.fillRect(0,0,VW,VH);
@@ -20706,6 +20930,312 @@ window.__TC={
   else init();
 
   console.info('[TRAFFIC CITY 2] Climate Skins & Profiles v137 loaded');
+})();
+</script>
+
+<!-- TC2_CLIMATE_GEOMETRY_URBAN_FORM_V138 -->
+<script>
+/* TRAFFIC CITY 2 — CLIMATE ACCUMULATION & URBAN FORM v138
+   Marker: TC2_CLIMATE_GEOMETRY_URBAN_FORM_V138
+   Renderer/planner source transforms are installed by the v138 builder.
+   This runtime layer keeps version UI, climate redraw, and diagnostics in sync.
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_V138?.loaded) return;
+
+  const VERSION='v138', BUILD=138;
+
+  function installStyles(){
+    if(document.getElementById('tcV138Style'))return;
+    const st=document.createElement('style');
+    st.id='tcV138Style';
+    st.textContent=`
+      /* v137의 전역 색필터는 약하게 낮추고, v138의 실제 적설·사구 형상이 주역이 되게 한다. */
+      body[data-tc-climate="snowcold"] #map{
+        filter:saturate(.76) brightness(1.055) contrast(.97)!important
+      }
+      body[data-tc-climate="desert"] #map{
+        filter:sepia(.12) saturate(.91) brightness(1.025) contrast(1.015)!important
+      }
+      body[data-tc-climate="tropical"] #map{
+        filter:saturate(1.15) hue-rotate(-5deg) brightness(.985) contrast(1.025)!important
+      }
+      body[data-tc-climate="temperate"] #map{filter:none!important}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function redraw(){
+    try{
+      if(typeof markStatic==='function')markStatic();
+    }catch(_){}
+  }
+
+  function installClimateRedraw(){
+    const body=document.body;if(!body)return null;
+    let last=body.dataset.tcClimate||'temperate';
+    const ob=new MutationObserver(()=>{
+      const now=body.dataset.tcClimate||'temperate';
+      if(now===last)return;
+      last=now;
+      redraw();
+    });
+    ob.observe(body,{attributes:true,attributeFilter:['data-tc-climate']});
+    setTimeout(redraw,80);
+    return ob;
+  }
+
+  function updateVersion(){
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+VERSION;
+    const b=document.getElementById('tcBuildBadge');
+    if(b){b.textContent=VERSION;b.title='버전 및 변경이력';}
+    const mv=document.querySelector('.tcMainVersion136');if(mv)mv.textContent=VERSION;
+    window.TC2_BUILD_VERSION=VERSION;
+    window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:VERSION,build:BUILD};
+  }
+
+  function patchVersionSheet(){
+    const badge=document.getElementById('tcBuildBadge');
+    if(!badge||badge.__tc138)return;
+    badge.__tc138=true;
+    badge.addEventListener('click',()=>{
+      setTimeout(()=>{
+        const sheet=document.getElementById('tcVersionSheet');
+        if(!sheet||/v138/.test(sheet.textContent||''))return;
+        const sec=document.createElement('section');
+        sec.className='tcVEntry';
+        sec.innerHTML=
+          '<div class="tcVTitle"><b>v138</b><span>CLIMATE ACCUMULATION & URBAN FORM</span></div>'+
+          '<ul><li>적설·사구를 지면과 건물 지붕 형상으로 직접 렌더링</li>'+
+          '<li>2×3·3×2 중정 블록을 만드는 중정격자형 자동계획</li>'+
+          '<li>대각 반필지의 삼각 중정형 건축</li>'+
+          '<li>고립 도시공항에 자동 진입·서비스도로 연결</li></ul>';
+        const first=sheet.querySelector('.tcVEntry');
+        if(first)first.before(sec);else sheet.appendChild(sec);
+      },30);
+    },true);
+  }
+
+  function audit(){
+    const out={version:VERSION,climate:document.body?.dataset?.tcClimate||'temperate'};
+    try{
+      let court=0, court23=0, triCourt=0, air=0, airOff=0;
+      if(typeof courtGroup==='function' && typeof NC!=='undefined'){
+        for(let i=0;i<NC;i++){
+          const q=courtGroup(i);if(!q)continue;
+          court++;
+          if((q.w===2&&q.h===3)||(q.w===3&&q.h===2))court23++;
+        }
+      }
+      if(typeof triEligible==='function' && typeof triKindGet==='function' && typeof triDevGet==='function'){
+        for(let i=0;i<NC;i++)if(triEligible(i))for(let s=0;s<2;s++){
+          const k=triKindGet(i,s),d=triDevGet(i,s);
+          if((k===K_R||k===K_MX)&&d>=2)triCourt++;
+        }
+      }
+      if(typeof airportClusters==='function'){
+        for(const grp of airportClusters()){
+          air++;
+          let ok=false;
+          for(const c of grp){
+            const x=c%W,y=(c/W)|0;
+            for(let dy=-1;dy<=1&&!ok;dy++)for(let dx=-1;dx<=1;dx++){
+              if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;
+              if(inb(nx,ny)&&kind[idx(nx,ny)]===K_ROAD){ok=true;break;}
+            }
+          }
+          if(!ok)airOff++;
+        }
+      }
+      Object.assign(out,{courtyardGroups:court,courtyard23or32:court23,triResidentialDeveloped:triCourt,airportClusters:air,airportClustersWithoutRoad:airOff});
+    }catch(e){out.error=String(e?.message||e);}
+    return out;
+  }
+
+  function init(){
+    installStyles();
+    updateVersion();
+    patchVersionSheet();
+    window.__TC2_V138.observer=installClimateRedraw();
+  }
+
+  window.__TC2_V138={loaded:true,version:VERSION,build:BUILD,audit,redraw};
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+
+  console.info('[TRAFFIC CITY 2] Climate Accumulation & Urban Form v138 loaded');
+})();
+</script>
+
+<!-- TC2_SNOW_WEATHER_EXIT_V139 -->
+<script>
+/* TRAFFIC CITY 2 — SNOW WEATHER FIX & EXIT v139
+   Marker: TC2_SNOW_WEATHER_EXIT_V139 */
+(() => {
+  'use strict';
+  if (window.__TC2_V139?.loaded) return;
+  const VERSION='v139', BUILD=139;
+  let lastClimate='';
+
+  function installStyles(){
+    if(document.getElementById('tcV139Style'))return;
+    const st=document.createElement('style');
+    st.id='tcV139Style';
+    st.textContent=`
+      body[data-tc-climate="snowcold"] #tcClimateFx137::before{opacity:.38!important}
+      body[data-tc-climate="snowcold"] #tcClimateFx137::after{opacity:.10!important}
+      .tcExitBtn139{
+        border-color:rgba(210,109,98,.55)!important;
+        color:var(--tc136-danger,#f0b0a7)!important
+      }
+      #tcExitConfirm139{
+        position:fixed;inset:0;z-index:230;background:rgba(0,0,0,.62);
+        display:none;align-items:center;justify-content:center;padding:18px
+      }
+      #tcExitConfirm139.open{display:flex}
+      #tcExitCard139{
+        width:min(390px,100%);border:1px solid var(--tc136-line,rgba(255,255,255,.16));
+        border-radius:16px;background:var(--tc136-panel,#211b15);color:var(--tc136-text,#eee);
+        padding:16px;box-shadow:0 24px 70px rgba(0,0,0,.48)
+      }
+      #tcExitCard139 h3{margin:0 0 7px;font-size:16px}
+      #tcExitCard139 p{font-size:10.5px;line-height:1.55;color:var(--tc136-muted,#bbb);margin:0 0 12px}
+      .tcExitActions139{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+      .tcExitActions139 button{
+        appearance:none;border:1px solid var(--tc136-line,rgba(255,255,255,.16));
+        background:var(--tc136-button,#2a2825);color:var(--tc136-text,#eee);
+        border-radius:10px;min-height:42px;padding:8px 10px;font-weight:850
+      }
+      .tcExitActions139 .danger{border-color:rgba(210,109,98,.55);color:var(--tc136-danger,#f1aea3)}
+      .tcExitStatus139{margin-top:9px;min-height:15px;font-size:9.7px;color:var(--tc136-muted,#aaa)}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function forceStatic(){
+    try{if(typeof markStatic==='function')markStatic()}catch(_){}
+    try{if(typeof drawStatic==='function')drawStatic()}catch(_){}
+  }
+
+  function watchClimate(){
+    if(!document.body)return null;
+    lastClimate=document.body.dataset.tcClimate||'temperate';
+    const ob=new MutationObserver(()=>{
+      const c=document.body.dataset.tcClimate||'temperate';
+      if(c===lastClimate)return;
+      lastClimate=c;
+      requestAnimationFrame(()=>{
+        forceStatic();
+        setTimeout(forceStatic,90);
+        setTimeout(forceStatic,350);
+      });
+    });
+    ob.observe(document.body,{attributes:true,attributeFilter:['data-tc-climate']});
+    return ob;
+  }
+
+  function ensureExitDialog(){
+    let bg=document.getElementById('tcExitConfirm139');
+    if(bg)return bg;
+    bg=document.createElement('div');bg.id='tcExitConfirm139';
+    bg.innerHTML=`
+      <div id="tcExitCard139" role="dialog" aria-modal="true" aria-label="게임 종료 확인">
+        <h3>게임을 종료할까요?</h3>
+        <p>자동저장은 기존 규칙대로 유지됩니다. APK에서는 앱을 닫고, 일반 브라우저에서는 종료 권한이 없으면 안내만 표시합니다.</p>
+        <div class="tcExitActions139">
+          <button type="button" data-exit-cancel>취소</button>
+          <button type="button" class="danger" data-exit-go>⏻ 게임 종료</button>
+        </div>
+        <div class="tcExitStatus139" data-exit-status></div>
+      </div>`;
+    bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open')});
+    document.body.appendChild(bg);
+    bg.querySelector('[data-exit-cancel]').addEventListener('click',()=>bg.classList.remove('open'));
+    bg.querySelector('[data-exit-go]').addEventListener('click',requestExit);
+    return bg;
+  }
+
+  function exitStatus(msg){
+    const el=document.querySelector('[data-exit-status]');if(el)el.textContent=msg||'';
+  }
+
+  function requestExit(){
+    exitStatus('');
+    try{
+      if(window.TC2Android&&typeof window.TC2Android.exitApp==='function'){
+        window.TC2Android.exitApp();return true;
+      }
+    }catch(_){}
+    for(const n of ['AndroidBridge','Android','AppBridge']){
+      try{
+        const o=window[n];if(o&&typeof o.exitApp==='function'){o.exitApp();return true}
+      }catch(_){}
+    }
+    try{window.close()}catch(_){}
+    setTimeout(()=>{
+      if(document.visibilityState!=='hidden'){
+        exitStatus('이 APK에는 종료 브리지가 없습니다. Android 셸을 v139 bridge로 한 번만 갱신하면 이 버튼이 실제 앱을 닫습니다.');
+      }
+    },220);
+    return false;
+  }
+
+  function openExit(){
+    if(window.__TC2_UI136?.closeMain)window.__TC2_UI136.closeMain();
+    const bg=ensureExitDialog();bg.classList.add('open');exitStatus('');
+  }
+
+  function installExitButton(){
+    const panel=document.getElementById('tcMainPanel136');
+    if(!panel)return false;
+    const actions=panel.querySelector('.tcMainActions136');
+    if(!actions)return false;
+    if(actions.querySelector('.tcExitBtn139'))return true;
+    const b=document.createElement('button');
+    b.type='button';b.className='tcExitBtn139';b.textContent='⏻ 게임 종료';
+    b.addEventListener('click',openExit);actions.appendChild(b);
+    return true;
+  }
+
+  function updateVersion(){
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+VERSION;
+    const b=document.getElementById('tcBuildBadge');if(b)b.textContent=VERSION;
+    const mv=document.querySelector('.tcMainVersion136');if(mv)mv.textContent=VERSION;
+    window.TC2_BUILD_VERSION=VERSION;
+    window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:VERSION,build:BUILD};
+  }
+
+  function patchVersionSheet(){
+    const badge=document.getElementById('tcBuildBadge');
+    if(!badge||badge.__tc139)return;
+    badge.__tc139=true;
+    badge.addEventListener('click',()=>{
+      setTimeout(()=>{
+        const sheet=document.getElementById('tcVersionSheet');
+        if(!sheet||/v139/.test(sheet.textContent||''))return;
+        const sec=document.createElement('section');sec.className='tcVEntry';
+        sec.innerHTML='<div class="tcVTitle"><b>v139</b><span>SNOW WEATHER FIX & EXIT</span></div>'+
+          '<ul><li>적설한랭에서 기존 비 효과 차단</li><li>지면·도로·지붕 적설 대비 강화 및 즉시 재렌더</li>'+
+          '<li>메인 화면 게임 종료 버튼 및 Android 종료 브리지 지원</li></ul>';
+        const first=sheet.querySelector('.tcVEntry');if(first)first.before(sec);else sheet.appendChild(sec);
+      },30);
+    },true);
+  }
+
+  function init(){
+    installStyles();ensureExitDialog();installExitButton();updateVersion();patchVersionSheet();
+    window.__TC2_V139.climateObserver=watchClimate();
+    const ob=new MutationObserver(()=>installExitButton());
+    ob.observe(document.body,{childList:true,subtree:true});
+    window.__TC2_V139.domObserver=ob;
+    setTimeout(forceStatic,100);setTimeout(forceStatic,500);
+  }
+
+  window.__TC2_V139={loaded:true,version:VERSION,build:BUILD,forceStatic,openExit,requestExit,installExitButton};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  console.info('[TRAFFIC CITY 2] Snow Weather Fix & Exit v139 loaded');
 })();
 </script>
 </body>
