@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v135</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v136</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -19776,6 +19776,527 @@ window.__TC={
   else init();
 
   console.info('[TRAFFIC CITY 2] Version & Changelog v135 loaded');
+})();
+</script>
+
+<!-- TC2_MAIN_MENU_THEMES_V136 -->
+<script>
+/* TRAFFIC CITY 2 — MAIN MENU & READABILITY THEMES v136
+   Marker: TC2_MAIN_MENU_THEMES_V136
+   - Main-menu return button during play
+   - Readability theme selector
+   - Save-slot contrast repair
+   - v136 build/changelog identity
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_UI136?.loaded) return;
+
+  const VERSION = 'v136';
+  const BUILD = 136;
+  const WEB_URL = 'https://byanka-rail.github.io/traffic-city-2/';
+  const THEME_KEY = 'tc2-ui-theme-v136';
+  const THEMES = {
+    classic: {
+      label:'기본',
+      desc:'기존 분위기를 유지하면서 글자 대비를 보강합니다.'
+    },
+    contrast: {
+      label:'고대비 다크',
+      desc:'짙은 배경과 밝은 글자. 작은 모바일 화면에 적합합니다.'
+    },
+    slate: {
+      label:'청회색',
+      desc:'갈색 계열을 줄이고 차분한 청회색 UI로 바꿉니다.'
+    },
+    light: {
+      label:'밝은 회색',
+      desc:'밝은 패널과 어두운 글자를 사용하는 주간형 테마입니다.'
+    }
+  };
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  let menuOpen = false;
+  let originalDoTick = null;
+
+  function installStyles(){
+    if (document.getElementById('tcUI136Style')) return;
+    const st = document.createElement('style');
+    st.id='tcUI136Style';
+    st.textContent=`
+      body[data-tc-theme="classic"]{
+        --tc136-page:#17130f;--tc136-panel:#211b15;--tc136-panel2:#2b241d;
+        --tc136-text:#f0e8dc;--tc136-muted:#b7ab9a;--tc136-soft:#8f8476;
+        --tc136-line:rgba(255,255,255,.16);--tc136-accent:#69b0d2;
+        --tc136-accentText:#eaf8ff;--tc136-button:#2a2825;--tc136-danger:#e69b8d;
+        --tc136-dialog:#211b15;--tc136-dialogText:#f1e9dd;
+      }
+      body[data-tc-theme="contrast"]{
+        --tc136-page:#080b0f;--tc136-panel:#0f151b;--tc136-panel2:#18212a;
+        --tc136-text:#f8fbff;--tc136-muted:#d3d9df;--tc136-soft:#a4adb6;
+        --tc136-line:rgba(255,255,255,.26);--tc136-accent:#81cef2;
+        --tc136-accentText:#ffffff;--tc136-button:#18222c;--tc136-danger:#ffc0b4;
+        --tc136-dialog:#0d1319;--tc136-dialogText:#ffffff;
+      }
+      body[data-tc-theme="slate"]{
+        --tc136-page:#111820;--tc136-panel:#192530;--tc136-panel2:#223340;
+        --tc136-text:#edf6fb;--tc136-muted:#c0d0dc;--tc136-soft:#91a7b7;
+        --tc136-line:rgba(193,223,239,.20);--tc136-accent:#73b9da;
+        --tc136-accentText:#f5fcff;--tc136-button:#21313e;--tc136-danger:#efad9f;
+        --tc136-dialog:#17232d;--tc136-dialogText:#eff8fd;
+      }
+      body[data-tc-theme="light"]{
+        --tc136-page:#e9edf0;--tc136-panel:#f8fafb;--tc136-panel2:#eef2f4;
+        --tc136-text:#17212a;--tc136-muted:#4e5f6d;--tc136-soft:#71808b;
+        --tc136-line:rgba(16,34,48,.22);--tc136-accent:#076b91;
+        --tc136-accentText:#ffffff;--tc136-button:#e4eaee;--tc136-danger:#8d2e25;
+        --tc136-dialog:#f8fafb;--tc136-dialogText:#17212a;
+      }
+
+      /* Common aliases: only UI variables, world/map palette is intentionally untouched. */
+      body[data-tc-theme]{
+        --panel:var(--tc136-panel)!important;
+        --panel2:var(--tc136-panel2)!important;
+        --card:var(--tc136-panel)!important;
+        --surface:var(--tc136-panel)!important;
+        --surface2:var(--tc136-panel2)!important;
+        --text:var(--tc136-text)!important;
+        --ink:var(--tc136-text)!important;
+        --fg:var(--tc136-text)!important;
+        --muted:var(--tc136-muted)!important;
+        --line:var(--tc136-line)!important;
+        --accent:var(--tc136-accent)!important;
+      }
+
+      /* Broad UI surfaces. Deliberately excludes canvas/SVG map rendering. */
+      body[data-tc-theme] :is(.modal,.dialog,.sheet,.popover,.menuPanel,.panel,.drawer,.popup){
+        border-color:var(--tc136-line)!important;
+      }
+      body[data-tc-theme] :is(button,select,input,textarea){
+        font-family:inherit;
+      }
+
+      #tcMainBtn136{
+        appearance:none;border:1px solid var(--tc136-line);background:rgba(20,25,30,.42);
+        color:var(--tc136-text);border-radius:999px;min-height:28px;padding:4px 9px;
+        font:900 10px/1 system-ui,-apple-system,sans-serif;white-space:nowrap;cursor:pointer;
+        touch-action:manipulation;backdrop-filter:blur(8px);
+      }
+      body[data-tc-theme="light"] #tcMainBtn136{background:rgba(248,250,251,.78)}
+
+      #tcMainBackdrop136{
+        position:fixed;inset:0;z-index:205;background:rgba(0,0,0,.58);
+        display:none;align-items:center;justify-content:center;padding:18px;
+        color:var(--tc136-text);font-family:system-ui,-apple-system,sans-serif;
+      }
+      #tcMainBackdrop136.open{display:flex}
+      #tcMainPanel136{
+        width:min(520px,100%);max-height:min(88vh,760px);overflow:auto;
+        border:1px solid var(--tc136-line);border-radius:18px;
+        background:var(--tc136-panel);color:var(--tc136-text);
+        box-shadow:0 24px 70px rgba(0,0,0,.48);padding:17px;
+        -webkit-overflow-scrolling:touch;
+      }
+      .tcMainTitle136{display:flex;align-items:flex-start;gap:10px}
+      .tcMainTitle136>div{flex:1;min-width:0}
+      .tcMainTitle136 h2{margin:0;font-size:21px;color:var(--tc136-text)}
+      .tcMainTitle136 p{margin:4px 0 0;color:var(--tc136-muted);font-size:11px;line-height:1.5}
+      .tcMainVersion136{display:inline-flex;padding:5px 8px;border:1px solid var(--tc136-line);
+        border-radius:999px;color:var(--tc136-accent);font-size:10px;font-weight:900}
+      .tcMainActions136{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 14px}
+      .tcMainActions136 button,.tcThemeBtn136{
+        appearance:none;border:1px solid var(--tc136-line);background:var(--tc136-button);
+        color:var(--tc136-text);border-radius:11px;min-height:45px;padding:10px 12px;
+        font-size:12px;font-weight:850;text-align:left;cursor:pointer;
+      }
+      .tcMainActions136 button.primary{background:color-mix(in srgb,var(--tc136-accent) 24%,var(--tc136-button));
+        border-color:color-mix(in srgb,var(--tc136-accent) 65%,transparent)}
+      .tcMainSection136{border-top:1px solid var(--tc136-line);padding-top:13px;margin-top:12px}
+      .tcMainSection136 h3{font-size:12px;margin:0 0 4px;color:var(--tc136-text)}
+      .tcMainSection136>p{font-size:10.5px;line-height:1.55;color:var(--tc136-muted);margin:0 0 9px}
+      .tcThemeGrid136{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .tcThemeBtn136{min-height:62px}
+      .tcThemeBtn136 b{display:block;font-size:11.5px;color:inherit}
+      .tcThemeBtn136 small{display:block;margin-top:3px;font-size:9.5px;line-height:1.35;color:var(--tc136-muted)}
+      .tcThemeBtn136.active{outline:2px solid var(--tc136-accent);outline-offset:-2px}
+      .tcMenuFoot136{margin-top:13px;color:var(--tc136-soft);font-size:9.5px;line-height:1.5}
+      .tcMenuNotice136{min-height:18px;font-size:10px;color:var(--tc136-accent);margin-top:7px}
+
+      /* Save/load repair: this class is attached dynamically to the game's real save panel. */
+      .tcSaveSurface136{
+        background:var(--tc136-dialog)!important;
+        color:var(--tc136-dialogText)!important;
+        border-color:var(--tc136-line)!important;
+        text-shadow:none!important;
+        opacity:1!important;
+      }
+      .tcSaveSurface136 :is(h1,h2,h3,h4,p,div,span,label,b,strong,small){
+        color:var(--tc136-dialogText)!important;
+        text-shadow:none!important;
+      }
+      .tcSaveSurface136 :is(.muted,.sub,.hint,.meta,small){
+        color:var(--tc136-muted)!important;
+      }
+      .tcSaveSurface136 button{
+        opacity:1!important;background:var(--tc136-button)!important;
+        color:var(--tc136-text)!important;border-color:var(--tc136-line)!important;
+        text-shadow:none!important;
+      }
+      .tcSaveSurface136 button:disabled{
+        opacity:.66!important;color:var(--tc136-muted)!important;
+        border-color:var(--tc136-line)!important;
+      }
+      .tcSaveSurface136 input,.tcSaveSurface136 select{
+        background:var(--tc136-panel2)!important;color:var(--tc136-text)!important;
+        border-color:var(--tc136-line)!important;
+      }
+
+      /* Version badge becomes readable in all themes. */
+      #tcBuildBadge{
+        border-color:var(--tc136-line)!important;
+        color:var(--tc136-accent)!important;
+        background:color-mix(in srgb,var(--tc136-panel) 82%,transparent)!important;
+      }
+
+      @media(max-width:430px){
+        #tcMainBackdrop136{padding:10px}
+        #tcMainPanel136{border-radius:15px;padding:14px}
+        .tcMainActions136,.tcThemeGrid136{grid-template-columns:1fr 1fr}
+        .tcMainActions136 button{min-height:43px;padding:9px 10px}
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function getTheme(){
+    const v = localStorage.getItem(THEME_KEY);
+    return THEMES[v] ? v : 'classic';
+  }
+  function setTheme(name){
+    if(!THEMES[name]) name='classic';
+    document.body.dataset.tcTheme=name;
+    localStorage.setItem(THEME_KEY,name);
+    document.querySelectorAll('.tcThemeBtn136').forEach(b=>{
+      b.classList.toggle('active',b.dataset.theme===name);
+      b.setAttribute('aria-pressed',b.dataset.theme===name?'true':'false');
+    });
+    repairSaveSurfaces();
+  }
+
+  function wrapDoTick(){
+    if(originalDoTick) return;
+    try{
+      const fn = window.doTick || (typeof doTick === 'function' ? doTick : null);
+      if(typeof fn !== 'function') return;
+      originalDoTick=fn;
+      const wrapped=function(...args){
+        if(menuOpen) return;
+        return fn.apply(this,args);
+      };
+      wrapped.__tcMenu136=true;
+      window.doTick=wrapped;
+      try{doTick=wrapped;}catch(_){}
+    }catch(_){}
+  }
+
+  function buildMainMenu(){
+    if(document.getElementById('tcMainBackdrop136')) return;
+    const bg=document.createElement('div');
+    bg.id='tcMainBackdrop136';
+    bg.innerHTML=`
+      <div id="tcMainPanel136" role="dialog" aria-modal="true" aria-label="메인 화면">
+        <div class="tcMainTitle136">
+          <div>
+            <h2>TRAFFIC CITY 2</h2>
+            <p>도시 시뮬레이션은 메인 화면을 여는 동안 정지합니다.</p>
+          </div>
+          <span class="tcMainVersion136">${VERSION}</span>
+        </div>
+        <div class="tcMainActions136">
+          <button type="button" class="primary" data-main-continue>▶ 계속하기</button>
+          <button type="button" data-main-save>💾 저장 / 불러오기</button>
+          <button type="button" data-main-version>ⓘ 버전 / 변경이력</button>
+          <button type="button" data-main-web>🌐 최신 웹본 열기</button>
+        </div>
+        <section class="tcMainSection136">
+          <h3>화면 테마</h3>
+          <p>지도와 주제도의 의미색은 유지하고 HUD·버튼·팝업의 명도와 대비를 조정합니다.</p>
+          <div class="tcThemeGrid136">
+            ${Object.entries(THEMES).map(([k,v])=>`
+              <button type="button" class="tcThemeBtn136" data-theme="${k}">
+                <b>${esc(v.label)}</b><small>${esc(v.desc)}</small>
+              </button>`).join('')}
+          </div>
+        </section>
+        <div class="tcMenuNotice136" data-main-notice></div>
+        <div class="tcMenuFoot136">팁 · 저장슬롯 창은 선택한 테마와 관계없이 최소 대비를 강제로 확보합니다.</div>
+      </div>`;
+    bg.addEventListener('click',e=>{ if(e.target===bg) closeMain(); });
+    document.body.appendChild(bg);
+
+    bg.querySelector('[data-main-continue]').addEventListener('click',closeMain);
+    bg.querySelector('[data-main-save]').addEventListener('click',openExistingSaveUI);
+    bg.querySelector('[data-main-version]').addEventListener('click',()=>{
+      closeMain();
+      const badge=document.getElementById('tcBuildBadge');
+      if(badge) badge.click();
+      else if(window.__TC2_BUILD_META?.open) window.__TC2_BUILD_META.open();
+    });
+    bg.querySelector('[data-main-web]').addEventListener('click',()=>{
+      location.href=WEB_URL+'?from=tc2-v136&t='+Date.now();
+    });
+    bg.querySelectorAll('.tcThemeBtn136').forEach(b=>{
+      b.addEventListener('click',()=>setTheme(b.dataset.theme));
+    });
+  }
+
+  function notice(msg){
+    const n=document.querySelector('[data-main-notice]');
+    if(n)n.textContent=msg||'';
+  }
+
+  function findVisibleSaveButton(){
+    const nodes=[...document.querySelectorAll('button,[role="button"]')];
+    const scored=[];
+    for(const el of nodes){
+      if(el.closest('#tcMainBackdrop136')) continue;
+      const tx=(el.textContent||'').replace(/\s+/g,' ').trim();
+      if(!tx) continue;
+      const cs=getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden') continue;
+      let score=0;
+      if(/저장\s*[\/·&]\s*불러오기/.test(tx))score=100;
+      else if(/저장.*불러오기|불러오기.*저장/.test(tx))score=90;
+      else if(/^저장\s*슬롯/.test(tx))score=80;
+      else if(/^저장$/.test(tx))score=35;
+      else if(/저장/.test(tx))score=15;
+      if(score)scored.push([score,el,tx]);
+    }
+    scored.sort((a,b)=>b[0]-a[0]);
+    return scored[0]?.[1]||null;
+  }
+
+  function openExistingSaveUI(){
+    const btn=findVisibleSaveButton();
+    if(btn){
+      closeMain();
+      setTimeout(()=>{ btn.click(); setTimeout(repairSaveSurfaces,80); },40);
+      return;
+    }
+    notice('기존 저장 버튼을 자동으로 찾지 못했습니다. 게임의 ‘더보기’에서 저장을 열어주세요.');
+  }
+
+  function openMain(){
+    menuOpen=true;
+    wrapDoTick();
+    const bg=document.getElementById('tcMainBackdrop136');
+    if(bg){
+      bg.classList.add('open');
+      setTheme(getTheme());
+      notice('');
+    }
+  }
+  function closeMain(){
+    menuOpen=false;
+    document.getElementById('tcMainBackdrop136')?.classList.remove('open');
+  }
+
+  function installMainButton(){
+    if(document.getElementById('tcMainBtn136')) return;
+    const b=document.createElement('button');
+    b.id='tcMainBtn136';b.type='button';b.textContent='☰ 메인';b.title='메인 화면';
+    b.addEventListener('click',openMain);
+    const row2=document.querySelector('#hud .row2') || document.querySelector('.row2');
+    const badge=document.getElementById('tcBuildBadge');
+    if(row2){
+      if(badge?.nextSibling) row2.insertBefore(b,badge.nextSibling);
+      else row2.appendChild(b);
+    }else{
+      b.style.cssText+=';position:fixed;left:8px;top:72px;z-index:95';
+      document.body.appendChild(b);
+    }
+  }
+
+  function savePanelScore(el){
+    if(!(el instanceof HTMLElement))return -1;
+    const tx=(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
+    if(tx.length<10||tx.length>3500)return -1;
+    let s=0;
+    if(/저장\s*슬롯/.test(tx))s+=100;
+    const empty=(tx.match(/비어\s*있음/g)||[]).length;
+    if(empty>=2)s+=30+Math.min(empty,5)*5;
+    const saves=(tx.match(/저장/g)||[]).length;
+    if(saves>=3)s+=20;
+    const btns=el.querySelectorAll?.('button')?.length||0;
+    if(btns>=3)s+=20;
+    if(/불러오기/.test(tx))s+=15;
+    const r=el.getBoundingClientRect();
+    if(r.width>220&&r.height>180)s+=10;
+    return s;
+  }
+
+  function repairSaveSurfaces(){
+    try{
+      const candidates=[...document.querySelectorAll('div,section,aside,article,dialog')];
+      let best=null,bestScore=0;
+      for(const el of candidates){
+        const s=savePanelScore(el);
+        if(s>bestScore){bestScore=s;best=el;}
+      }
+      if(best&&bestScore>=60){
+        let target=best;
+        // Prefer the visually bounded parent if the matching node is a content wrapper.
+        for(let i=0;i<2&&target.parentElement;i++){
+          const p=target.parentElement, r=p.getBoundingClientRect();
+          if(r.width>=target.getBoundingClientRect().width && r.width<window.innerWidth*.98 &&
+             r.height>=target.getBoundingClientRect().height && r.height<window.innerHeight*.95){
+            const cs=getComputedStyle(p);
+            if(cs.position==='fixed'||cs.position==='absolute'||parseFloat(cs.borderRadius)>6) target=p;
+          }
+        }
+        document.querySelectorAll('.tcSaveSurface136').forEach(x=>{
+          if(x!==target)x.classList.remove('tcSaveSurface136');
+        });
+        target.classList.add('tcSaveSurface136');
+      }
+    }catch(_){}
+  }
+
+  function upgradeVersionIdentity(){
+    // Replace v135's badge node so its old click-handler cannot keep showing the old changelog.
+    const old=document.getElementById('tcBuildBadge');
+    if(old){
+      const b=old.cloneNode(false);
+      b.id='tcBuildBadge';
+      b.textContent=VERSION;
+      b.title='버전 및 변경이력';
+      old.replaceWith(b);
+      b.addEventListener('click',openVersion136);
+    }
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+VERSION;
+    try{
+      const h=[...document.querySelectorAll('h1,h2')].find(x=>/TRAFFIC\s*CITY\s*2/i.test(x.textContent||''));
+      if(h){
+        const sm=[...h.querySelectorAll('small')].find(x=>/\bv13[0-6]\b/i.test(x.textContent||''));
+        if(sm)sm.textContent=' '+VERSION;
+      }
+    }catch(_){}
+  }
+
+  function openVersion136(){
+    let bg=document.getElementById('tcVersionBackdrop');
+    if(!bg){
+      bg=document.createElement('div');bg.id='tcVersionBackdrop';
+      bg.style.cssText='position:fixed;inset:0;z-index:210;background:rgba(0,0,0,.56);display:flex;align-items:flex-end;justify-content:center';
+      document.body.appendChild(bg);
+    }
+    bg.classList.add('open');
+    bg.style.display='flex';
+    bg.innerHTML=`
+      <div style="width:min(680px,100vw);max-height:84vh;overflow:auto;background:var(--tc136-panel);color:var(--tc136-text);
+        border:1px solid var(--tc136-line);border-bottom:0;border-radius:18px 18px 0 0;padding:16px">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="flex:1"><b style="font-size:17px">TRAFFIC CITY 2 · ${VERSION}</b>
+          <div style="font-size:10px;color:var(--tc136-muted);margin-top:4px">빌드 ${BUILD} · 변경이력</div></div>
+          <button type="button" data-vclose style="border:1px solid var(--tc136-line);background:var(--tc136-button);color:var(--tc136-text);border-radius:999px;width:34px;height:34px">×</button>
+        </div>
+        <section style="padding:12px 0;border-bottom:1px solid var(--tc136-line)">
+          <b>v136 · MAIN MENU & READABILITY THEMES</b>
+          <ul style="font-size:11px;line-height:1.6;color:var(--tc136-muted)">
+            <li>게임 중 메인 화면으로 돌아가는 버튼 추가</li>
+            <li>기본 / 고대비 다크 / 청회색 / 밝은 회색 테마</li>
+            <li>저장슬롯 팝업의 글자·버튼 대비 강제 보정</li>
+            <li>선택 테마를 기기에 저장</li>
+          </ul>
+        </section>
+        <section style="padding:12px 0;border-bottom:1px solid var(--tc136-line)">
+          <b>v135 · VERSION & CHANGELOG</b>
+          <div style="font-size:11px;line-height:1.6;color:var(--tc136-muted);margin-top:5px">상시 버전 배지, 변경이력, 실행 소스와 저장 빌드 표시.</div>
+        </section>
+        <section style="padding:12px 0;border-bottom:1px solid var(--tc136-line)">
+          <b>v134 · Council Recommendation Resolver</b>
+          <div style="font-size:11px;line-height:1.6;color:var(--tc136-muted);margin-top:5px">자문회의 목표를 실행 가능한 기존 정책 조합으로 변환.</div>
+        </section>
+        <section style="padding:12px 0;border-bottom:1px solid var(--tc136-line)">
+          <b>v133 · Contextual Learning</b>
+          <div style="font-size:11px;line-height:1.6;color:var(--tc136-muted);margin-top:5px">사례·이론의 상황별 인용과 용어 설명.</div>
+        </section>
+        <section style="padding:12px 0">
+          <b>v132 · Validation Lab</b>
+          <div style="font-size:11px;line-height:1.6;color:var(--tc136-muted);margin-top:5px">정합성·결정론·장기 회귀검증.</div>
+        </section>
+      </div>`;
+    bg.querySelector('[data-vclose]')?.addEventListener('click',()=>{
+      bg.style.display='none';bg.classList.remove('open');
+    });
+    bg.addEventListener('click',e=>{
+      if(e.target===bg){bg.style.display='none';bg.classList.remove('open');}
+    },{once:true});
+  }
+
+  function wrapSaveBuild(){
+    try{
+      const fn=window.saveStateObject || (typeof saveStateObject==='function'?saveStateObject:null);
+      if(typeof fn!=='function'||fn.__tcBuild136)return;
+      const wrapped=function(...args){
+        const o=fn.apply(this,args);
+        if(o&&typeof o==='object'){
+          o.buildVersion=VERSION;
+          o.uiTheme=getTheme();
+        }
+        return o;
+      };
+      wrapped.__tcBuild136=true;
+      window.saveStateObject=wrapped;
+      try{saveStateObject=wrapped;}catch(_){}
+    }catch(_){}
+  }
+
+  function initObserver(){
+    if(window.__TC2_UI136.observer)return;
+    let scheduled=false;
+    const ob=new MutationObserver(()=>{
+      if(scheduled)return;
+      scheduled=true;
+      requestAnimationFrame(()=>{
+        scheduled=false;
+        repairSaveSurfaces();
+        if(!document.getElementById('tcMainBtn136'))installMainButton();
+      });
+    });
+    ob.observe(document.body,{childList:true,subtree:true,attributes:false});
+    window.__TC2_UI136.observer=ob;
+  }
+
+  function init(){
+    installStyles();
+    setTheme(getTheme());
+    buildMainMenu();
+    upgradeVersionIdentity();
+    installMainButton();
+    wrapSaveBuild();
+    wrapDoTick();
+    repairSaveSurfaces();
+    initObserver();
+  }
+
+  window.__TC2_UI136={
+    loaded:true,version:VERSION,build:BUILD,
+    openMain,closeMain,setTheme,getTheme,repairSaveSurfaces
+  };
+  window.TC2_BUILD_VERSION=VERSION;
+  window.__TC2_BUILD_META={
+    ...(window.__TC2_BUILD_META||{}),
+    version:VERSION,build:BUILD,webUrl:WEB_URL,open:openVersion136
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+
+  console.info('[TRAFFIC CITY 2] Main Menu & Readability Themes v136 loaded');
 })();
 </script>
 </body>
