@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v140</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v145</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -44,6 +44,54 @@ canvas#map{position:absolute;inset:0;width:100%;height:100%;display:block}
 #autoBox.on .hv{color:#9ec492}
 .metricHelp{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);color:#d9cfbf;font-size:10px;line-height:1;cursor:pointer;flex:0 0 auto;padding:0}
 .metricHelp:hover{background:rgba(255,255,255,.12)}
+/* TC2_HUD_METRIC_STABILITY_V142
+   The labels never reflow with changing numbers; only fixed-width value spans update. */
+#gapBox{
+  width:258px!important;
+  justify-content:flex-start!important;
+  gap:5px!important;
+  padding-left:8px!important;
+  padding-right:8px!important;
+  contain:layout style;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+}
+#gapBox .gapMetric{
+  display:grid;
+  grid-template-columns:max-content auto 16px;
+  align-items:center;
+  column-gap:3px;
+  flex:0 0 auto;
+  min-width:0;
+  white-space:nowrap;
+}
+#gapBox .gapAssign .gapValue{width:5.6ch}
+#gapBox .gapOD .gapValue{width:4.6ch}
+#gapBox .gapLabel{
+  color:#79b7d7;
+  text-decoration:none!important;
+  font:inherit;
+  line-height:1;
+  white-space:nowrap;
+}
+#gapBox .gapValue{
+  display:inline-block;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  line-height:1;
+  white-space:nowrap;
+}
+#gapBox .gapSep{
+  flex:0 0 auto;
+  color:#8f867a;
+  line-height:1;
+}
+#gapBox .metricHelp{
+  transform:none!important;
+  margin:0!important;
+}
+
 #metricTip{position:fixed;z-index:80;display:none;max-width:min(330px,calc(100vw - 24px));background:#241e17;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:11px 12px;box-shadow:0 10px 30px rgba(0,0,0,.38);color:#d8cdbd;font-size:11.5px;line-height:1.55}
 #metricTip.open{display:block}
 #metricTip b{color:#f1e7d7}#metricTip .muted{color:#9f9384;font-size:10.5px;margin-top:6px}
@@ -204,14 +252,20 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
   background:#1e1913;border-top:1px solid rgba(255,255,255,.14);border-radius:18px 18px 0 0;
   padding:14px 16px calc(env(safe-area-inset-bottom) + 16px);transform:translateY(105%);transition:.22s}
 #panel.open,#insight.open,#sns.open,#chron.open,#policy.open,#lab.open,#planlog.open,#paperReport.open{transform:translateY(0)}
-#sns{z-index:11}
-#sns h3{margin:2px 0 8px;font-size:16px}
-#snsFilters{display:flex;gap:6px;overflow-x:auto;padding:8px 0 7px;position:sticky;top:-14px;z-index:3;background:#1e1913;scrollbar-width:none}
+#sns{z-index:11;overflow-anchor:none}
+/* v141 · SNS reading stability: close stays reachable while the feed scrolls. */
+#sns>#snsClose{position:sticky;top:0;z-index:35;float:right;display:flex;align-items:center;justify-content:center;
+  width:max-content;min-height:34px;margin:0 0 4px 8px;padding:7px 10px;border-radius:999px;
+  background:rgba(28,24,19,.94);border:1px solid rgba(255,255,255,.18);color:#e9dfd0;
+  box-shadow:0 3px 12px rgba(0,0,0,.28);backdrop-filter:blur(8px)}
+#sns>#snsClose:active{background:rgba(255,255,255,.14)}
+#sns h3{margin:2px 0 8px;font-size:16px;padding-right:74px}
+#snsFilters{display:flex;gap:6px;overflow-x:auto;padding:8px 0 7px;position:sticky;top:0;z-index:3;background:#1e1913;scrollbar-width:none;overflow-anchor:none}
 #snsFilters::-webkit-scrollbar{display:none}.snsTag{flex:0 0 auto;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);border-radius:999px;padding:6px 9px;font-size:11px;color:#b9ad9b;cursor:pointer;white-space:nowrap}.snsTag.on{background:#2f6f8f;border-color:#57a0c4;color:#fff}.snsTag .cnt{opacity:.65;margin-left:3px}
 #snsPeople{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:5px 0 8px}.obsCard{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:10px;padding:8px;cursor:pointer;min-width:0}.obsCard.on{border-color:#57a0c4;background:rgba(47,111,143,.16)}.obsNm{font-size:12px;font-weight:800;color:#e8dfd0}.obsMeta{font-size:10.5px;color:#9f9588;margin-top:3px;line-height:1.35}.obsState{font-size:10.5px;color:#c8bdad;margin-top:5px;line-height:1.4}.hash{display:inline-block;color:#79b7d7;font-size:10.5px;margin:4px 5px 0 0;cursor:pointer}.post.observer .av{background:rgba(123,92,148,.30)}.post.observer .tx{color:#e0d5e8}.post.policy .av{background:rgba(47,111,143,.30)}
 .obsLineageBtn{display:inline-block;margin-top:6px;padding:3px 6px;border-radius:7px;border:1px solid rgba(166,140,192,.24);background:rgba(123,92,148,.12);color:#cdb9dc;font-size:9.5px;font-weight:800;cursor:pointer}
 #lineagePanel{display:none;margin:8px 0 10px;padding:10px;border-radius:12px;border:1px solid rgba(166,140,192,.20);background:rgba(58,43,70,.22)}#lineagePanel.open{display:block}.lineageHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.lineageHead b{font-size:13px;color:#eadff1}.lineageClose{font-size:10px;color:#bdaac9;cursor:pointer;padding:4px 6px}.lineageGen{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.065)}.lineageGen:first-child{margin-top:0;padding-top:0;border-top:0}.lineageGen h4{margin:0 0 5px;font-size:11.5px;color:#d7c4e3}.lineageMeta{font-size:9.5px;color:#9e90a7;margin-bottom:6px}.lineageEvent{display:grid;grid-template-columns:62px minmax(0,1fr);gap:7px;padding:4px 0;font-size:10.5px;line-height:1.45}.lineageEvent .lm{color:#8f8397}.lineageEvent .lt{color:#d0c6d6}.lineageEvent.life .lt{color:#dfcfaa}.lineageEmpty{font-size:10.5px;color:#8e8390;padding:4px 0}
-.post{display:flex;gap:9px;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.07)}
+.post{display:flex;gap:9px;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.07);overflow-anchor:none}
 .post .av{flex:0 0 30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);
   display:flex;align-items:center;justify-content:center;font-size:15px}
 .post .bd{flex:1;min-width:0}
@@ -415,7 +469,19 @@ body.dio #hud,body.dio #dock,body.dio #morePop,body.dio #editFrame,body.dio #edi
       <div class="stat" data-m="time"><div class="k">평균 통행</div><div class="v" id="sTime">–</div></div>
       <div class="stat" data-m="life"><div class="k">생활권</div><div class="v" id="sLife">–</div></div>
       <div class="stat" data-m="los"><div class="k">V/C 등급</div><div class="v"><span class="los" id="sLos">–</span></div></div>
-      <div id="gapBox">Assignment gap – · OD error –</div>
+      <div id="gapBox" data-tc-no-linkify="1" aria-label="교통배정 계산 상태">
+        <span class="gapMetric gapAssign">
+          <span class="gapLabel">Assignment gap</span>
+          <span class="gapValue" id="gapValue">–</span>
+          <button class="metricHelp" data-metric-help="gap" title="Assignment gap 설명" aria-label="Assignment gap 설명">?</button>
+        </span>
+        <span class="gapSep" aria-hidden="true">·</span>
+        <span class="gapMetric gapOD">
+          <span class="gapLabel">OD error</span>
+          <span class="gapValue" id="odErrorValue">–</span>
+          <button class="metricHelp" data-metric-help="bal" title="OD balancing error 설명" aria-label="OD balancing error 설명">?</button>
+        </span>
+      </div>
       <div id="modeBox">🚗– 🚇– 🚌– 🚶–</div>
       <div id="autoBox"><span class="hk">자동계획관</span><span class="hv" id="autoBoxV">OFF</span></div>
     </div>
@@ -15477,8 +15543,17 @@ function updateHUD(){
   $("dateBox").textContent=`${pad4(yr)}년차 ${pad2(mm)}월 ${pad2(dd)}일 ${ico}`;
   const gapTxt=S.gap>=0?fmtPctHUD(S.gap):"–";
   const balTxt=S.balErr>=0?fmtPctHUD(S.balErr,0,1):"–";
-  $("gapBox").innerHTML=`Assignment gap ${gapTxt} <button class="metricHelp" data-metric-help="gap" title="Assignment gap 설명">?</button> · OD error ${balTxt} <button class="metricHelp" data-metric-help="bal" title="OD balancing error 설명">?</button>`;
-  $("gapBox").style.color=S.gap>=0&&S.gap<0.03?"#5c8a52":S.gap<0.08?"#c2922a":"#d9a441";
+  /* v142: do not rebuild #gapBox. Rebuilding triggered the contextual-learning
+     MutationObserver every HUD tick, alternately destroying/recreating tcTerm buttons. */
+  const gapValue=$("gapValue"),odErrorValue=$("odErrorValue");
+  if(gapValue){
+    gapValue.textContent=gapTxt;
+    gapValue.style.color=S.gap>=0&&S.gap<0.03?"#5c8a52":S.gap<0.08?"#c2922a":"#d9a441";
+  }
+  if(odErrorValue){
+    odErrorValue.textContent=balTxt;
+    odErrorValue.style.color=S.balErr>=0&&S.balErr<0.03?"#5c8a52":S.balErr<0.08?"#c2922a":"#d98272";
+  }
   $("modeBox").textContent=S.persons>0
     ?`🚗${Math.round((1-S.transit-S.walkSh-S.busSh)*100)} 🚇${Math.round(S.transit*100)} 🚌${Math.round(S.busSh*100)} 🚶${Math.round(S.walkSh*100)}`
     :"🚗– 🚇– 🚌– 🚶–";
@@ -15491,11 +15566,12 @@ function updateHUD(){
   $("msg").textContent=performance.now()<msgUntil?msgText:"";
   if(insightM)updateInsight();
   if($("lab").classList.contains("open")&&labLastMonth!==curMonth()){labLastMonth=curMonth();renderLab();}
-  if(snsOpen)renderFeed();
+  if(snsOpen&&(snsRenderMonth141!==curMonth()||snsRenderSeq141!==feedSeq))renderFeed();
   updateFeedBadge();
   if(panelOpen||policyOpen)updatePanel();
 }
 let panelOpen=false,snsOpen=false;
+let snsRenderMonth141=-1,snsRenderSeq141=-1;
 function updatePanel(){
   const set=(el,v)=>{const w=Math.abs(v)*49;
     el.style.width=w+"%";el.style.left=v>=0?"50%":(50-w)+"%";
@@ -18300,7 +18376,28 @@ function renderObserverLineage(lineageId){
   panel.classList.add("open");
 }
 function closeObserverLineage(){activeLineageId=null;const p=$("lineagePanel");if(p){p.classList.remove("open");delete p.dataset.lineageId;}}
-function renderFeed(){
+function snsReadingAnchor141(){
+  const panel=$("sns"),body=$("snsBody");
+  if(!panel||!body||!panel.classList.contains("open"))return null;
+  const pr=panel.getBoundingClientRect();
+  const posts=[...body.querySelectorAll(".post[data-post-id]")];
+  const a=posts.find(n=>n.getBoundingClientRect().bottom>pr.top+42);
+  return a?{id:a.dataset.postId,top:a.getBoundingClientRect().top-pr.top,scrollTop:panel.scrollTop}:{id:null,top:0,scrollTop:panel.scrollTop};
+}
+function snsRestoreAnchor141(a,reset=false){
+  const panel=$("sns"),body=$("snsBody");if(!panel||!body)return;
+  requestAnimationFrame(()=>{
+    if(reset){panel.scrollTop=0;return;}
+    if(!a)return;
+    if(a.id){
+      const n=body.querySelector(`.post[data-post-id="${a.id}"]`);
+      if(n){const pr=panel.getBoundingClientRect();panel.scrollTop+=n.getBoundingClientRect().top-pr.top-a.top;return;}
+    }
+    panel.scrollTop=Math.min(a.scrollTop,Math.max(0,panel.scrollHeight-panel.clientHeight));
+  });
+}
+function renderFeed(resetScroll=false){
+  const readingAnchor=snsReadingAnchor141();
   const el=$("snsBody");if(!el)return;renderSnsFilters();renderObserverCards();const mo=curMonth();
   const children=new Map();for(const p of feed)if(p.replyTo){if(!children.has(p.replyTo))children.set(p.replyTo,[]);children.get(p.replyTo).push(p);}
   const roots=feed.filter(p=>!p.replyTo);
@@ -18308,17 +18405,19 @@ function renderFeed(){
   let list=roots;
   if(snsFilter.startsWith("obs:")){const id=+snsFilter.slice(4);list=roots.filter(p=>threadHas(p,q=>q.observerId===id));}
   else if(snsFilter!=="all")list=roots.filter(p=>threadHas(p,q=>postTagsOf(q).includes(snsFilter)));
-  if(!list.length){el.innerHTML='<div class="tip">이 필터에는 아직 글이 없습니다. 도시가 변하거나 정책을 조정하면 관련 기록이 쌓입니다.</div>';return;}
+  if(!list.length){el.innerHTML='<div class="tip">이 필터에는 아직 글이 없습니다. 도시가 변하거나 정책을 조정하면 관련 기록이 쌓입니다.</div>';snsRenderMonth141=curMonth();snsRenderSeq141=feedSeq;snsRestoreAnchor141(readingAnchor,resetScroll);return;}
   const postHTML=(p,depth=0)=>{
     const ago=mo-p.mo,when=ago<=0?"방금":ago<12?`${ago}개월 전`:`${Math.floor(ago/12)}년 전`,gov=p.handle==="@cityplan"||p.handle==="@city_hall",obs=p.observerId!==null&&p.observerId!==undefined,pol=postTagsOf(p).includes("정책"),reply=!!p.replyTo;
     const tagHtml=postTagsOf(p).filter(t=>t!=="대화").map(t=>`<span class="hash" data-tag="${escHtml(t)}">#${escHtml(t)}</span>`).join("");
     const kids=(children.get(p.id)||[]).slice().sort((a,b)=>(a.mo-b.mo)||(a.id-b.id));
     const replyMark=reply?`<span class="replyMark">↪</span><span class="replyTo">${escHtml(p.replyHandle||"")}</span>`:"",badge=!reply&&kids.length?`<span class="threadBadge">답글 ${kids.length}${kids.some(k=>(children.get(k.id)||[]).length)?"+":""}</span>`:"";
-    let h=`<div class="post${gov?" gov":""}${obs?" observer":""}${pol?" policy":""}${reply?` reply depth${Math.min(2,depth)}`:""}"><div class="av">${p.icon}</div><div class="bd"><div class="hd">${replyMark}<b${obs?` data-obs="${p.observerId}" style="cursor:pointer"`:""}>${escHtml(p.who)}</b>${escHtml(p.handle)}${badge}</div><div class="tx">${escHtml(p.text)}</div>${tagHtml?`<div>${tagHtml}</div>`:""}<div class="mt">${when} · ♡ ${p.likes}${reply&&p.relation?` · ${p.relation==="agree"?"공감":p.relation==="counter"?"반론":p.relation==="ask"?"질문":p.relation==="compare"?"경험비교":"보충"}`:""}</div></div></div>`;
+    let h=`<div class="post${gov?" gov":""}${obs?" observer":""}${pol?" policy":""}${reply?` reply depth${Math.min(2,depth)}`:""}" data-post-id="${p.id}"><div class="av">${p.icon}</div><div class="bd"><div class="hd">${replyMark}<b${obs?` data-obs="${p.observerId}" style="cursor:pointer"`:""}>${escHtml(p.who)}</b>${escHtml(p.handle)}${badge}</div><div class="tx">${escHtml(p.text)}</div>${tagHtml?`<div>${tagHtml}</div>`:""}<div class="mt">${when} · ♡ ${p.likes}${reply&&p.relation?` · ${p.relation==="agree"?"공감":p.relation==="counter"?"반론":p.relation==="ask"?"질문":p.relation==="compare"?"경험비교":"보충"}`:""}</div></div></div>`;
     if(depth<2)for(const k of kids)h+=postHTML(k,depth+1);
     return h;
   };
   el.innerHTML=list.slice(0,65).map(p=>postHTML(p,0)).join("");
+  snsRenderMonth141=curMonth();snsRenderSeq141=feedSeq;
+  snsRestoreAnchor141(readingAnchor,resetScroll);
 }
 function updateFeedBadge(){
   const b=$("feedBadge");if(!b)return;
@@ -18326,13 +18425,13 @@ function updateFeedBadge(){
   else b.style.display="none";
 }
 $("bFeed").addEventListener("click",()=>{
-  feedUnread=0;updateFeedBadge();renderFeed();
+  feedUnread=0;updateFeedBadge();renderFeed(true);
   $("sns").classList.add("open");snsOpen=true;
 });
-$("snsFilters").addEventListener("click",e=>{const t=e.target.closest("[data-tag]");if(!t)return;snsFilter=t.dataset.tag||"all";renderFeed();});
-$("snsPeople").addEventListener("click",e=>{const l=e.target.closest("[data-lineage]");if(l){renderObserverLineage(+l.dataset.lineage);return;}const c=e.target.closest("[data-obs]");if(!c)return;snsFilter=`obs:${c.dataset.obs}`;renderFeed();});
+$("snsFilters").addEventListener("click",e=>{const t=e.target.closest("[data-tag]");if(!t)return;snsFilter=t.dataset.tag||"all";renderFeed(true);});
+$("snsPeople").addEventListener("click",e=>{const l=e.target.closest("[data-lineage]");if(l){renderObserverLineage(+l.dataset.lineage);return;}const c=e.target.closest("[data-obs]");if(!c)return;snsFilter=`obs:${c.dataset.obs}`;renderFeed(true);});
 $("lineageClose").addEventListener("click",()=>closeObserverLineage());
-$("snsBody").addEventListener("click",e=>{const h=e.target.closest("[data-tag]"),o=e.target.closest("[data-obs]");if(h){snsFilter=h.dataset.tag||"all";renderFeed();return;}if(o){snsFilter=`obs:${o.dataset.obs}`;renderFeed();}});
+$("snsBody").addEventListener("click",e=>{const h=e.target.closest("[data-tag]"),o=e.target.closest("[data-obs]");if(h){snsFilter=h.dataset.tag||"all";renderFeed(true);return;}if(o){snsFilter=`obs:${o.dataset.obs}`;renderFeed(true);}});
 $("snsClose").addEventListener("click",()=>{closeObserverLineage();$("sns").classList.remove("open");snsOpen=false;});
 $("bPlanLog").addEventListener("click",()=>{renderPlannerLog();$("planlog").classList.add("open");closeMore();closePolicyHub();});
 $("planlogClose").addEventListener("click",()=>{$("planlog").classList.remove("open");});
@@ -19354,7 +19453,7 @@ window.__TC={
     tdm:{label:'교통수요관리',aliases:['교통수요관리','TDM'],short:'도로 공급을 늘리는 대신 가격·주차·운영·수단전환 등을 이용해 통행수요와 이용방식을 관리하는 정책군입니다.',game:'혼잡통행료·주차가격·대중교통 서비스 조정 등을 비교할 때 쓸 수 있는 상위 개념입니다.'},
     polycentric:{label:'다핵도시',aliases:['다핵도시','다핵 도시'],short:'하나의 중심업무지구만이 아니라 여러 중심지가 역할을 나누는 도시공간 구조입니다.',game:'멀리 퍼진 도시라도 철도와 여러 중심지가 연결되면 단순 스프롤과 다른 형태가 될 수 있습니다.'},
     landUse:{label:'토지이용',aliases:['토지이용','토지 이용'],short:'토지가 주거·상업·업무·산업·공원 등 어떤 기능으로 사용되는지를 뜻합니다.',game:'교통 접근성과 토지시장이 장기적으로 토지이용을 바꾸고, 바뀐 토지이용이 다시 통행을 만듭니다.'},
-    climateProfile:{label:'Climate profile',aliases:['Climate profile','Temperate','Tropical rainforest','Hot desert','Snow-cold'],short:'게임의 시각·환경 설정 묶음입니다. Köppen–Geiger 같은 공식 기후분류 판정 결과가 아닙니다.',game:'v140까지는 시각효과와 프로파일 저장만 하며 교통·재정·성장 수치에는 직접 영향을 주지 않습니다.'}
+    climateProfile:{label:'Climate profile',aliases:['Climate profile','Temperate','Tropical rainforest','Hot desert','Snow-cold'],short:'게임의 시각·환경 설정 묶음입니다. Köppen–Geiger 같은 공식 기후분류 판정 결과가 아닙니다.',game:'v145까지는 시각효과와 프로파일 저장만 하며 교통·재정·성장 수치에는 직접 영향을 주지 않습니다.'}
   };
 
   const aliasToKey = new Map();
@@ -19397,6 +19496,7 @@ window.__TC={
   function skipTextNode(node){
     const p=node.parentElement;if(!p)return true;
     if(p.closest('.tcTerm,#tcGlossaryBackdrop,script,style,pre,code,textarea,input,select,option,button,a'))return true;
+    if(p.closest('[data-tc-no-linkify="1"]'))return true;
     if(p.closest('[contenteditable="true"]'))return true;
     return false;
   }
@@ -19468,7 +19568,7 @@ window.__TC={
   }
 
   function observeRoots(){
-    const roots=['councilBody','policy','lab','panel','insight','paperReport','planlog','gapBox','snsBody'].map(id=>document.getElementById(id)).filter(Boolean);
+    const roots=['councilBody','policy','lab','panel','insight','paperReport','planlog','snsBody'].map(id=>document.getElementById(id)).filter(Boolean);
     let raf=0;const schedule=()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;for(const r of roots)linkify(r);});};
     const mo=new MutationObserver(schedule);for(const r of roots)mo.observe(r,{subtree:true,childList:true,characterData:true});schedule();
     window.__TC2_CONTEXT_LEARNING_OBSERVER=mo;
@@ -20787,7 +20887,7 @@ window.__TC={
     sec.className='tcClimateSection137';
     sec.innerHTML=`
       <h3>Climate profile</h3>
-      <p>Visual skin + Climate profile입니다. 공식 기후분류가 아니며, v140까지는 교통·재정·성장 계산을 바꾸지 않습니다.</p>
+      <p>Visual skin + Climate profile입니다. 공식 기후분류가 아니며, v145까지는 교통·재정·성장 계산을 바꾸지 않습니다.</p>
       <div class="tcClimateGrid137">
         ${Object.values(PROFILES).map(p=>`
           <button type="button" class="tcClimateBtn137" data-climate="${p.id}">
@@ -21256,11 +21356,11 @@ window.__TC={
 
   const BUILD_INFO = Object.freeze({
     product:'TRAFFIC CITY 2',
-    version:'v140',
-    build:140,
+    version:'v145',
+    build:145,
     saveSchemaVersion:47,
-    terminology:'academic-consistency-1',
-    title:'ACADEMIC CONSISTENCY & BUILD CONTRACT'
+    terminology:'academic-consistency-2',
+    title:'STRUCTURE PLAN'
   });
   const WEB_URL='https://byanka-rail.github.io/traffic-city-2/';
 
@@ -21338,9 +21438,9 @@ window.__TC={
   function academicAudit(){
     const source=document.documentElement.innerHTML;
     const tests=[
-      ['build-title',document.title.includes('v140'),'document.title = v140'],
-      ['build-badge',document.getElementById('tcBuildBadge')?.textContent==='v140','HUD build badge = v140'],
-      ['main-version',document.querySelector('.tcMainVersion136')?.textContent==='v140','main menu = v140'],
+      ['build-title',document.title.includes(BUILD_INFO.version),'document.title = '+BUILD_INFO.version],
+      ['build-badge',document.getElementById('tcBuildBadge')?.textContent===BUILD_INFO.version,'HUD build badge = '+BUILD_INFO.version],
+      ['main-version',document.querySelector('.tcMainVersion136')?.textContent===BUILD_INFO.version,'main menu = '+BUILD_INFO.version],
       ['gap-label',/Assignment gap/.test(document.getElementById('gapBox')?.textContent||''),'Assignment gap label'],
       ['los-label',[...document.querySelectorAll('.stat .k')].some(x=>/V\/C 등급/.test(x.textContent||'')),'LOS replaced by V/C grade'],
       ['snow-rain-sync',source.includes('TC2_V139_SNOW_WEATHER_SYNC'),'Snow-cold legacy rain suppression'],
@@ -21475,5 +21575,332 @@ window.__TC={
 })();
 </script>
 
+
+<!-- TC2_SNS_READING_STABILITY_V141 -->
+<script>
+/* TRAFFIC CITY 2 — SNS READING STABILITY v141
+   Marker: TC2_SNS_READING_STABILITY_V141
+   Keeps live feed refresh from moving the paragraph being read, and keeps Close reachable.
+*/
+(() => {
+  'use strict';
+  if(window.__TC2_V141?.loaded)return;
+  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v145',build:145,saveSchemaVersion:47,title:'STRUCTURE PLAN'});
+
+  function sourceName(){
+    if(location.protocol==='https:'&&/byanka-rail\.github\.io$/i.test(location.hostname))return 'GitHub Pages';
+    if(location.protocol==='content:')return 'local content:// file';
+    if(location.protocol==='file:')return 'local file';
+    if(window.TC2Android||window.AndroidBridge||window.AppBridge)return 'APK/WebView';
+    return location.protocol.replace(':','')||'unknown';
+  }
+  function stamp(){
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+BUILD.version;
+    const b=document.getElementById('tcBuildBadge');if(b){b.textContent=BUILD.version;b.title=`${BUILD.version} · ${sourceName()} · 버전/변경이력`;}
+    const mv=document.querySelector('.tcMainVersion136');if(mv)mv.textContent=BUILD.version;
+    window.TC2_BUILD=BUILD;window.TC2_BUILD_VERSION=BUILD.version;
+  }
+  function wrapSave(){
+    try{
+      const fn=window.saveStateObject||(typeof saveStateObject==='function'?saveStateObject:null);
+      if(typeof fn!=='function'||fn.__tcBuild141)return;
+      const wrapped=function(...args){const o=fn.apply(this,args);if(o&&typeof o==='object'){o.buildVersion=BUILD.version;o.buildNumber=BUILD.build;o.saveSchemaVersion=Number.isFinite(+o.v)?+o.v:BUILD.saveSchemaVersion;}return o;};
+      wrapped.__tcBuild141=true;window.saveStateObject=wrapped;try{saveStateObject=wrapped}catch(_){}
+    }catch(e){console.warn('[v141] save wrapper',e);}
+  }
+  function patchSheet(){
+    const sh=document.getElementById('tcVersionSheet');if(!sh)return;
+    const hb=sh.querySelector('.tcVHead b');if(hb)hb.textContent='TRAFFIC CITY 2 · '+BUILD.version;
+    const src=sh.querySelector('.tcVSource');if(src)src.innerHTML=`<span class="tcVChip">${sourceName()}</span><span>Build ${BUILD.build} · save schema ${BUILD.saveSchemaVersion}</span>`;
+    if(!sh.querySelector('[data-v142-entry]')){
+      const sec142=document.createElement('section');sec142.className='tcVEntry';sec142.dataset.v142Entry='1';
+      sec142.innerHTML='<div class="tcVTitle"><b>v142</b><span>HUD METRIC STABILITY</span></div><ul><li>Assignment gap / OD error HUD를 고정 DOM 구조로 변경</li><li>숫자 영역에 고정 폭과 tabular numerals 적용</li><li>HUD 학술용어를 용어사전 MutationObserver 자동 재링크 대상에서 제외</li><li>×8에서도 라벨과 도움말 버튼 위치가 움직이지 않도록 수정</li></ul>';
+      const first142=sh.querySelector('.tcVEntry');if(first142)first142.before(sec142);else sh.appendChild(sec142);
+    }
+    if(!sh.querySelector('[data-v141-entry]')){
+      const sec=document.createElement('section');sec.className='tcVEntry';sec.dataset.v141Entry='1';
+      sec.innerHTML='<div class="tcVTitle"><b>v141</b><span>SNS READING STABILITY</span></div><ul><li>주민 피드가 HUD 갱신 때마다 전체 재렌더되던 문제 제거</li><li>새 글·월 갱신 때 현재 읽는 post anchor를 보존</li><li>SNS 닫기 버튼을 스크롤 상단에 sticky 고정</li><li>필터를 직접 바꿀 때만 새 목록의 맨 위로 이동</li></ul>';
+      const first=sh.querySelector('.tcVEntry');if(first)first.before(sec);else sh.appendChild(sec);
+    }
+  }
+  function openSheet141(){
+    if(window.__TC2_V140?.openSheet)window.__TC2_V140.openSheet();
+    requestAnimationFrame(patchSheet);setTimeout(patchSheet,50);
+  }
+  function bindBadge(){
+    const old=document.getElementById('tcBuildBadge');if(!old||old.__tcBuild141)return;
+    const b=old.cloneNode(true);b.__tcBuild141=true;old.replaceWith(b);b.addEventListener('click',openSheet141);stamp();
+  }
+  function init(){
+    stamp();wrapSave();bindBadge();
+    /* v140 has one delayed restamp at 250 ms; v141 deliberately wins after it. */
+    setTimeout(()=>{stamp();bindBadge();wrapSave();},420);
+    setTimeout(()=>{stamp();bindBadge();},900);
+    window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:BUILD.version,build:BUILD.build,saveSchemaVersion:BUILD.saveSchemaVersion,source:sourceName,open:openSheet141};
+  }
+  window.__TC2_V141={loaded:true,build:BUILD,stamp,openSheet:openSheet141};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  console.info('[TRAFFIC CITY 2] SNS Reading Stability v141 loaded');
+})();
+</script>
+
+
+<!-- TC2_HUD_METRIC_STABILITY_V142 · direct-core patch; no updater/builder -->
+
+<!-- TC2_PLANNER_PORTFOLIO_V143 -->
+<script>
+/* TC2_PLANNER_PORTFOLIO_V143
+   Portfolio-based planner: candidate generation -> transparent scoring -> execution.
+   Operational invariants (utility safety, transit operations, airport access, signals)
+   remain outside the portfolio because they are maintenance/safety duties, not capital competition. */
+(() => {
+'use strict';
+if(window.__TC143?.loaded)return;
+const TC143=Object.freeze({version:'v143',build:143,title:'PLANNER PORTFOLIO EVALUATION'});
+const plannerPortfolioHistory=[];
+const plannerPortfolioWait={};
+let plannerPortfolioSeq=0,plannerPortfolioLast=null;
+
+function plannerPortfolioFamilyLabel(f){return f==='housing'?'주거':f==='jobs'?'고용':f==='service'?'생활서비스':f==='transport'?'교통':f==='district'?'신규지구':f==='redevelop'?'재개발':f==='utility'?'기반시설':'도시공간';}
+function plannerPortfolioPolicyAlignment(f,meta={}){
+  if(f==='service')return clamp(.25+.75*(pubSvcIx/Math.max(1,PUB_SERVICE_STEPS.length-1)),0,1);
+  if(f==='utility')return clamp(.25+.75*(utilReserveIx/Math.max(1,UTIL_RESERVE_STEPS.length-1)),0,1);
+  if(f==='transport'){
+    const transit=!!meta.transit;
+    if(transit)return clamp(.30+.70*(transitPrioIx/Math.max(1,TRANSIT_PRIORITY_STEPS.length-1)),0,1);
+    return clamp(transitPrioIx===0?.95:transitPrioIx===1?.72:transitPrioIx===2?.48:.30,0,1);
+  }
+  const target=devSupportTarget();
+  const lev=clamp(devSupportLevel()/Math.max(1,DEV_SUPPORT_LEVEL_STEPS[DEV_SUPPORT_LEVEL_STEPS.length-1]||1),0,1);
+  if(f==='housing')return clamp(.35+lev*.30+(target==='주거'?.35:target==='균형'?.18:0)+(welfAuto||welfRate()>0?.08:0),0,1);
+  if(f==='jobs')return clamp(.32+lev*.30+(target==='산업·일자리'?.36:target==='거점재생'?.22:target==='균형'?.14:0),0,1);
+  if(f==='district'){
+    const role=meta.role||'';
+    const match=(role==='neighborhood'&&target==='주거')||((role==='industry'||role==='office')&&target==='산업·일자리')||(role==='center'&&target==='거점재생');
+    return clamp(.38+lev*.30+(match?.30:target==='균형'?.16:0),0,1);
+  }
+  if(f==='redevelop')return clamp(.38+lev*.22+(target==='거점재생'?.32:target==='균형'?.12:0)+contribRate()*.20,0,1);
+  return clamp(.45+lev*.25,0,1);
+}
+function plannerPortfolioFiscalPenalty(cost=0){
+  const cash=Math.max(1,money||0),rev=Math.max(1,S.rev||1),deficit=Math.max(0,(S.exp||0)-(S.rev||0))/rev;
+  return clamp((Math.max(0,cost)/cash)*.65+deficit*.35,0,1);
+}
+function plannerPortfolioLearningFactor(f){
+  try{return typeof plannerLearningFactor==='function'?plannerLearningFactor(f):1;}catch(_){return 1;}
+}
+function plannerPortfolioScoreCandidate(o){
+  const mo=curMonth(),id=o.id;
+  let w=plannerPortfolioWait[id];if(!w)w=plannerPortfolioWait[id]={since:mo,last:mo};w.last=mo;
+  const wait=clamp((mo-w.since)/18,0,1),urgency=clamp(o.urgency||0,0,1),benefit=clamp(o.benefit||0,0,1),equity=clamp(o.equity||0,0,1);
+  const policy=clamp(o.policy!==undefined?o.policy:plannerPortfolioPolicyAlignment(o.family,o.meta),0,1),fiscal=plannerPortfolioFiscalPenalty(o.cost||0),uncertainty=clamp(o.uncertainty===undefined?.30:o.uncertainty,0,1);
+  const base=clamp(.31*urgency+.25*benefit+.13*equity+.11*policy+.10*wait-.06*fiscal-.04*uncertainty,0,1);
+  const learn=clamp(plannerPortfolioLearningFactor(o.family),.85,1.15),score=clamp(base*learn,0,1)*100;
+  return {...o,wait,policy,fiscal,uncertainty,learn,score,components:{urgency,benefit,equity,policy,wait,fiscal,uncertainty,learn}};
+}
+function plannerPortfolioCleanup(activeIds){
+  const mo=curMonth();for(const k of Object.keys(plannerPortfolioWait)){const q=plannerPortfolioWait[k];if(!activeIds.has(k)&&mo-(q.last||mo)>24)delete plannerPortfolioWait[k];}
+}
+function plannerPortfolioRecord(layer,ranked,chosen,attempted=[]){
+  const rec={seq:++plannerPortfolioSeq,mo:curMonth(),layer,chosen:chosen?chosen.id:null,chosenLabel:chosen?chosen.label:'실행 없음',attempted:attempted.slice(),candidates:ranked.slice(0,6).map(c=>({id:c.id,label:c.label,family:c.family,score:+c.score.toFixed(1),components:{...c.components}}))};
+  plannerPortfolioHistory.unshift(rec);if(plannerPortfolioHistory.length>60)plannerPortfolioHistory.length=60;plannerPortfolioLast=rec;return rec;
+}
+function plannerPortfolioRun(layer,candidates,opt={}){
+  if(!candidates.length)return false;
+  const ranked=candidates.map(plannerPortfolioScoreCandidate).filter(c=>!opt.unconvergedOnly||c.allowUnconverged).sort((a,b)=>b.score-a.score||String(a.id).localeCompare(String(b.id)));
+  plannerPortfolioCleanup(new Set(candidates.map(c=>c.id)));
+  if(!ranked.length)return false;
+  const attempted=[];let chosen=null;
+  for(const c of ranked){attempted.push(c.id);let ok=false;try{ok=!!c.execute();}catch(e){console.warn('[planner portfolio]',c.id,e);ok=false;}if(ok){chosen=c;delete plannerPortfolioWait[c.id];break;}}
+  plannerPortfolioRecord(layer,ranked,chosen,attempted);
+  return !!chosen;
+}
+function plannerLocalCandidates143(){
+  const a=[],hs=autoHousingState(),hm=housingDemandMatch(),hp=Math.max(0,hm.unmatched||0),life=clamp(S.life15||0,0,1),warn=clamp(S.lifeWarnShare||0,0,1),press=clamp(S.lifePress||0,0,1);
+  const cGap=serviceEmploymentGap(K_C),oGap=serviceEmploymentGap(K_OFF),cNorm=clamp(cGap.gap/Math.max(1,cGap.need),0,1),oNorm=clamp(oGap.gap/Math.max(1,oGap.need),0,1);
+  if(S.pop>250*DENSITY_SCALE&&(life<.72||warn>.05||(S.svcBlind||0)>0))a.push({id:'local-service',label:'생활서비스 보완',family:'service',domain:'service',cost:1800,urgency:clamp(Math.max(1-life,warn*1.4,(S.svcBlind||0)/Math.max(1,S.pop||1)*6),0,1),benefit:clamp((1-life)*.7+warn*.6,0,1),equity:clamp(warn*1.5+.20,0,1),uncertainty:.18,execute:()=>autoServiceStep()});
+  if(S.pop>=450*DENSITY_SCALE&&press>=.31)a.push({id:'local-urban',label:'생활권·보행 연결 보완',family:'urban',domain:'urban',cost:900,urgency:clamp((press-.25)/.55,0,1),benefit:clamp(press*.85+(1-life)*.35,0,1),equity:clamp(warn+.25,0,1),uncertainty:.24,execute:()=>autoUrbanismStep()});
+  if(hs.severe)a.push({id:'local-affordable',label:'부담가능주택 우선공급',family:'housing',domain:'housing',cost:1800,urgency:hs.score,benefit:clamp(hs.stockGap*.55+hs.waitingStress*.55+hs.insecurityStress*.45,0,1),equity:clamp(.55+hs.burdenStress*.45,0,1),uncertainty:.20,execute:()=>autoAffordableInfillStep()});
+  if(hp>R_POP_STEP*.75&&!hs.severe)a.push({id:'local-housing',label:'미충족 주택수요 병렬공급',family:'housing',domain:'housing',cost:1700,urgency:clamp(hp/Math.max(1,R_POP_STEP*5),0,1),benefit:clamp(hp/Math.max(1,R_POP_STEP*4),0,1),equity:.42,uncertainty:.22,execute:()=>autoHousingReliefStep()});
+  if(S.pop>=900*DENSITY_SCALE&&(cNorm>0||oNorm>0)&&Math.max(cGap.d,oGap.d)>.18)a.push({id:'local-jobs',label:'주민서비스 고용수용력 보완',family:'jobs',domain:'jobs',cost:1900,urgency:clamp(Math.max(cNorm,oNorm)+Math.max(cGap.d,oGap.d)*.45,0,1),benefit:clamp(Math.max(cNorm,oNorm)*.75+Math.max(cGap.d,oGap.d)*.35,0,1),equity:.35,uncertainty:.25,execute:()=>autoEmploymentReliefStep()});
+  if(S.pop>=250*DENSITY_SCALE&&(Math.max(demand.r,demand.c,demand.o)>.14||press>.42))a.push({id:'local-triangle',label:'대각 반필지 충진',family:'urban',domain:'urban',cost:700,urgency:clamp(Math.max(demand.r,demand.c,demand.o,press-.25),0,1),benefit:.44,equity:.28,uncertainty:.18,execute:()=>autoTriangleInfillStep()});
+  if(Math.max(demand.r,demand.c,demand.i,demand.o)>.08)a.push({id:'local-market-infill',label:'연결 빈필지 시장충진',family:'urban',domain:'urban',cost:1200,urgency:clamp(Math.max(demand.r,demand.c,demand.i,demand.o),0,1),benefit:.48,equity:.24,uncertainty:.30,execute:()=>autoInfillStep()});
+  return a;
+}
+function plannerMajorCandidates143(){
+  const a=[],t=autoTransitBackboneNeed(),hs=autoHousingState(),hp=housingPressurePeople(),role=autoProjectRole();
+  const congestion=clamp(Math.max((S.avgVC||0)-.62,((S.avgT||0)-18)/30),0,1),serviceStress=clamp(Math.max(1-(S.life15||0),(S.lifeWarnShare||0)*1.5,(S.svcBlind||0)/Math.max(1,S.pop||1)*7),0,1);
+  const generalBus=S.pop>1100*DENSITY_SCALE&&(t.usableBus<2||(S.busSh||0)<.09||((S.transit15||0)<.22&&(S.lifePress||0)>.40));
+  if((t.needBus||generalBus)&&money>3500)a.push({id:'major-bus',label:t.needBus?'대중교통 공급공백 버스사업':'버스망 확장',family:'transport',domain:'transport',meta:{transit:true},cost:4500,urgency:clamp((t.needBus?.72:.38)+(t.car-.65)*.9+(1-t.cover)*.45,0,1),benefit:clamp((1-t.cover)*.55+(t.car-.55)*.55,0,1),equity:clamp((1-t.cover)*.65+.18,0,1),uncertainty:.34,allowUnconverged:!!t.needBus,execute:()=>autoCreateBusProject()});
+  if(S.gap>=0&&S.gap<=.065&&(congestion>.10||t.needRail||t.busGap))a.push({id:'major-corridor',label:'회랑 교통사업 비교',family:'transport',domain:'transport',meta:{transit:t.needRail||transitPrioIx>=2},cost:7000,urgency:clamp(congestion+(t.needRail?.20:0),0,1),benefit:clamp(congestion*.82+(t.busGap?.18:0),0,1),equity:clamp((1-t.cover)*.40+.22,0,1),uncertainty:.42,execute:()=>autoCorridorStep()});
+  if(S.pop>=900*DENSITY_SCALE&&money>=5200&&serviceStress>.20)a.push({id:'major-civic',label:'광역 생활서비스 시설',family:'service',domain:'service',cost:3500,urgency:serviceStress,benefit:clamp(serviceStress*.82+.12,0,1),equity:clamp((S.lifeWarnShare||0)*1.6+.25,0,1),uncertainty:.24,execute:()=>autoCreateCivicProject()});
+  if(role&&money>6000){const d=role==='neighborhood'?Math.max(demand.r,clamp(hp/Math.max(1,R_POP_STEP*5),0,1)):role==='industry'?demand.i:role==='office'?demand.o:Math.max(demand.c,clamp(serviceEmploymentGap(K_C).gap/Math.max(1,serviceEmploymentGap(K_C).need),0,1));a.push({id:'major-district-'+role,label:(role==='neighborhood'?'신규 생활권':role==='center'?'생활중심지':role==='industry'?'산업지구':'업무지구')+' 조성',family:'district',domain:role==='neighborhood'?'housing':role==='industry'||role==='office'?'jobs':'urban',meta:{role},cost:9000,urgency:clamp(Math.max(0,d),0,1),benefit:clamp(.45+Math.max(0,d)*.45,0,1),equity:role==='neighborhood'?.48:role==='center'?.42:.25,uncertainty:.48,execute:()=>autoCreateProject()});}
+  if(S.pop>=1800*DENSITY_SCALE&&curMonth()>=30&&curMonth()-autoRedevelopLast>=6)a.push({id:'major-redevelop',label:'기존 시가지 재개발',family:'redevelop',domain:'urban',cost:6000,urgency:clamp(Math.max(demand.r,demand.c,demand.o,.15),0,1),benefit:clamp(.42+(S.transit15||0)*.18,0,1),equity:hs.severe?.22:.40,uncertainty:.40,execute:()=>autoCreateRedevelopProject()});
+  if(S.pop>=1200*DENSITY_SCALE&&money>9000)a.push({id:'major-bridge',label:'단절축 교량 연결',family:'transport',domain:'transport',meta:{transit:false},cost:6500,urgency:clamp(congestion*.55+.18,0,1),benefit:clamp(congestion*.65+.20,0,1),equity:.24,uncertainty:.46,execute:()=>autoCreateBridgeProject()});
+  return a;
+}
+function plannerPortfolioSummary143(){
+  const q=plannerPortfolioLast;if(!q)return '';
+  const top=q.candidates.slice(0,3).map(c=>`${escHtml(c.label)} <b>${c.score.toFixed(1)}</b>`).join(' · ');
+  return `<div style="margin:0 0 8px;padding:8px 9px;border:1px solid rgba(121,183,215,.18);border-radius:9px;background:rgba(47,111,143,.08)"><b>후보 포트폴리오</b> · ${q.layer==='local'?'지역업무':'대형사업'}<br><span style="font-size:10.5px;color:#b9c8d0">${top||'후보 없음'}</span><br><span style="font-size:10.5px;color:#d7c9a4">선택 · ${escHtml(q.chosenLabel)}</span></div>`;
+}
+
+/* Jobs is now a first-class evaluation domain instead of falling through to generic urban metrics. */
+const _plannerMetricSnapshot143=plannerMetricSnapshot,_plannerExpected143=plannerExpected,_plannerOutcomeText143=plannerOutcomeText,_plannerOutcomeVerdict143=plannerOutcomeVerdict,_plannerDomainLabel143=plannerDomainLabel,_plannerPolicyContext143=plannerPolicyContext;
+plannerMetricSnapshot=function(domain='urban'){
+  if(domain==='jobs'){const c=serviceEmploymentGap(K_C),o=serviceEmploymentGap(K_OFF);return {jobs:S.jobs||0,cNeed:c.need,cCap:c.cap,cGap:c.gap,oNeed:o.need,oCap:o.cap,oGap:o.gap,avgT:S.avgT||0,pop:S.pop||0};}
+  const q=_plannerMetricSnapshot143(domain);if(domain==='urban')return {...q,life:S.life15||0,pressure:S.lifePress||0};return q;
+};
+plannerExpected=function(domain){if(domain==='jobs')return '주민서비스·업무 일자리 수용능력↑ · 미충족 고용수요↓ · 실제 기업입주·채용 확인';return _plannerExpected143(domain);};
+plannerOutcomeText=function(domain,b,c){if(domain==='jobs')return `C 부족 ${Math.round(b.cGap||0)}→${Math.round(c.cGap||0)} · O 부족 ${Math.round(b.oGap||0)}→${Math.round(c.oGap||0)} · 실제 일자리 ${Math.round(b.jobs||0).toLocaleString()}→${Math.round(c.jobs||0).toLocaleString()}`;return _plannerOutcomeText143(domain,b,c);};
+plannerOutcomeVerdict=function(domain,b,c){if(domain==='jobs'){const den=Math.max(1,(b.cGap||0)+(b.oGap||0),90*DENSITY_SCALE),im=((b.cGap||0)+(b.oGap||0)-(c.cGap||0)-(c.oGap||0))/den;return im>.10?'개선 신호':im<-.10?'악화 신호':'혼합/유지';}if(domain==='urban'&&Number.isFinite(b.life)&&Number.isFinite(c.life)){const sc=(c.life-b.life)*1.2+(b.pressure-c.pressure)*.8+clamp((b.avgT-c.avgT)/10,-1,1)*.25;return sc>.12?'개선 신호':sc<-.12?'악화 신호':'혼합/유지';}return _plannerOutcomeVerdict143(domain,b,c);};
+plannerDomainLabel=function(d){return d==='jobs'?'고용':_plannerDomainLabel143(d);};
+plannerPolicyContext=function(domain='urban',cell=-1){if(domain==='jobs'){const a=_plannerPolicyContext143('urban',cell);a.push(`개발지원 대상 ${devSupportTarget()}`);return [...new Set(a)];}return _plannerPolicyContext143(domain,cell);};
+
+const _renderPlannerLog143=renderPlannerLog;
+renderPlannerLog=function(){_renderPlannerLog143();const sum=$('planlogSummary');if(sum){const h=plannerPortfolioSummary143();if(h)sum.insertAdjacentHTML('afterbegin',h);}};
+
+/* Replace source-order priority with two explicit portfolios while preserving operational invariants. */
+autoStep=function(){
+  const n=nodes.length;if(!n)return;
+  try{if(typeof plannerStructurePlanRefresh==='function')plannerStructurePlanRefresh(false);}catch(_){ }
+  const utilityDone=autoUtilityStep();
+  autoTransitStep();
+  if(autoProject){plannerPortfolioRun('local',plannerLocalCandidates143());autoAnyProjectStep();return;}
+  if(autoAirportAccessStep())return;
+  const localDone=plannerPortfolioRun('local',plannerLocalCandidates143());
+  if(autoCooldown>0){autoCooldown--;return;}
+  if(utilityDone)return;
+  autoSignalStep();
+  if(S.gap>0.065){plannerPortfolioRun('major',plannerMajorCandidates143(),{unconvergedOnly:true});return;}
+  const majorDone=plannerPortfolioRun('major',plannerMajorCandidates143());
+  if(!majorDone&&!localDone&&Math.max(demand.r,demand.c,demand.i,demand.o)>.08)autoInfillStep();
+};
+
+/* Persistence */
+const _saveStateObject143=saveStateObject;
+saveStateObject=function(){const st=_saveStateObject143();st.plannerPortfolioHistory=plannerPortfolioHistory.slice(0,60);st.plannerPortfolioWait={...plannerPortfolioWait};st.plannerPortfolioSeq=plannerPortfolioSeq;return st;};
+const _loadGame143=loadGame;
+loadGame=function(txt,opt={}){let raw=null;try{raw=typeof txt==='string'?JSON.parse(txt):txt;}catch(_){ }const ok=_loadGame143.apply(this,arguments);if(ok){plannerPortfolioHistory.length=0;for(const q of (raw?.plannerPortfolioHistory||[]).slice(0,60))plannerPortfolioHistory.push({...q,candidates:Array.isArray(q.candidates)?q.candidates.map(c=>({...c,components:{...(c.components||{})}})):[]});for(const k of Object.keys(plannerPortfolioWait))delete plannerPortfolioWait[k];Object.assign(plannerPortfolioWait,raw?.plannerPortfolioWait||{});plannerPortfolioSeq=Number.isFinite(raw?.plannerPortfolioSeq)?raw.plannerPortfolioSeq|0:plannerPortfolioHistory.reduce((m,q)=>Math.max(m,q.seq||0),0);plannerPortfolioLast=plannerPortfolioHistory[0]||null;}return ok;};
+const _newCity143=newCity;
+newCity=function(){plannerPortfolioHistory.length=0;for(const k of Object.keys(plannerPortfolioWait))delete plannerPortfolioWait[k];plannerPortfolioSeq=0;plannerPortfolioLast=null;return _newCity143.apply(this,arguments);};
+
+function tcVersionEntry143(){const sh=document.getElementById('tcVersionSheet');if(!sh||sh.querySelector('[data-v143-entry]'))return;const sec=document.createElement('section');sec.className='tcVEntry';sec.dataset.v143Entry='1';sec.innerHTML='<div class="tcVTitle"><b>v143</b><span>PLANNER PORTFOLIO EVALUATION</span></div><ul><li>지역업무와 대형사업 후보를 동시에 생성해 점수 비교</li><li>긴급성·편익·형평성·정책부합·대기기간·재정·불확실성을 공개 점수화</li><li>코드의 if/return 순서를 암묵적 우선순위로 쓰던 구조 제거</li><li>고용을 독립 사후평가 domain으로 추가</li></ul>';const first=sh.querySelector('.tcVEntry');if(first)first.before(sec);else sh.appendChild(sec);}
+document.getElementById('tcBuildBadge')?.addEventListener('click',()=>setTimeout(tcVersionEntry143,40));
+if(window.__TC)Object.assign(window.__TC,{plannerPortfolioHistory:()=>plannerPortfolioHistory,plannerPortfolioWait:()=>({...plannerPortfolioWait}),plannerPortfolioLast:()=>plannerPortfolioLast,plannerLocalCandidates143,plannerMajorCandidates143});
+window.__TC143={loaded:true,...TC143,history:()=>plannerPortfolioHistory,last:()=>plannerPortfolioLast};
+console.info('[TRAFFIC CITY 2] Planner Portfolio v143 loaded');
+})();
+</script>
+
+<!-- TC2_ADAPTIVE_PLANNER_V144 -->
+<script>
+/* TC2_ADAPTIVE_PLANNER_V144
+   Bounded adaptive planning. Post-evaluation adjusts future portfolio scores only when
+   evidence is sufficiently unconfounded. This is transparent calibration, not black-box RL. */
+(() => {
+'use strict';
+if(window.__TC144?.loaded)return;
+const TC144=Object.freeze({version:'v144',build:144,title:'BOUNDED ADAPTIVE PLANNING'});
+const PLANNER_LEARN_MIN=.85,PLANNER_LEARN_MAX=1.15,PLANNER_LEARN_STEP=.03;
+const plannerLearning={};
+const plannerLearningFamilies=['housing','jobs','service','transport','district','redevelop','utility','urban'];
+function plannerLearningEnsure(f){if(!plannerLearning[f])plannerLearning[f]={factor:1,n:0,pos:0,neg:0,lastMo:-1,last:null};return plannerLearning[f];}
+for(const f of plannerLearningFamilies)plannerLearningEnsure(f);
+function plannerLearningFactor(f){return clamp(plannerLearningEnsure(f).factor,PLANNER_LEARN_MIN,PLANNER_LEARN_MAX);}
+function plannerDecisionFamily144(q){const z=((q?.key||'')+' '+(q?.action||'')).toLowerCase();if(z.includes('aff-')||z.includes('housing')||z.includes('주거'))return 'housing';if(z.includes('jobs')||z.includes('고용')||z.includes('업무'))return 'jobs';if(z.includes('civic')||z.includes('svc')||z.includes('학교')||z.includes('의료')||z.includes('경찰')||q?.domain==='service')return 'service';if(z.includes('district'))return 'district';if(z.includes('redevelop')||z.includes('재개발'))return 'redevelop';if(z.includes('utility')||q?.domain==='utility')return 'utility';if(q?.domain==='transport'||z.includes('rail')||z.includes('bus')||z.includes('brt')||z.includes('bridge')||z.includes('교통'))return 'transport';if(q?.domain==='housing')return 'housing';if(q?.domain==='jobs')return 'jobs';return 'urban';}
+function plannerLearningApply144(q){
+  if(!q?.outcome||q.outcome.learning)return;
+  const verdict=q.outcome.verdict||'',signal=verdict==='개선 신호'?1:verdict==='악화 신호'?-1:0;
+  const reliability=q.outcome.policyChanged?0:(q.outcome.overlaps===0?1:q.outcome.overlaps===1?.5:0);
+  const family=plannerDecisionFamily144(q),st=plannerLearningEnsure(family),before=st.factor;
+  if(signal&&reliability>0){st.factor=clamp(st.factor+PLANNER_LEARN_STEP*signal*reliability,PLANNER_LEARN_MIN,PLANNER_LEARN_MAX);st.n++;if(signal>0)st.pos++;else st.neg++;st.lastMo=curMonth();st.last={decision:q.id,verdict,signal,reliability,before,after:st.factor};}
+  q.outcome.learning={family,signal,reliability,before,after:st.factor,applied:!!(signal&&reliability>0)};
+}
+const _plannerOutcomeStep144=plannerOutcomeStep;
+plannerOutcomeStep=function(){_plannerOutcomeStep144();for(const q of plannerDecisions)if(q.status==='done'&&q.outcome&&!q.outcome.learning)plannerLearningApply144(q);};
+function plannerLearningSummary144(){const bits=plannerLearningFamilies.map(f=>({f,s:plannerLearningEnsure(f)})).filter(q=>q.s.n||Math.abs(q.s.factor-1)>.001).sort((a,b)=>Math.abs(b.s.factor-1)-Math.abs(a.s.factor-1)).slice(0,5);if(!bits.length)return '<span style="opacity:.72">아직 독립성이 충분한 사후관측이 없어 보정값 1.00×을 유지합니다.</span>';return bits.map(q=>`${plannerPortfolioFamilyLabel(q.f)} <b>${q.s.factor.toFixed(2)}×</b> (${q.s.n})`).join(' · ');}
+const _renderPlannerLog144=renderPlannerLog;
+renderPlannerLog=function(){_renderPlannerLog144();const sum=$('planlogSummary');if(sum)sum.insertAdjacentHTML('afterbegin',`<div style="margin:0 0 8px;padding:8px 9px;border:1px solid rgba(143,166,140,.20);border-radius:9px;background:rgba(92,138,82,.07)"><b>Bounded adaptive planning</b> · 허용범위 ${PLANNER_LEARN_MIN.toFixed(2)}–${PLANNER_LEARN_MAX.toFixed(2)}×<br><span style="font-size:10.5px;color:#b7c8b4">${plannerLearningSummary144()}</span><br><span style="font-size:9.8px;color:#9b9082">정책변경 또는 같은 분야 중첩개입이 크면 학습하지 않습니다.</span></div>`);};
+
+const _saveStateObject144=saveStateObject;
+saveStateObject=function(){const st=_saveStateObject144();st.plannerLearning=Object.fromEntries(Object.entries(plannerLearning).map(([k,v])=>[k,{...v,last:v.last?{...v.last}:null}]));return st;};
+const _loadGame144=loadGame;
+loadGame=function(txt,opt={}){let raw=null;try{raw=typeof txt==='string'?JSON.parse(txt):txt;}catch(_){ }const ok=_loadGame144.apply(this,arguments);if(ok){for(const k of Object.keys(plannerLearning))delete plannerLearning[k];for(const f of plannerLearningFamilies){const q=raw?.plannerLearning?.[f]||{};plannerLearning[f]={factor:clamp(Number.isFinite(q.factor)?q.factor:1,PLANNER_LEARN_MIN,PLANNER_LEARN_MAX),n:Math.max(0,q.n|0),pos:Math.max(0,q.pos|0),neg:Math.max(0,q.neg|0),lastMo:Number.isFinite(q.lastMo)?q.lastMo:-1,last:q.last?{...q.last}:null};}for(const q of plannerDecisions)if(q?.outcome?.learning&&q.outcome.learning.after!==undefined){/* preserve historical annotation only; state already restored */}}return ok;};
+const _newCity144=newCity;
+newCity=function(){for(const k of Object.keys(plannerLearning))delete plannerLearning[k];for(const f of plannerLearningFamilies)plannerLearningEnsure(f);return _newCity144.apply(this,arguments);};
+function tcVersionEntry144(){const sh=document.getElementById('tcVersionSheet');if(!sh||sh.querySelector('[data-v144-entry]'))return;const sec=document.createElement('section');sec.className='tcVEntry';sec.dataset.v144Entry='1';sec.innerHTML='<div class="tcVTitle"><b>v144</b><span>BOUNDED ADAPTIVE PLANNING</span></div><ul><li>사후평가의 개선/악화 신호를 다음 포트폴리오 점수에 제한적으로 반영</li><li>학습계수는 0.85–1.15× 범위를 넘지 않음</li><li>정책변경 또는 다중 중첩개입이 있으면 학습을 보류하거나 절반만 반영</li><li>모든 보정계수와 표본 수를 계획관 로그에 공개</li></ul>';const first=sh.querySelector('.tcVEntry');if(first)first.before(sec);else sh.appendChild(sec);}
+document.getElementById('tcBuildBadge')?.addEventListener('click',()=>setTimeout(tcVersionEntry144,45));
+if(window.__TC)Object.assign(window.__TC,{plannerLearning:()=>JSON.parse(JSON.stringify(plannerLearning)),plannerLearningFactor,plannerDecisionFamily144});
+window.__TC144={loaded:true,...TC144,state:()=>plannerLearning,factor:plannerLearningFactor};
+console.info('[TRAFFIC CITY 2] Bounded Adaptive Planner v144 loaded');
+})();
+</script>
+
+<!-- TC2_STRUCTURE_PLAN_V145 -->
+<script>
+/* TC2_STRUCTURE_PLAN_V145
+   A long-horizon internal Structure Plan guides where new districts are considered.
+   It is a soft spatial prior: greenbelt, water, heritage and player ownership remain hard constraints. */
+(() => {
+'use strict';
+if(window.__TC145?.loaded)return;
+const TC145=Object.freeze({version:'v145',build:145,title:'STRUCTURE PLAN'});
+let plannerStructurePlan=null,plannerStructureLast=-999;
+function plannerCellDist145(a,b){if(a<0||b<0)return 999;return Math.abs(a%W-b%W)+Math.abs(((a/W)|0)-((b/W)|0));}
+function plannerNearestCell145(x,y,cells){let best=-1,bd=1e9;for(const c of cells){const d=Math.abs(c%W-x)+Math.abs(((c/W)|0)-y);if(d<bd){bd=d;best=c;}}return best;}
+function plannerAxisDist145(cell,axis){if(cell<0||!axis)return 99;const ax=axis.a%W,ay=(axis.a/W)|0,bx=axis.b%W,by=(axis.b/W)|0,x=cell%W,y=(cell/W)|0;let bd=1e9;for(let q=0;q<=16;q++){const t=q/16,px=ax+(bx-ax)*t,py=ay+(by-ay)*t;bd=Math.min(bd,Math.abs(x-px)+Math.abs(y-py));}return bd;}
+function plannerActivityCenters145(){
+  const rows=[];for(let a=0;a<nodes.length;a++){const c=nodes[a],p=popAt[a]||0,j=jobAt[a]||0;if(p+j<1)continue;const acc=Math.log10(1+(accP[a]||0)+(accJ[a]||0));const svc=(amenN[a]||0)+(lifeN[a]||0);rows.push({cell:c,node:a,score:Math.sqrt(p+j)*2+acc*5+svc*4,p,j});}
+  rows.sort((a,b)=>b.score-a.score||a.cell-b.cell);if(!rows.length)return {primary:-1,subs:[]};const primary=rows[0].cell,subs=[];for(const r of rows.slice(1)){if(plannerCellDist145(r.cell,primary)<10)continue;if(subs.some(c=>plannerCellDist145(c,r.cell)<9))continue;subs.push(r.cell);if(subs.length>=3)break;}return {primary,subs};
+}
+function plannerTransitAnchors145(){const arr=[];for(const st of stations)if(st.usable)arr.push(st.cell);for(const st of stops)if(st.usable)arr.push(st.cell);const uniq=[...new Set(arr)];uniq.sort((a,b)=>{const na=cellNode[a]>=0?cellNode[a]:nearNode(a%W,(a/W)|0,2),nb=cellNode[b]>=0?cellNode[b]:nearNode(b%W,(b/W)|0,2);const sa=na>=0?(popAt[na]||0)+(jobAt[na]||0):0,sb=nb>=0?(popAt[nb]||0)+(jobAt[nb]||0):0;return sb-sa||a-b;});return uniq.slice(0,6);}
+function plannerAirportAnchor145(){if(typeof airportClusters!=='function')return -1;const g=airportClusters().slice().sort((a,b)=>b.length-a.length)[0];if(!g?.length)return -1;let x=0,y=0;for(const c of g){x+=c%W;y+=(c/W)|0;}return plannerNearestCell145(x/g.length,y/g.length,g);}
+function plannerIndustryAnchor145(){let sx=0,sy=0,w=0,cells=[];for(let i=0;i<NC;i++)if(kind[i]===K_I&&dev[i]>0){const q=Math.max(1,dev[i]);sx+=(i%W)*q;sy+=((i/W)|0)*q;w+=q;cells.push(i);}if(w&&cells.length)return plannerNearestCell145(sx/w,sy/w,cells);if(gateways?.length)return gateways[0]?.cell??-1;return -1;}
+function plannerGrowthFrontier145(){let best=-1,bs=-1e9;for(let y=5;y<H-5;y+=2)for(let x=5;x<W-5;x+=2){const ci=idx(x,y);if(kind[ci]!==K_EMPTY||water[ci]||gbelt[ci]||heri[ci])continue;const nr=autoNearestRoad(x,y);if(nr.node<0||nr.d<2||nr.d>18)continue;let free=0,blk=0,gb=0,wa=0;for(let yy=y-4;yy<=y+4;yy++)for(let xx=x-4;xx<=x+4;xx++){const i=idx(xx,yy);if(water[i])wa++;if(gbelt[i])gb++;if(kind[i]===K_EMPTY||kind[i]===K_ROAD)free++;else blk++;}if(gb>22||wa>10||blk>12||free<62)continue;const access=Math.log10(1+(accJ[nr.node]||0)+(accP[nr.node]||0)),land=rentMax>0?clamp((rentP[ci]||0)/rentMax,0,1):0;const sc=free*1.05-nr.d*.70-blk*4.5-land*4.5+access*4;if(sc>bs){bs=sc;best=ci;}}return best;}
+function plannerStructurePlanBuild145(){
+  const c=plannerActivityCenters145(),primary=c.primary,subs=c.subs,transit=plannerTransitAnchors145(),airport=plannerAirportAnchor145(),industry=plannerIndustryAnchor145(),growth=plannerGrowthFrontier145(),axes=[];
+  for(const s of subs)if(primary>=0)axes.push({type:'center',a:primary,b:s});
+  if(primary>=0&&airport>=0)axes.push({type:'airport',a:primary,b:airport});
+  if(primary>=0&&industry>=0)axes.push({type:'industry',a:primary,b:industry});
+  for(const t of transit.slice(0,2))if(primary>=0&&plannerCellDist145(primary,t)>4)axes.push({type:'transit',a:primary,b:t});
+  let gb=0,wat=0,her=0;for(let i=0;i<NC;i++){if(gbelt[i])gb++;if(water[i])wat++;if(heri[i])her++;}
+  return {version:1,mo:curMonth(),primary,subs,transit,airport,industry,growth,axes:axes.slice(0,8),protected:{greenbelt:gb,water:wat,heritage:her}};
+}
+function plannerStructurePlanRefresh(force=false){if(!force&&plannerStructurePlan&&curMonth()-plannerStructureLast<24)return plannerStructurePlan;plannerStructurePlan=plannerStructurePlanBuild145();plannerStructureLast=curMonth();return plannerStructurePlan;}
+function plannerStructureFit(role,x,y){
+  const p=plannerStructurePlanRefresh(false);if(!p||p.primary<0)return 0;const cell=idx(x,y),dP=plannerCellDist145(cell,p.primary),dS=p.subs.length?Math.min(...p.subs.map(c=>plannerCellDist145(cell,c))):99,dT=p.transit.length?Math.min(...p.transit.map(c=>plannerCellDist145(cell,c))):99,dG=p.growth>=0?plannerCellDist145(cell,p.growth):99,dI=p.industry>=0?plannerCellDist145(cell,p.industry):99,dA=p.airport>=0?plannerCellDist145(cell,p.airport):99;
+  const axis=(types)=>{const a=p.axes.filter(q=>types.includes(q.type));return a.length?Math.min(...a.map(q=>plannerAxisDist145(cell,q))):99;};let sc=0;
+  if(role==='center')sc+=clamp((18-dS)/18,0,1)*4.8+clamp((12-dT)/12,0,1)*2.6+clamp((10-axis(['center','transit']))/10,0,1)*2.5-clamp((5-dP)/5,0,1)*1.5;
+  else if(role==='office')sc+=clamp((16-Math.min(dP,dS))/16,0,1)*4.0+clamp((10-dT)/10,0,1)*3.0+clamp((10-axis(['center','transit']))/10,0,1)*2.0;
+  else if(role==='neighborhood')sc+=clamp((18-dG)/18,0,1)*3.5+clamp((16-dS)/16,0,1)*2.7+clamp((11-axis(['center','transit']))/11,0,1)*2.0-(Math.min(dP,dS)>28?3.2:0);
+  else if(role==='industry')sc+=clamp((18-Math.min(dI,dA))/18,0,1)*4.2+clamp((12-axis(['industry','airport']))/12,0,1)*2.5-clamp((10-dP)/10,0,1)*3.2;
+  return clamp(sc,-5,9);
+}
+
+/* Same environmental and ownership constraints as v142; only a soft Structure Plan modifier is added. */
+autoDistrictCandidate=function(role){
+  plannerStructurePlanRefresh(false);let best=null,bestScore=-1e9,gbBlocked=0,gbAreaBlocked=0;
+  for(let y=5;y<H-5;y+=2)for(let x=5;x<W-5;x+=2){const ci=idx(x,y);if(gbelt[ci]){gbBlocked++;continue;}if(kind[ci]!==K_EMPTY||water[ci])continue;const nr=autoNearestRoad(x,y);if(nr.node<0||nr.d<2||nr.d>18)continue;let free=0,blocked=0,softN=0,forestN=0,farmN=0,noizN=0,gbN=0,waterN=0;for(let yy=y-4;yy<=y+4;yy++)for(let xx=x-4;xx<=x+4;xx++){const i=idx(xx,yy);if(water[i])waterN++;if(gbelt[i])gbN++;if(soft[i])softN++;if(forest[i])forestN++;if(farm[i])farmN++;if(noiz[i])noizN++;if(kind[i]===K_EMPTY||kind[i]===K_ROAD)free++;else blocked++;}if(gbN>22){gbAreaBlocked++;continue;}if(waterN>10||blocked>12||free<62)continue;const access=Math.log10(1+accJ[nr.node]+accP[nr.node]),landNorm=rentMax>0?clamp(rentP[ci]/rentMax,0,1):0;let sc=free*1.1-blocked*5-softN*.45-forestN*.18-farmN*.08-nr.d*.72-landNorm*5.2+access*4;if(role==='neighborhood')sc-=noizN*.8;if(role==='industry')sc+=nr.d*.28-noizN*.05;if(role==='office')sc+=access*2.5-nr.d*.35;if(role==='center')sc+=access*3.0-nr.d*.45-noizN*.18;sc+=plannerStructureFit(role,x,y);sc+=simRnd()*1.5;if(sc>bestScore){bestScore=sc;best={x,y,anchor:nr.cell,score:sc,structureFit:plannerStructureFit(role,x,y)};}}
+  autoDistrictPolicyBlock=!best&&(gbBlocked+gbAreaBlocked)>0?{policy:'개발제한구역',count:gbBlocked+gbAreaBlocked,role}:null;return best;
+};
+function plannerStructureName145(c){return c>=0?`${autoDirName(c%W,(c/W)|0)} · 셀 ${c}`:'없음';}
+function plannerStructureSummary145(){const p=plannerStructurePlanRefresh(false);if(!p)return '';const axes=p.axes.map(a=>a.type==='center'?'주중심–부중심':a.type==='airport'?'공항축':a.type==='industry'?'산업·물류축':'대중교통축');return `<div style="margin:0 0 8px;padding:8px 9px;border:1px solid rgba(216,193,134,.20);border-radius:9px;background:rgba(126,104,58,.07)"><b>Structure Plan</b> · ${fmtMonthLong(p.mo)} 갱신<br><span style="font-size:10.5px;color:#cfc1a4">주중심 ${escHtml(plannerStructureName145(p.primary))} · 부중심 ${p.subs.length}곳 · 성장전선 ${escHtml(plannerStructureName145(p.growth))}</span><br><span style="font-size:9.8px;color:#9b9082">${escHtml([...new Set(axes)].join(' · ')||'축 형성 대기')} · 보호구역은 절대 덮어쓰지 않는 soft spatial prior</span></div>`;}
+const _renderPlannerLog145=renderPlannerLog;
+renderPlannerLog=function(){_renderPlannerLog145();const sum=$('planlogSummary');if(sum){const h=plannerStructureSummary145();if(h)sum.insertAdjacentHTML('afterbegin',h);}};
+
+const _saveStateObject145=saveStateObject;
+saveStateObject=function(){const st=_saveStateObject145();st.plannerStructurePlan=plannerStructurePlan?JSON.parse(JSON.stringify(plannerStructurePlan)):null;st.plannerStructureLast=plannerStructureLast;return st;};
+const _loadGame145=loadGame;
+loadGame=function(txt,opt={}){let raw=null;try{raw=typeof txt==='string'?JSON.parse(txt):txt;}catch(_){ }const ok=_loadGame145.apply(this,arguments);if(ok){plannerStructurePlan=raw?.plannerStructurePlan?JSON.parse(JSON.stringify(raw.plannerStructurePlan)):null;plannerStructureLast=Number.isFinite(raw?.plannerStructureLast)?raw.plannerStructureLast:-999;plannerStructurePlanRefresh(!plannerStructurePlan);}return ok;};
+const _newCity145=newCity;
+newCity=function(){plannerStructurePlan=null;plannerStructureLast=-999;const r=_newCity145.apply(this,arguments);try{plannerStructurePlanRefresh(true);}catch(_){ }return r;};
+function tcVersionEntry145(){const sh=document.getElementById('tcVersionSheet');if(!sh||sh.querySelector('[data-v145-entry]'))return;const sec=document.createElement('section');sec.className='tcVEntry';sec.dataset.v145Entry='1';sec.innerHTML='<div class="tcVTitle"><b>v145</b><span>STRUCTURE PLAN</span></div><ul><li>주중심·부중심·대중교통 앵커·공항축·산업축·성장전선을 24개월 주기로 재평가</li><li>신규지구 입지평가에 장기도시구조 적합도를 soft modifier로 반영</li><li>개발제한구역·수면·문화유산·플레이어 소유권은 기존 hard constraint 그대로 유지</li><li>개별 지구가 서로 따로 노는 대신 장기적으로 다핵·회랑 구조를 형성</li></ul>';const first=sh.querySelector('.tcVEntry');if(first)first.before(sec);else sh.appendChild(sec);}
+document.getElementById('tcBuildBadge')?.addEventListener('click',()=>setTimeout(tcVersionEntry145,50));
+if(window.__TC)Object.assign(window.__TC,{plannerStructurePlan:()=>plannerStructurePlan?JSON.parse(JSON.stringify(plannerStructurePlan)):null,plannerStructurePlanRefresh,plannerStructureFit});
+window.__TC145={loaded:true,...TC145,plan:()=>plannerStructurePlan,refresh:plannerStructurePlanRefresh,fit:plannerStructureFit};
+console.info('[TRAFFIC CITY 2] Structure Plan v145 loaded');
+})();
+</script>
 </body>
 </html>
