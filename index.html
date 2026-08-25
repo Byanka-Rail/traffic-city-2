@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#17130e">
-<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v136</title>
+<title>TRAFFIC CITY 2 — 교통도시 시뮬레이터 v137</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17130e;color:#efe7d9;
@@ -20297,6 +20297,415 @@ window.__TC={
   else init();
 
   console.info('[TRAFFIC CITY 2] Main Menu & Readability Themes v136 loaded');
+})();
+</script>
+
+<!-- TC2_CLIMATE_SKINS_PROFILES_V137 -->
+<script>
+/* TRAFFIC CITY 2 — CLIMATE SKINS & PROFILES v137
+   Marker: TC2_CLIMATE_SKINS_PROFILES_V137
+   Stage 1: visual climate skins
+   Stage 2: saved climate profiles (NO simulation effects yet)
+*/
+(() => {
+  'use strict';
+  if (window.__TC2_CLIMATE137?.loaded) return;
+
+  const VERSION='v137', BUILD=137;
+  const CLIMATE_KEY='tc2-climate-default-v137';
+
+  const PROFILES = {
+    temperate:{
+      id:'temperate', label:'온대', icon:'🌳',
+      subtitle:'사계절 온대 도시',
+      description:'현재 기본 도시의 색감과 식생을 유지합니다.',
+      climate:{
+        meanTempC:14, summerHighC:29, winterLowC:-2,
+        annualPrecipMm:1050, humidity:0.60, aridity:0.28,
+        snowPotential:0.16, stormPotential:0.36, solarPotential:0.55,
+        vegetationPotential:0.72
+      },
+      stage3Preview:'3차 후보 · 계절성, 냉난방, 강수 영향을 보통 수준으로 연결',
+      mapFilter:'none',
+      tint:'rgba(116,139,96,.035)'
+    },
+    tropical:{
+      id:'tropical', label:'열대우림', icon:'🌴',
+      subtitle:'고온다습 · 울창한 녹음',
+      description:'녹음을 짙게 하고 습윤한 대기와 스콜성 빗줄기를 표현합니다.',
+      climate:{
+        meanTempC:27, summerHighC:33, winterLowC:22,
+        annualPrecipMm:2450, humidity:0.86, aridity:0.06,
+        snowPotential:0.00, stormPotential:0.82, solarPotential:0.63,
+        vegetationPotential:0.98
+      },
+      stage3Preview:'3차 후보 · 폭우, 냉방수요, 그늘·보행쾌적성, 배수부담',
+      mapFilter:'saturate(1.24) hue-rotate(-8deg) brightness(.96) contrast(1.04)',
+      tint:'rgba(22,92,50,.115)'
+    },
+    desert:{
+      id:'desert', label:'고온사막', icon:'🏜️',
+      subtitle:'고온건조 · 강한 일사',
+      description:'지면을 건조한 황갈색으로 바꾸고 먼지와 열기를 표현합니다.',
+      climate:{
+        meanTempC:30, summerHighC:43, winterLowC:10,
+        annualPrecipMm:125, humidity:0.19, aridity:0.94,
+        snowPotential:0.00, stormPotential:0.14, solarPotential:0.96,
+        vegetationPotential:0.12
+      },
+      stage3Preview:'3차 후보 · 물수요, 녹지 유지비, 냉방, 한낮 보행열 스트레스',
+      mapFilter:'sepia(.30) saturate(.78) hue-rotate(-7deg) brightness(1.07) contrast(1.03)',
+      tint:'rgba(214,160,78,.135)'
+    },
+    snowcold:{
+      id:'snowcold', label:'적설한랭', icon:'❄️',
+      subtitle:'장기 적설 · 한랭 도시',
+      description:'도시 전체를 눈빛으로 밝히고 지표 적설과 약한 강설을 표현합니다.',
+      climate:{
+        meanTempC:-1, summerHighC:16, winterLowC:-18,
+        annualPrecipMm:720, humidity:0.68, aridity:0.20,
+        snowPotential:0.91, stormPotential:0.42, solarPotential:0.31,
+        vegetationPotential:0.38
+      },
+      stage3Preview:'3차 후보 · 제설, 난방, 동절기 보행, 도로·철도 신뢰도',
+      mapFilter:'saturate(.58) brightness(1.20) contrast(.91) hue-rotate(7deg)',
+      tint:'rgba(218,235,246,.235)'
+    }
+  };
+
+  let current='temperate';
+  let oldSave=null, oldLoad=null;
+  let fxLayer=null, climateBadge=null;
+
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  function profile(id=current){ return PROFILES[id] || PROFILES.temperate; }
+
+  function installStyles(){
+    if(document.getElementById('tcClimate137Style'))return;
+    const st=document.createElement('style');
+    st.id='tcClimate137Style';
+    st.textContent=`
+      #map{transition:filter .38s ease}
+      #tcClimateFx137{
+        position:fixed;pointer-events:none;overflow:hidden;z-index:1;
+        transition:background .38s ease,opacity .38s ease;
+        contain:strict;
+      }
+      #tcClimateFx137::before,#tcClimateFx137::after{
+        content:"";position:absolute;inset:-18%;pointer-events:none;opacity:0;
+      }
+      body[data-tc-climate="tropical"] #tcClimateFx137::before{
+        opacity:.38;
+        background:
+          repeating-linear-gradient(104deg,transparent 0 11px,rgba(210,235,229,.20) 12px 13px,transparent 14px 25px);
+        transform:translate3d(-4%,-12%,0);
+        animation:tcRain137 .72s linear infinite;
+      }
+      body[data-tc-climate="tropical"] #tcClimateFx137::after{
+        opacity:.25;
+        background:
+          radial-gradient(circle at 8% 18%,rgba(20,72,40,.38) 0 3px,transparent 4px),
+          radial-gradient(circle at 68% 62%,rgba(17,81,43,.28) 0 4px,transparent 5px),
+          radial-gradient(circle at 38% 86%,rgba(20,89,45,.30) 0 3px,transparent 4px);
+        background-size:76px 63px,91px 74px,68px 86px;
+      }
+      @keyframes tcRain137{to{transform:translate3d(5%,10%,0)}}
+
+      body[data-tc-climate="desert"] #tcClimateFx137::before{
+        opacity:.26;
+        background:
+          radial-gradient(circle,rgba(232,194,126,.38) 0 1px,transparent 1.7px);
+        background-size:31px 27px;
+        animation:tcDust137 8s linear infinite;
+      }
+      body[data-tc-climate="desert"] #tcClimateFx137::after{
+        opacity:.18;
+        background:repeating-linear-gradient(0deg,transparent 0 27px,rgba(255,225,162,.18) 29px 31px,transparent 33px 57px);
+        animation:tcHeat137 4.8s ease-in-out infinite alternate;
+      }
+      @keyframes tcDust137{to{transform:translate3d(80px,-28px,0)}}
+      @keyframes tcHeat137{from{transform:translateY(-2px) scaleY(1)}to{transform:translateY(4px) scaleY(1.012)}}
+
+      body[data-tc-climate="snowcold"] #tcClimateFx137::before{
+        opacity:.55;
+        background:
+          radial-gradient(circle,rgba(255,255,255,.94) 0 1.4px,transparent 1.9px),
+          radial-gradient(circle,rgba(245,251,255,.80) 0 1px,transparent 1.5px),
+          radial-gradient(circle,rgba(255,255,255,.72) 0 2px,transparent 2.5px);
+        background-size:58px 73px,81px 61px,113px 96px;
+        background-position:0 0,17px 29px,44px 12px;
+        animation:tcSnow137 7.5s linear infinite;
+      }
+      body[data-tc-climate="snowcold"] #tcClimateFx137::after{
+        opacity:.20;
+        background:
+          radial-gradient(ellipse at 18% 37%,rgba(255,255,255,.62) 0 9%,transparent 15%),
+          radial-gradient(ellipse at 77% 69%,rgba(255,255,255,.48) 0 8%,transparent 14%),
+          linear-gradient(rgba(235,246,252,.22),rgba(225,240,249,.10));
+        filter:blur(1px);
+      }
+      @keyframes tcSnow137{to{transform:translate3d(28px,118px,0)}}
+
+      #tcClimateBadge137{
+        appearance:none;border:1px solid rgba(255,255,255,.18);
+        background:rgba(23,33,39,.60);color:#eaf5f5;border-radius:999px;
+        min-height:28px;padding:4px 9px;font:900 10px/1 system-ui,-apple-system,sans-serif;
+        white-space:nowrap;backdrop-filter:blur(8px);touch-action:manipulation;
+      }
+      .tcClimateSection137{
+        border-top:1px solid var(--tc136-line,rgba(255,255,255,.14));
+        padding-top:13px;margin-top:12px;
+      }
+      .tcClimateSection137 h3{font-size:12px;margin:0 0 4px;color:var(--tc136-text,#eee)}
+      .tcClimateSection137>p{font-size:10.5px;line-height:1.55;color:var(--tc136-muted,#bbb);margin:0 0 9px}
+      .tcClimateGrid137{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .tcClimateBtn137{
+        appearance:none;border:1px solid var(--tc136-line,rgba(255,255,255,.14));
+        background:var(--tc136-button,rgba(255,255,255,.05));
+        color:var(--tc136-text,#eee);border-radius:11px;min-height:72px;
+        padding:9px 10px;text-align:left;touch-action:manipulation;
+      }
+      .tcClimateBtn137.active{outline:2px solid var(--tc136-accent,#69b0d2);outline-offset:-2px}
+      .tcClimateBtn137 b{display:block;font-size:11.5px}
+      .tcClimateBtn137 small{display:block;margin-top:3px;font-size:9.3px;line-height:1.35;color:var(--tc136-muted,#aaa)}
+      .tcClimateProfile137{
+        margin-top:9px;padding:9px 10px;border-radius:10px;
+        border:1px solid var(--tc136-line,rgba(255,255,255,.12));
+        background:color-mix(in srgb,var(--tc136-panel2,#222) 72%,transparent);
+        font-size:9.8px;line-height:1.55;color:var(--tc136-muted,#bbb);
+      }
+      .tcClimateProfile137 b{color:var(--tc136-text,#eee)}
+      .tcClimateStageNote137{
+        margin-top:7px;color:var(--tc136-accent,#7dbbd6);font-size:9.5px;line-height:1.45
+      }
+      @media (prefers-reduced-motion:reduce){
+        #tcClimateFx137::before,#tcClimateFx137::after{animation:none!important}
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function ensureFx(){
+    if(fxLayer)return fxLayer;
+    fxLayer=document.createElement('div');fxLayer.id='tcClimateFx137';
+    const map=document.getElementById('map');
+    if(map?.parentElement)map.parentElement.insertBefore(fxLayer,map.nextSibling);
+    else document.body.prepend(fxLayer);
+    const sync=()=>{
+      const m=document.getElementById('map');if(!m)return;
+      const r=m.getBoundingClientRect();
+      Object.assign(fxLayer.style,{
+        left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'
+      });
+    };
+    sync();
+    addEventListener('resize',sync,{passive:true});
+    addEventListener('scroll',sync,{passive:true});
+    if(window.ResizeObserver&&map)new ResizeObserver(sync).observe(map);
+    return fxLayer;
+  }
+
+  function profileText(id=current){
+    const p=profile(id),c=p.climate;
+    return `<b>${p.icon} ${esc(p.label)} 기후 프로파일</b><br>`+
+      `연평균 ${c.meanTempC}℃ · 여름 고온 ${c.summerHighC}℃ · 겨울 저온 ${c.winterLowC}℃<br>`+
+      `연강수 ${c.annualPrecipMm.toLocaleString()}㎜ · 습도지수 ${Math.round(c.humidity*100)} · `+
+      `건조도 ${Math.round(c.aridity*100)} · 적설잠재 ${Math.round(c.snowPotential*100)}<br>`+
+      `<span class="tcClimateStageNote137">현재 v137에서는 기록·표현만 하며 도시 계산에는 영향을 주지 않습니다.<br>${esc(p.stage3Preview)}</span>`;
+  }
+
+  function refreshMenu(){
+    const sec=document.querySelector('.tcClimateSection137');if(!sec)return;
+    sec.querySelectorAll('.tcClimateBtn137').forEach(b=>{
+      b.classList.toggle('active',b.dataset.climate===current);
+      b.setAttribute('aria-pressed',b.dataset.climate===current?'true':'false');
+    });
+    const box=sec.querySelector('.tcClimateProfile137');if(box)box.innerHTML=profileText();
+  }
+
+  function setClimate(id,opt={}){
+    if(!PROFILES[id])id='temperate';
+    current=id;
+    const p=profile();
+    document.body.dataset.tcClimate=id;
+    const map=document.getElementById('map');
+    if(map)map.style.filter=p.mapFilter;
+    const fx=ensureFx();
+    if(fx)fx.style.background=p.tint;
+    try{localStorage.setItem(CLIMATE_KEY,id)}catch(_){}
+    if(climateBadge)climateBadge.textContent=`${p.icon} ${p.label}`;
+    refreshMenu();
+    if(!opt.silent&&typeof window.flash==='function'){
+      try{window.flash(`${p.icon} 기후 스킨 · ${p.label}`)}catch(_){}
+    }
+    return p;
+  }
+
+  function loadDefault(){
+    let id='temperate';
+    try{const x=localStorage.getItem(CLIMATE_KEY);if(PROFILES[x])id=x}catch(_){}
+    return id;
+  }
+
+  function addMenuSection(){
+    const panel=document.getElementById('tcMainPanel136');
+    if(!panel||panel.querySelector('.tcClimateSection137'))return;
+    const anchor=panel.querySelector('.tcMainSection136');
+    const sec=document.createElement('section');
+    sec.className='tcClimateSection137';
+    sec.innerHTML=`
+      <h3>도시 기후대</h3>
+      <p>1차 시각 스킨 + 2차 기후 프로파일입니다. 아직 교통·재정·성장 계산은 바꾸지 않습니다.</p>
+      <div class="tcClimateGrid137">
+        ${Object.values(PROFILES).map(p=>`
+          <button type="button" class="tcClimateBtn137" data-climate="${p.id}">
+            <b>${p.icon} ${esc(p.label)}</b>
+            <small>${esc(p.subtitle)}<br>${esc(p.description)}</small>
+          </button>`).join('')}
+      </div>
+      <div class="tcClimateProfile137">${profileText()}</div>`;
+    if(anchor)anchor.insertAdjacentElement('afterend',sec);
+    else panel.appendChild(sec);
+    sec.querySelectorAll('.tcClimateBtn137').forEach(b=>{
+      b.addEventListener('click',()=>setClimate(b.dataset.climate));
+    });
+    refreshMenu();
+  }
+
+  function addBadge(){
+    if(document.getElementById('tcClimateBadge137'))return;
+    climateBadge=document.createElement('button');
+    climateBadge.id='tcClimateBadge137';climateBadge.type='button';
+    climateBadge.addEventListener('click',()=>{
+      if(window.__TC2_UI136?.openMain)window.__TC2_UI136.openMain();
+      else document.getElementById('tcMainBtn136')?.click();
+      setTimeout(()=>{
+        addMenuSection();
+        document.querySelector('.tcClimateSection137')?.scrollIntoView({behavior:'smooth',block:'center'});
+      },80);
+    });
+    const p=profile();climateBadge.textContent=`${p.icon} ${p.label}`;
+    const row=document.querySelector('#hud .row2')||document.querySelector('.row2');
+    const main=document.getElementById('tcMainBtn136');
+    if(row){
+      if(main?.nextSibling)row.insertBefore(climateBadge,main.nextSibling);
+      else row.appendChild(climateBadge);
+    }else{
+      climateBadge.style.cssText+=';position:fixed;left:72px;top:72px;z-index:95';
+      document.body.appendChild(climateBadge);
+    }
+  }
+
+  function wrapPersistence(){
+    try{
+      const fn=window.saveStateObject || (typeof saveStateObject==='function'?saveStateObject:null);
+      if(typeof fn==='function'&&!fn.__tcClimate137){
+        oldSave=fn;
+        const wrapped=function(...args){
+          const o=fn.apply(this,args);
+          if(o&&typeof o==='object'){
+            o.buildVersion=VERSION;
+            o.climateProfile=current;
+            o.climateProfileVersion=2;
+            o.climateStage=2;
+          }
+          return o;
+        };
+        wrapped.__tcClimate137=true;
+        window.saveStateObject=wrapped;
+        try{saveStateObject=wrapped}catch(_){}
+      }
+    }catch(_){}
+
+    try{
+      const fn=window.loadGame || (typeof loadGame==='function'?loadGame:null);
+      if(typeof fn==='function'&&!fn.__tcClimate137){
+        oldLoad=fn;
+        const wrapped=function(txt,opt={}){
+          let parsed=null;
+          try{parsed=typeof txt==='string'?JSON.parse(txt):txt}catch(_){}
+          const ok=fn.apply(this,arguments);
+          if(ok){
+            const id=PROFILES[parsed?.climateProfile]?parsed.climateProfile:'temperate';
+            setClimate(id,{silent:true});
+          }
+          return ok;
+        };
+        wrapped.__tcClimate137=true;
+        window.loadGame=wrapped;
+        try{loadGame=wrapped}catch(_){}
+      }
+    }catch(_){}
+  }
+
+  function updateVersion(){
+    document.title='TRAFFIC CITY 2 — 교통도시 시뮬레이터 '+VERSION;
+    const b=document.getElementById('tcBuildBadge');
+    if(b){
+      b.textContent=VERSION;b.title='버전 및 변경이력';
+    }
+    window.TC2_BUILD_VERSION=VERSION;
+    window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:VERSION,build:BUILD};
+    const mv=document.querySelector('.tcMainVersion136');if(mv)mv.textContent=VERSION;
+  }
+
+  function patchVersionSheet(){
+    const badge=document.getElementById('tcBuildBadge');
+    if(!badge||badge.__tc137)return;
+    badge.__tc137=true;
+    badge.addEventListener('click',()=>{
+      setTimeout(()=>{
+        const sheet=document.getElementById('tcVersionSheet');
+        if(sheet&&!/v137/.test(sheet.textContent||'')){
+          const body=sheet.querySelector('.tcVEntry');
+          const sec=document.createElement('section');
+          sec.className='tcVEntry';
+          sec.innerHTML='<div class="tcVTitle"><b>v137</b><span>CLIMATE SKINS & PROFILES</span></div>'+
+            '<ul><li>온대·열대우림·고온사막·적설한랭 시각 스킨</li>'+
+            '<li>도시별 기후 프로파일 저장·불러오기</li>'+
+            '<li>3차 시스템 효과는 아직 비활성</li></ul>';
+          if(body)body.before(sec);else sheet.appendChild(sec);
+        }
+      },30);
+    },true);
+  }
+
+  function observeMenu(){
+    const ob=new MutationObserver(()=>{
+      if(document.getElementById('tcMainPanel136'))addMenuSection();
+      if(!document.getElementById('tcClimateBadge137'))addBadge();
+    });
+    ob.observe(document.body,{childList:true,subtree:true});
+    return ob;
+  }
+
+  function init(){
+    installStyles();
+    ensureFx();
+    current=loadDefault();
+    addMenuSection();
+    addBadge();
+    wrapPersistence();
+    updateVersion();
+    patchVersionSheet();
+    setClimate(current,{silent:true});
+    window.__TC2_CLIMATE137.observer=observeMenu();
+  }
+
+  window.__TC2_CLIMATE137={
+    loaded:true,version:VERSION,build:BUILD,profiles:PROFILES,
+    get current(){return current},
+    profile:()=>JSON.parse(JSON.stringify(profile())),
+    setClimate
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+
+  console.info('[TRAFFIC CITY 2] Climate Skins & Profiles v137 loaded');
 })();
 </script>
 </body>
