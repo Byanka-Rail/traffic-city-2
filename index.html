@@ -12709,7 +12709,7 @@ function drawGround(){
       base+=hh;
     }
   };
-  const massOf=(i)=>{
+  const massOf=(i)=>{ if(window.__TC151_mass){const _p151=window.__TC151_mass(i,tx,ty,t,YS);if(_p151)return _p151;} /* v151 preset hook */
     const k=kind[i],d=dev[i],x=i%W,y=(i/W)|0;
     const h1=h32(x,y),h2=h32(x+41,y+17),h3=h32(x+7,y+29),h4=h32(x+73,y+53);
     const px=tx(x),py=ty(y);
@@ -21551,11 +21551,11 @@ window.__TC={
 
   const BUILD_INFO = Object.freeze({
     product:'TRAFFIC CITY 2',
-    version:'v150',
-    build:150,
+    version:'v151',
+    build:151,
     saveSchemaVersion:47,
     terminology:'academic-consistency-2',
-    title:'ROAD ACQUISITION & NETWORK REDUNDANCY'
+    title:'BUILDING PRESETS & SERVICE SITE ACQUISITION'
   });
   const WEB_URL='https://byanka-rail.github.io/traffic-city-2/';
 
@@ -21780,7 +21780,7 @@ window.__TC={
 (() => {
   'use strict';
   if(window.__TC2_V141?.loaded)return;
-  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v150',build:150,saveSchemaVersion:47,title:'ROAD ACQUISITION & NETWORK REDUNDANCY'});
+  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v151',build:151,saveSchemaVersion:47,title:'BUILDING PRESETS & SERVICE SITE ACQUISITION'});
 
   function sourceName(){
     if(location.protocol==='https:'&&/byanka-rail\.github\.io$/i.test(location.hostname))return 'GitHub Pages';
@@ -23044,6 +23044,380 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 window.__TC150={loaded:true,...TC150,audit:audit150,setRoadAcq,get roadAcqIx(){return roadAcqIx;},bypass:autoBypassStep150,bridges:bridges150,roadPath:roadPath150,stats:()=>({...st150})};
 if(window.__TC)Object.assign(window.__TC,{audit150,setRoadAcq,autoBypassStep150,bridges150});
 console.info("[TRAFFIC CITY 2] Road Acquisition & Network Redundancy v150 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v151 BUILDING PRESETS & SERVICE SITE ACQUISITION
+
+   PART A · 건물 프리셋
+     massOf(i)는 필지 하나마다 매스 박스 목록을 돌려주는 절차적 생성기다.
+     프리셋은 그 목록을 사람이 미리 써 둔 것일 뿐이다. 좌표는 (u,v) —
+     u는 가로(전면)를 따라가는 위치, v는 전면에서 안으로 들어가는 깊이 —
+     로 쓰므로 frontDir 회전이 공짜다. 높이는 프리셋이 정하지 않는다:
+     프리셋은 '기준높이의 몇 배'만 말하고 기준높이는 dev가 정한다.
+     그래야 그림이 계속 모형의 진실을 말한다.
+     공사장·폐허·중정형 묶음은 프리셋이 사양하고 원래 렌더러가 그린다.
+     프리셋은 순수 시각이며 stateHash·저장 상태에 들어가지 않는다.
+
+   PART B · 생활서비스 부지 수용
+     사용자 저장본 221년차(인구 527,178) 실측:
+       15분 생활권 21.8% · 미충족 341노드/55만명 · 현금 ₩173M
+       빈 땅 980칸 = 개발제한 189 + 수면 134 + 도로에서 먼 곳 656 + 쓸 수 있는 곳 1
+       → autoServiceCandidateCells()가 빈 땅만 보므로 후보 0개, 매달 무행동.
+       같은 범위에 매입 가능한 필지는 689칸(주거 430·기타 259, 필지당 ₩15~19k).
+     v150이 도로·기반시설에만 열어 둔 토지보상 경로를 학교·의료·문화·공원에도 연다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC151?.loaded)return;
+const TC151=Object.freeze({version:"v151",build:151,title:"BUILDING PRESETS & SERVICE SITE ACQUISITION"});
+
+/* ══════════════ PART A · 건물 프리셋 ══════════════ */
+
+const USE_CODE={R:2,C:3,I:4,MX:9,OFF:17,AGR:16,TUR:19};
+const CODE_USE={2:"R",3:"C",4:"I",9:"MX",17:"OFF",16:"AGR",19:"TUR"};
+/* 렌더러가 아는 매스 타입만 허용한다. 모르는 타입은 flat으로 떨어진다. */
+const MASS_TYPES=new Set(["flat","pitch","row","walkup","slab","tower","apartment","arcade","glass","mxTower",
+  "terrace","parapet","saw","silo","stack","warehouse","skylight","hall","gym","school","library","civic",
+  "clinicTower","hotelTower","pagoda"]);
+
+const PRESET_KEY="tc2_building_presets_v1";
+let presets=[],presetOn=true,presetNote="";
+
+/* ── 내장 예시 — 형식을 눈으로 배우라고 넣는다. 지우고 자기 것으로 채워도 된다. ── */
+const SAMPLES={v:1,name:"예시 묶음",presets:[
+  {id:"sample-hanok",name:"마당집 가로",use:"R",dev:[1,2],w:1,boxes:[
+    {u:.06,v:.10,uw:.26,vd:.30,h:.55,t:"pitch"},
+    {u:.37,v:.10,uw:.24,vd:.28,h:.50,t:"pitch"},
+    {u:.66,v:.12,uw:.28,vd:.32,h:.58,t:"pitch"},
+    {u:.06,v:.46,uw:.20,vd:.16,h:.28,t:"flat"}
+  ]},
+  {id:"sample-slab",name:"판상형 3동",use:"R",dev:[3,5],w:1,boxes:[
+    {u:.05,v:.16,uw:.26,vd:.22,h:1.00,t:"slab"},
+    {u:.37,v:.16,uw:.26,vd:.22,h:1.05,t:"slab"},
+    {u:.69,v:.16,uw:.26,vd:.22,h:.98,t:"slab"},
+    {u:.05,v:.44,uw:.90,vd:.10,h:.16,t:"flat"}
+  ]},
+  {id:"sample-podium",name:"저층부 위 타워",use:["OFF","C"],dev:[4,6],w:1,boxes:[
+    {u:.06,v:.06,uw:.88,vd:.30,h:.34,t:"arcade"},
+    {u:.24,v:.14,uw:.44,vd:.44,h:1.55,t:"glass",tier:true}
+  ]},
+  {id:"sample-market",name:"연도형 시장",use:"C",dev:[1,3],w:1,boxes:[
+    {u:.04,v:.06,uw:.44,vd:.26,h:.45,t:"arcade"},
+    {u:.52,v:.06,uw:.44,vd:.26,h:.42,t:"arcade"},
+    {u:.10,v:.36,uw:.32,vd:.30,h:.62,t:"saw"},
+    {u:.52,v:.36,uw:.34,vd:.28,h:.58,t:"flat"}
+  ]}
+]};
+
+const num=(v,d)=>Number.isFinite(+v)?+v:d;
+function normPreset(p,errs,ix){
+  if(!p||typeof p!=="object"){errs.push(`#${ix}: 객체가 아님`);return null;}
+  const id=String(p.id||p.name||`preset-${ix}`).slice(0,48);
+  let uses=p.use||p.uses||"R";if(!Array.isArray(uses))uses=[uses];
+  const codes=[];
+  for(const u of uses){const c=typeof u==="number"?u:USE_CODE[String(u).toUpperCase()];if(c)codes.push(c);else errs.push(`${id}: 알 수 없는 용도 '${u}'`);}
+  if(!codes.length){errs.push(`${id}: 적용 용도가 없음`);return null;}
+  const dv=Array.isArray(p.dev)?p.dev:[num(p.devMin,1),num(p.devMax,9)];
+  const boxes=[];
+  for(const b of (p.boxes||[])){
+    if(!b)continue;
+    const u=clamp(num(b.u,0),0,1),v=clamp(num(b.v,0),0,1);
+    const uw=clamp(num(b.uw,.2),.02,1-u),vd=clamp(num(b.vd,.2),.02,1-v);
+    const t=MASS_TYPES.has(b.t)?b.t:"flat";
+    if(b.t&&!MASS_TYPES.has(b.t))errs.push(`${id}: 모르는 매스 타입 '${b.t}' → flat`);
+    boxes.push({u,v,uw,vd,h:clamp(num(b.h,1),.05,2.2),t,tier:!!b.tier});
+  }
+  if(!boxes.length){errs.push(`${id}: 박스가 없음`);return null;}
+  if(boxes.length>24){errs.push(`${id}: 박스가 24개를 넘어 잘랐음`);boxes.length=24;}
+  return {id,name:String(p.name||id).slice(0,40),codes,devMin:clamp(num(dv[0],1),0,9),devMax:clamp(num(dv[1],9),0,9),
+    yardMin:num(p.yard?.[0],-1),yardMax:num(p.yard?.[1],2),ctx:p.ctx||null,w:Math.max(.05,num(p.w,1)),boxes};
+}
+function loadPresetText(txt){
+  const errs=[];let raw=null;
+  try{raw=typeof txt==="string"?JSON.parse(txt):txt;}catch(e){return {ok:false,errs:["JSON을 읽지 못했습니다: "+e.message]};}
+  const arr=Array.isArray(raw)?raw:(raw.presets||[]);
+  if(!Array.isArray(arr)||!arr.length)return {ok:false,errs:["presets 배열이 비어 있습니다"]};
+  const out=[];arr.forEach((p,ix)=>{const q=normPreset(p,errs,ix);if(q)out.push(q);});
+  if(!out.length)return {ok:false,errs:errs.length?errs:["쓸 수 있는 프리셋이 없습니다"]};
+  presets=out;presetNote=`${out.length}개 불러옴${errs.length?` · 경고 ${errs.length}건`:""}`;
+  try{localStorage.setItem(PRESET_KEY,JSON.stringify({v:1,on:presetOn,presets:arr}));}catch(_){ }
+  invalidate();
+  return {ok:true,errs,n:out.length};
+}
+function presetExportText(){
+  return JSON.stringify({v:1,name:"내 건물 프리셋",presets:presets.map(p=>({
+    id:p.id,name:p.name,use:p.codes.map(c=>CODE_USE[c]||c),dev:[p.devMin,p.devMax],w:p.w,
+    boxes:p.boxes.map(b=>({u:+b.u.toFixed(3),v:+b.v.toFixed(3),uw:+b.uw.toFixed(3),vd:+b.vd.toFixed(3),h:+b.h.toFixed(3),t:b.t,...(b.tier?{tier:true}:{})}))
+  }))},null,1);
+}
+function invalidate(){try{markStatic();stLastBake=0;}catch(_){ }}
+
+/* ── 매스 생성 ── */
+function baseHeight151(k,d){
+  /* 프리셋은 배수만 말한다. 절대 높이는 dev가 정한다 — 1단계 필지에 40층이 서지 않게. */
+  const b=.085+d*.055;
+  return k===K_I||k===K_AGR?b*.78:k===K_OFF||k===K_C?b*1.10:b;
+}
+function uv2rect(u,v,uw,vd,fd){
+  let X0,Y0,X1,Y1;
+  if(fd===0){X0=1-(v+vd);X1=1-v;Y0=u;Y1=u+uw;}
+  else if(fd===1){X0=v;X1=v+vd;Y0=u;Y1=u+uw;}
+  else if(fd===2){Y0=1-(v+vd);Y1=1-v;X0=u;X1=u+uw;}
+  else{Y0=v;Y1=v+vd;X0=u;X1=u+uw;}
+  return [X0,Y0,X1-X0,Y1-Y0];
+}
+function pickPreset151(i,k,d){
+  const x=i%W,y=(i/W)|0;
+  let open=.5;try{open=openRatio(i);}catch(_){ }
+  const ok=[];let sum=0;
+  for(const p of presets){
+    if(!p.codes.includes(k)||d<p.devMin||d>p.devMax)continue;
+    if(open<p.yardMin||open>p.yardMax)continue;
+    ok.push(p);sum+=p.w;
+  }
+  if(!ok.length)return null;
+  /* 결정론: 같은 좌표는 언제나 같은 프리셋. 저장·재현·A/B가 흔들리지 않는다. */
+  let r=h32(x*37+11,y*23+7)*sum;
+  for(const p of ok){r-=p.w;if(r<=0)return p;}
+  return ok[ok.length-1];
+}
+/* drawGround의 massOf가 맨 앞에서 부른다. null이면 원래 절차적 생성으로 간다. */
+window.__TC151_mass=function(i,tx,ty,t,YS){
+  if(!presetOn||!presets.length)return null;
+  const k=kind[i],d=dev[i];
+  if(!isZoneK(k)||d<=0)return null;
+  if(site[i])return null;                                   // 공사장은 원래 렌더러
+  if(ruin[i]>0)return null;                                 // 폐허도 원래 렌더러
+  try{if(typeof courtGroup==="function"&&(courtGroup(i)||(typeof courtEaten==="function"&&courtEaten(i))))return null;}catch(_){ }
+  const p=pickPreset151(i,k,d);if(!p)return null;
+  const x=i%W,y=(i/W)|0,px=tx(x),py=ty(y);
+  const fd=frontDir[i]===255?2:frontDir[i];
+  const base=baseHeight151(k,d);
+  const H=v=>Math.min(t*.92,t*v)/YS;
+  const out=[];
+  for(const b of p.boxes){
+    const [X0,Y0,ww,hh]=uv2rect(b.u,b.v,b.uw,b.vd,fd);
+    const fx=px+t*X0,fy=py+t*Y0,fw=t*ww,fh=t*hh,hgt=H(base*b.h);
+    if(fw<=0||fh<=0)continue;
+    if(b.tier&&hgt>t*.30/YS){                               // 계단식 후퇴 — 원래 렌더러의 pushTier와 같은 모양
+      const nT=Math.min(3,Math.max(2,Math.floor(hgt/(t*.22/YS))));
+      let acc=0;
+      for(let s=0;s<nT;s++){
+        const seg=(s===nT-1)?hgt-acc:hgt/nT,cut=s*(t*.045),nh=fh-cut;
+        if(nh<=t*.10)break;
+        out.push([fx+acc*LIGHT.ox,fy+cut+acc*LIGHT.oy,fw,nh,seg,b.t,s>0?1:0,s===0?hgt:0]);
+        acc+=seg;
+      }
+    }else out.push([fx,fy,fw,fh,hgt,b.t,0,0]);
+  }
+  return out.length?out:null;
+};
+
+/* ── 프리셋 UI (정책 패널) ── */
+function ensurePresetRow(){
+  const p=document.getElementById("policy");if(!p||document.getElementById("presetRow151"))return;
+  const h=document.createElement("h4");h.textContent="건물 프리셋 (v151)";
+  const row=document.createElement("div");row.className="lineRow";row.id="presetRow151";
+  row.innerHTML=`<span class="nm">프리셋 적용</span><span class="hbtn" id="presetToggle151">${presetOn?"켬":"끔"}</span><span id="presetCount151">${presets.length}개</span>`;
+  const box=document.createElement("div");box.className="tip";box.id="presetBox151";
+  box.innerHTML=`<div style="margin-bottom:6px">필지 하나에 놓일 매스를 <b>(u,v) 비율 좌표</b>로 씁니다. u는 가로를 따라가는 위치, v는 가로에서 안으로 들어가는 깊이라 네 방향 회전은 자동입니다. <b>h는 기준높이의 배수</b>이고 실제 높이는 개발단계가 정합니다.</div>
+  <textarea id="presetText151" spellcheck="false" style="width:100%;height:120px;font-family:ui-monospace,monospace;font-size:11px;background:rgba(0,0,0,.28);color:#dcd3c2;border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:6px"></textarea>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+    <button type="button" class="hbtn" id="presetLoad151">불러오기</button>
+    <button type="button" class="hbtn" id="presetDump151">현재 내보내기</button>
+    <button type="button" class="hbtn" id="presetSample151">예시 넣기</button>
+    <button type="button" class="hbtn" id="presetClear151">전부 지우기</button>
+  </div>
+  <div id="presetMsg151" style="margin-top:6px;font-size:10.5px;color:#b7c8b4"></div>`;
+  const group=p.querySelector('.policyGroup[data-pcat="housing"]')||p.querySelector(".policyGroup");
+  const anchor=group?group.querySelector("h4"):p.querySelector("h4");
+  if(anchor&&anchor.parentNode){anchor.parentNode.insertBefore(h,anchor);anchor.parentNode.insertBefore(row,anchor);anchor.parentNode.insertBefore(box,anchor);}
+  else{p.appendChild(h);p.appendChild(row);p.appendChild(box);}
+  const msg=(s,bad)=>{const e=document.getElementById("presetMsg151");if(e){e.textContent=s;e.style.color=bad?"#e08a3c":"#b7c8b4";}};
+  document.getElementById("presetToggle151").addEventListener("click",()=>{presetOn=!presetOn;renderPresetRow();invalidate();
+    try{localStorage.setItem(PRESET_KEY,JSON.stringify({v:1,on:presetOn,presets:JSON.parse(presetExportText()).presets}));}catch(_){ }});
+  document.getElementById("presetLoad151").addEventListener("click",()=>{
+    const r=loadPresetText(document.getElementById("presetText151").value);
+    msg(r.ok?`${r.n}개 적용${r.errs.length?" · "+r.errs.slice(0,2).join(" / "):""}`:r.errs.slice(0,2).join(" / "),!r.ok);
+    renderPresetRow();});
+  document.getElementById("presetDump151").addEventListener("click",()=>{document.getElementById("presetText151").value=presetExportText();msg("현재 프리셋을 텍스트로 꺼냈습니다. 복사해 두세요.");});
+  document.getElementById("presetSample151").addEventListener("click",()=>{document.getElementById("presetText151").value=JSON.stringify(SAMPLES,null,1);msg("예시를 넣었습니다. '불러오기'를 누르면 적용됩니다.");});
+  document.getElementById("presetClear151").addEventListener("click",()=>{presets=[];presetNote="";try{localStorage.removeItem(PRESET_KEY);}catch(_){ }renderPresetRow();invalidate();msg("프리셋을 모두 지웠습니다. 기본 절차적 생성으로 돌아갑니다.");});
+}
+function renderPresetRow(){
+  const t=document.getElementById("presetToggle151");if(t)t.textContent=presetOn?"켬":"끔";
+  const c=document.getElementById("presetCount151");if(c)c.textContent=`${presets.length}개${presetNote?" · "+presetNote:""}`;
+}
+try{const s=localStorage.getItem(PRESET_KEY);if(s){const q=JSON.parse(s);presetOn=q.on!==false;if(Array.isArray(q.presets)){const e=[];presets=q.presets.map((p,ix)=>normPreset(p,e,ix)).filter(Boolean);}}}catch(_){ }
+
+/* ══════════════ PART B · 생활서비스 부지 수용 ══════════════ */
+
+function acqMode151(){try{return window.__TC150?window.__TC150.roadAcqIx:1;}catch(_){return 1;}}
+/* 서비스 시설로 수용 가능한 필지. 도로개설 보상범위 정책을 그대로 따른다. */
+function svcAcquirable151(i){
+  const k=kind[i];
+  if(k===K_ROAD||k===K_EMPTY||!isZoneK(k))return false;
+  if(water[i]||heri[i]||landBank[i]||pubHouse[i]||zoneOwner[i]===ZONE_PLAYER||gbelt[i])return false;
+  const m=acqMode151();
+  if(m===0)return false;
+  if(m===1&&(k===K_R||k===K_MX))return false;
+  return true;
+}
+function svcSitePrice151(i){
+  if(kind[i]===K_EMPTY)return 0;
+  let p=0;try{p=bankPrice(i);}catch(_){p=0;}
+  /* 공공시설 부지는 협의매수가 원칙이라 도로 수용보다 조금 비싸게 본다. */
+  return Math.round(p*1.15);
+}
+function svcSitePeople151(i){try{return (kind[i]===K_R||kind[i]===K_MX)?Math.round(resFormalPop(i)||0):0;}catch(_){return 0;}}
+/* 이 필지를 헐면 실제로 무엇이 사라지는가 — 사는 사람과 일자리 수용력을 함께 센다.
+   주거만 피하면 피해가 업무·상업으로 옮겨갈 뿐이다. v151 초안에서 실제로 그랬다:
+   이주는 862명으로 줄었는데 일자리 기반이 깎여 인구가 3.6만 명 더 빠졌다. */
+function svcSiteLoss151(i){
+  let jobs=0;try{jobs=jobCapOf(kind[i],dev[i])||0;}catch(_){ }
+  return svcSitePeople151(i)+jobs*.75;
+}
+
+/* 한계수혜 평가 — 원본은 빈 땅만 봤다. 매입 가능 필지도 같은 잣대로 본다. */
+const _marginal151=autoServiceMarginalAt;
+autoServiceMarginalAt=function(cat,i){
+  if(i>=0&&kind[i]!==K_EMPTY){
+    if(!svcAcquirable151(i))return null;
+    /* 원본과 같은 계산을 쓰되 K_EMPTY 검사만 우회한다. 잠시 빈 땅인 척한다. */
+    const k0=kind[i],d0=dev[i];
+    kind[i]=K_EMPTY;dev[i]=0;
+    let m=null;try{m=_marginal151(cat,i);}finally{kind[i]=k0;dev[i]=d0;}
+    if(m){m.acquire=true;m.price=svcSitePrice151(i);m.people=svcSitePeople151(i);}
+    return m;
+  }
+  return _marginal151(cat,i);
+};
+/* 후보지 — 빈 땅을 먼저 채우고, 모자라면 매입 후보로 채운다. */
+const _cands151=autoServiceCandidateCells;
+autoServiceCandidateCells=function(limit=28){
+  const base=_cands151(limit);
+  if(base.length>=Math.min(limit,8)||acqMode151()===0)return base;
+  const seen=new Set(base),out=base.slice();
+  const need=[];
+  for(let a=0;a<nodes.length;a++){
+    const p=popAt[a]||0;if(p<=0)continue;
+    let miss=0;for(let c=0;c<4;c++)if(!svcT[c]||svcT[c][a]>LIFE_MIN)miss++;
+    if(miss)need.push({a,w:p*miss});
+  }
+  need.sort((u,v)=>v.w-u.w);
+  for(const q of need.slice(0,18)){
+    const c0=nodes[q.a],x0=c0%W,y0=(c0/W)|0;const local=[];
+    for(let dy=-6;dy<=6;dy++)for(let dx=-6;dx<=6;dx++){
+      const x=x0+dx,y=y0+dy;if(!inb(x,y))continue;const i=idx(x,y);
+      if(seen.has(i)||!svcAcquirable151(i)||!hasRoadNear(x,y,1))continue;
+      /* 싸고 낮고 사람이 적게 사는 자리부터. 고밀 주거를 헐어 학교를 짓는 일은 마지막이다.
+         실무에서도 학교·공원 부지는 저층·저밀 필지나 비주거를 먼저 보고, 고밀 주거 철거는
+         재개발과 묶지 않는 한 하지 않는다. 거리보다 '무엇을 헐게 되는가'를 훨씬 크게 본다. */
+      local.push([Math.abs(dx)+Math.abs(dy)+dev[i]*3.2+svcSiteLoss151(i)/45,i]);
+    }
+    local.sort((a,b)=>a[0]-b[0]);
+    for(const [,i] of local.slice(0,2)){seen.add(i);out.push(i);if(out.length>=limit+10)return out;}
+  }
+  return out;
+};
+/* 시설 건립 — 매입 필지면 보상·이주를 먼저 처리한다. */
+const _svcStep151=autoServiceStep;
+autoServiceStep=function(){
+  const quota=svcBatchQuota151();
+  let done=false;
+  for(let n=0;n<quota;n++){
+    if(!svcOnce151())break;
+    done=true;
+    if(n>0)st151.batchMonths++;
+  }
+  return done;
+};
+function svcOnce151(){
+  const best=autoBestServiceIntervention();
+  if(!best||!best.acquire)return _svcStep151.apply(this,arguments);
+  const i=best.cell,price=svcSitePrice151(i),people=svcSitePeople151(i),total=best.cost+price;
+  if(!afford(total))return false;
+  const before=S.life15||0,k0=kind[i];
+  const useNm=k0===K_R?"주거":k0===K_MX?"주상복합":k0===K_C?"상업":k0===K_I?"공업":k0===K_OFF?"업무":"기존";
+  const ok=autoAct(total,()=>{
+    try{displaceResidents(i,`${best.nm} 부지로 협의매수·수용되었습니다`);}catch(_){ }
+    try{clearDiagCell(i);}catch(_){ }
+    site[i]=0;if(typeof siteTo!=="undefined")siteTo[i]=0;
+    kind[i]=best.kind;dev[i]=1;forest[i]=0;builtAt[i]=0;ctrl[i]=0;zoneOwner[i]=ZONE_NONE;svcDirty=true;
+  },`${best.nm}을 ${useNm} 부지를 협의매수해 지었습니다 (보상 ₩${price.toLocaleString()}${people?` · 이주 ${people.toLocaleString()}명`:""}). 빈 땅이 없어도 실제 신규 수혜 ${Math.round(best.gain)}명이 확인되는 자리입니다.`);
+  if(!ok)return false;
+  st151.svcAcquired++;st151.svcSpent+=price;st151.svcDisplaced+=people;
+  try{updateHousingInsecurity(true);}catch(_){ }
+  plannerDecision(`svc-acq-${curMonth()}-${i}`,`${autoDirName(i%W,(i/W)|0)} ${best.nm} 건립 (부지 매수)`,
+    "성숙 시가지라 빈 땅이 없어 생활서비스가 멈춰 있었음 — 도시계획시설 부지를 협의매수해 확보",
+    `유효 신규수혜 ${Math.round(best.gain)}명 · 보상 ₩${price.toLocaleString()}${people?` · 이주 ${people.toLocaleString()}명`:""} · 건설 ₩${Math.round(best.cost)} · 월 유지 ₩${best.up}`,
+    "major",i,{domain:"service",horizon:9,expected:`15분 생활권 ${Math.round(before*100)}%에서 어떤 방향으로 변하는지 관찰`});
+  return true;
+};
+
+const st151={svcAcquired:0,svcSpent:0,svcDisplaced:0,batchMonths:0};
+
+/* 생활권이 심각하게 낮고 재정이 넉넉하면 한 달에 여러 곳을 함께 짓는다.
+   지역업무 슬롯이 한 달에 하나라 55만 도시가 연 10곳으로 회복하려면 수십 년이 걸린다.
+   '한 달에 하나'는 재정 제약을 대신하던 규칙이지 계획의 원칙이 아니다.
+   비상 배치는 (a) 생활권이 목표의 절반 아래이고 (b) 현금이 그 시설들의 60개월 유지비를
+   덮을 때만, (c) 최대 3곳까지. 셋 중 하나라도 어긋나면 예전처럼 한 곳이다. */
+const SVC_BATCH_LIFE=.45,SVC_BATCH_MAX=3;
+function svcBatchQuota151(){
+  const life=S.life15||0;if(life>=SVC_BATCH_LIFE)return 1;
+  const rev=Math.max(1,S.rev||0);
+  if(money<rev*6)return 1;
+  const deficit=clamp((SVC_BATCH_LIFE-life)/SVC_BATCH_LIFE,0,1);
+  return clamp(1+Math.round(deficit*(SVC_BATCH_MAX-1)),1,SVC_BATCH_MAX);
+}
+
+/* ── 감사 ── */
+function audit151(){
+  let empty=0,emptyOK=0,acq=0;
+  for(let i=0;i<NC;i++){
+    if(kind[i]===K_EMPTY&&!water[i]){empty++;if(!gbelt[i]&&hasRoadNear(i%W,(i/W)|0,1))emptyOK++;}
+    else if(svcAcquirable151(i)&&hasRoadNear(i%W,(i/W)|0,1))acq++;
+  }
+  let missNodes=0,missPop=0;
+  for(let a=0;a<nodes.length;a++){const p=popAt[a]||0;if(p<=0)continue;let m=0;for(let c=0;c<4;c++)if(!svcT[c]||svcT[c][a]>LIFE_MIN)m++;if(m){missNodes++;missPop+=p;}}
+  return {version:TC151.version,presets:{on:presetOn,count:presets.length,ids:presets.map(p=>p.id)},
+    service:{life15:+(S.life15||0).toFixed(3),missNodes,missPop:Math.round(missPop),emptyBuildable:emptyOK,emptyTotal:empty,acquirableSites:acq,policy:(()=>{try{return window.__TC150?["불허","상업·공업만","주거 포함"][acqMode151()]:"v150 없음";}catch(_){return "?";}})(),candidates:(()=>{try{return autoServiceCandidateCells().length;}catch(_){return -1;}})()},
+    stats:{...st151}};
+}
+
+/* ── 버전 표기 ── */
+function stamp151(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v151";
+  const b=document.getElementById("tcBuildBadge");if(b)b.textContent="v151";
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v151";
+  window.TC2_BUILD_VERSION="v151";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v151",build:151};
+}
+function sheet151(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v151-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<151)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v151Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v151</b><span>BUILDING PRESETS & SERVICE SITE ACQUISITION</span></div><ul>'+
+    '<li>건물 프리셋 — 필지 매스를 (u,v) 비율 좌표로 직접 쓰고 불러오기/내보내기. 가로 방향 회전은 자동</li>'+
+    '<li>높이는 프리셋이 아니라 개발단계가 정함 · 공사장·폐허·중정형은 기존 렌더러 유지 · 저장 상태에 들어가지 않음</li>'+
+    '<li>학교·의료·문화·공원 부지를 협의매수로 확보 — 성숙 시가지에서 빈 땅이 없어 생활권이 멈추던 문제</li>'+
+    '<li>매입 후보는 값싸고 낮고 거주인구가 적은 자리부터, 보상범위는 도로개설 토지보상 정책을 따름</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet151(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v151obs)return;bg.__v151obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet151();}).observe(bg,{childList:true,subtree:true});}
+const _cockpit151=renderPolicyCockpit;
+renderPolicyCockpit=function(){const r=_cockpit151.apply(this,arguments);try{ensurePresetRow();renderPresetRow();}catch(_){ }return r;};
+function init(){stamp151();watchSheet151();const b=document.getElementById("tcBuildBadge");if(b&&!b.__v151){b.__v151=true;b.addEventListener("click",()=>setTimeout(sheet151,100),true);}}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC151={loaded:true,...TC151,audit:audit151,loadPresets:loadPresetText,exportPresets:presetExportText,
+  samples:()=>JSON.parse(JSON.stringify(SAMPLES)),list:()=>presets.map(p=>({id:p.id,uses:p.codes,dev:[p.devMin,p.devMax],boxes:p.boxes.length})),
+  get on(){return presetOn;},set on(v){presetOn=!!v;invalidate();},svcAcquirable151,stats:()=>({...st151})};
+if(window.__TC)Object.assign(window.__TC,{audit151,loadPresets:loadPresetText,svcAcquirable151});
+console.info("[TRAFFIC CITY 2] Building Presets & Service Site Acquisition v151 loaded");
 })();
 </script>
 
