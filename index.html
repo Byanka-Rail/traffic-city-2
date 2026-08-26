@@ -21551,11 +21551,11 @@ window.__TC={
 
   const BUILD_INFO = Object.freeze({
     product:'TRAFFIC CITY 2',
-    version:'v148',
-    build:148,
+    version:'v149',
+    build:149,
     saveSchemaVersion:47,
     terminology:'academic-consistency-2',
-    title:'PLANNER STABILIZATION'
+    title:'ASSIGNMENT CONTINUITY & NETWORK INTEGRITY'
   });
   const WEB_URL='https://byanka-rail.github.io/traffic-city-2/';
 
@@ -21780,7 +21780,7 @@ window.__TC={
 (() => {
   'use strict';
   if(window.__TC2_V141?.loaded)return;
-  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v148',build:148,saveSchemaVersion:47,title:'PLANNER STABILIZATION'});
+  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v149',build:149,saveSchemaVersion:47,title:'ASSIGNMENT CONTINUITY & NETWORK INTEGRITY'});
 
   function sourceName(){
     if(location.protocol==='https:'&&/byanka-rail\.github\.io$/i.test(location.hostname))return 'GitHub Pages';
@@ -22292,5 +22292,428 @@ console.info("[TRAFFIC CITY 2] Planner Stabilization v148 loaded");
 })();
 </script>
 
-</body>
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v149 ASSIGNMENT CONTINUITY & NETWORK INTEGRITY
+   P0-1  통행배정 스윕이 망 재구축·월경계 리셋으로 영원히 끝나지 않던 문제
+   P0-2  본시가지와 연결되지 않은 도로토막을 앵커로 신도시·공항을 지정하던 문제
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC149?.loaded)return;
+const TC149=Object.freeze({version:"v149",build:149,title:"ASSIGNMENT CONTINUITY & NETWORK INTEGRITY"});
+
+/* ─────────────────────────────────────────────────────────────────
+   P0-1  스윕 연속성
+   원인: assignStep의 배치는 활성노드를 정확히 한 달(32틱)에 한 바퀴 돌도록 잡혀 있다.
+         rebuildNet()은 sweepPtr=0 으로 스윕을 처음부터 다시 시작시키고, growStep은
+         건물 하나가 준공될 때마다 netDirty를 켠다. 성장 중인 도시는 한 달에 2~3번
+         망을 재구축하므로 스윕이 끝(sweepWrap)에 닿지 못하고, 월경계에서 다시 리셋된다.
+         sweepWrap 안에서만 갱신되는 평균통행·V/C·VKT·수단분담·지대·서비스도달권이
+         그대로 멈춘다. (v148 시드 33: 22~26년차 스윕 완료 0회/년)
+   처리: "한 달에 최소 한 번은 반드시 스윕을 완료한다"는 계약을 코드로 만든다.
+         (1) 망을 다시 짓기 직전, 이번 달 아직 완료한 스윕이 없으면 진행 중인 스윕을
+             옛 망 위에서 끝까지 돌리고 sweepWrap 한다 — 부분 작업을 버리지 않는다.
+         (2) 월경계에서 이번 달 완료가 없으면 남은 원점을 즉시 처리하고 sweepWrap 한다.
+         이미 이번 달에 완료한 스윕이 있으면 예전처럼 버린다(추가 비용 없음).
+         따라서 추가 계산량은 한 달에 최대 스윕 1회분이며 결정론은 유지된다.
+   ───────────────────────────────────────────────────────────────── */
+const sweepLog={lastWrapMonth:-1,wrapsThisMonth:0,month:-1,flushRebuild:0,flushMonth:0,ring:[]}; // ring: 최근 24개월 완료횟수
+/* 회계월: 1~32틱이 0월이다. 월경계 틱(32)의 assignStep에서 닫힌 스윕은 '방금 끝난 달'의 것이다.
+   curMonth()(=tick/32)를 그대로 쓰면 경계 틱의 완료가 다음 달로 잡혀 매달 불필요한 flush가 생긴다. */
+function accMonth(){return Math.max(0,Math.floor((tick-1)/MONTH));}
+function sweepRollMonth(){
+  const mo=accMonth();
+  if(sweepLog.month===mo)return;
+  if(sweepLog.month>=0){sweepLog.ring.push(sweepLog.wrapsThisMonth);if(sweepLog.ring.length>24)sweepLog.ring.shift();}
+  sweepLog.month=mo;sweepLog.wrapsThisMonth=0;
+}
+function sweepInProgress(){return activeNodes.length>0&&sweepPtr>0&&sweepPtr<activeNodes.length;}
+function sweepDoneThisMonth(){return sweepLog.lastWrapMonth===accMonth();}
+/* 남은 원점을 지금 이 틱에서 모두 처리하고 스윕을 닫는다. 성공하면 true. */
+function sweepFlush(reason){
+  if(!activeNodes.length)return false;
+  const n=activeNodes.length;let guard=n+2;
+  while(sweepPtr<n&&guard-->0){processOrigin(activeNodes[sweepPtr]);sweepPtr++;}
+  if(sweepPtr<n)return false;
+  sweepWrap();                                   // 전역 이름으로 호출 — 아래 래퍼가 집계한다
+  if(reason==="rebuild")sweepLog.flushRebuild++;else sweepLog.flushMonth++;
+  return true;
+}
+const _sweepWrap149=sweepWrap;
+sweepWrap=function(){
+  const r=_sweepWrap149.apply(this,arguments);
+  sweepRollMonth();
+  sweepLog.lastWrapMonth=accMonth();sweepLog.wrapsThisMonth++;
+  return r;
+};
+const _rebuildNet149=rebuildNet;
+let netBuildSeq149=0,inTick149=false;
+rebuildNet=function(){
+  sweepRollMonth();
+  /* 이번 달 완료된 스윕이 없고 진행 중이면, 옛 망 위에서 끝까지 돌린 뒤 다시 짓는다.
+     단, doTick 안에서 불린 재구축만 대상이다. newCity·loadGame·force()·편집 직후의 재구축은
+     이전 도시(메인메뉴 미리보기 포함)의 반쯤 진행된 스윕을 들고 있을 수 있고, 그 진행량은
+     벽시계에 달려 있어 flush 하면 결정론이 깨진다. 그 경우는 예전처럼 버린다. */
+  if(inTick149&&nodes.length&&sweepInProgress()&&!sweepDoneThisMonth())sweepFlush("rebuild");
+  const r=_rebuildNet149.apply(this,arguments);
+  netBuildSeq149++;
+  return r;
+};
+
+/* doTick — 원본(v148)과 동일하되 월경계에서 '이번 달 완료 없음'이면 스윕을 닫고 넘어간다. */
+doTick=function(){
+  const __t0=Date.now();
+  inTick149=true;
+  try{
+  tick++;
+  if(netDirty)rebuildNet();
+  assignStep();
+  if(tick%GROW_EVERY===0)growStep();
+  if(tick%MONTH===0){
+    sweepRollMonth();
+    /* 방금 끝난 달에 완료된 스윕이 없으면 남은 원점을 지금 처리하고 닫는다 (정상 달에는 비용 0) */
+    if(!sweepDoneThisMonth()&&activeNodes.length)sweepFlush("month");
+    demographicEnsureMonth();
+    firmStep();attachLand();updateHousingInsecurity();resetSweepAcc();sweepPtr=0;
+    if(typeof plannerRefreshDemandSnapshot148==="function")plannerRefreshDemandSnapshot148(true);
+    finance();history.push(S.avgT);if(history.length>90)history.shift();
+    chronStep();
+    plannerOutcomeStep();
+    policyOutcomeStep();
+    if(autoOn){autoStep();updateHousingInsecurity(true);}
+    weatherStep();
+    snsStep();
+    chronMonthSummary();
+  }
+  updateHUD();
+  tickMs=tickMs*0.85+(Date.now()-__t0)*0.15;
+  batchScale=1;
+  }finally{inTick149=false;}
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   P0-2  도로망 성분과 본망 앵커
+   원인: autoDistrictCandidate()는 '가장 가까운 도로'만 요구하고 그 도로가 본시가지와
+         이어져 있는지 보지 않는다. autoAirportAccessStep()도 '20칸 안의 아무 도로'에
+         공항을 붙인다. 고립된 도로토막이 앵커가 되면 그 지구는 전기·수도·접근성이 0이라
+         landScore가 −1 근처에 머물고 영원히 개발되지 않는다. (v148 시드 0: 20년차 도로그래프
+         2성분, 동부 지구 4곳 미개발 25필지 전부 utility 0)
+   처리: (1) 도로그래프 연결성분을 계산하고 인구·일자리가 가장 큰 성분을 '본망'으로 정한다.
+         (2) autoNearestRoad는 본망 노드만 후보로 본다 — 신도시·성장전선·공항 앵커가 모두 본망에 붙는다.
+         (3) 도로는 개발제한구역을 지날 수 있다. 플레이어 도로 도구가 그렇고(용도·시설만 막힘),
+             실제 개발제한구역도 도로·기반시설은 허용한다. v148이 도로 경로에까지 hard protection을
+             적용한 것이 '띠 바깥 개구리뜀 지구'의 연결도로를 잘라 유령지구를 만든 직접 원인이다.
+             수면·문화재·비축지·공공임대·플레이어 관리구역은 도로도 지나지 않는다.
+         (4) 이미 고립된 성분(주민·일자리·용도지정이 있는)은 계획관이 '단절 성분 연결도로'
+             사업으로 잇는다. 수면은 교량사업(기존)에 맡긴다.
+   ───────────────────────────────────────────────────────────────── */
+const comp149={seq:-1,month:-1,id:null,main:-1,info:[]};
+function roadComponents149(force=false){
+  const mo=curMonth();
+  if(!force&&comp149.seq===netBuildSeq149&&comp149.month===mo&&comp149.id&&comp149.id.length===nodes.length)return comp149;
+  const n=nodes.length,id=new Int32Array(n).fill(-1),info=[];
+  for(let s=0;s<n;s++){
+    if(id[s]>=0)continue;
+    const c=info.length,st=[s];id[s]=c;let cnt=0,pop=0,jobs=0;
+    while(st.length){
+      const a=st.pop();cnt++;pop+=popAt[a]||0;jobs+=jobAt[a]||0;
+      for(let k=0;k<deg[a];k++){const b=adj[a*RSTR+k];if(b>=0&&id[b]<0){id[b]=c;st.push(b);}}
+    }
+    info.push({c,nodes:cnt,pop,jobs,zoned:0,act:pop+jobs*.5});
+  }
+  /* 성분별 용도지정(미개발 포함) 필지 수 — 도로에 4방향으로 접한 필지만 센다 */
+  for(let i=0;i<NC;i++){
+    const k=kind[i];if(k===K_ROAD||k===K_EMPTY||!isZoneK(k))continue;
+    const x=i%W,y=(i/W)|0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];
+      if(nd>=0){info[id[nd]].zoned++;break;}
+    }
+  }
+  let main=-1,best=-1;
+  for(const q of info){const sc=q.act*1000+q.nodes;if(sc>best){best=sc;main=q.c;}}
+  comp149.seq=netBuildSeq149;comp149.month=mo;comp149.id=id;comp149.main=main;comp149.info=info;
+  return comp149;
+}
+function nodeInMain149(a){const c=roadComponents149();return a>=0&&c.id&&c.id[a]===c.main;}
+
+/* 본망 노드 중 가장 가까운 것 — 신도시·성장전선 앵커가 고립 도로토막에 붙지 않게 한다. */
+const _autoNearestRoad149=autoNearestRoad;
+autoNearestRoad=function(x,y){
+  const c=roadComponents149();
+  if(!c.id||c.main<0||c.info.length<=1)return _autoNearestRoad149(x,y);
+  let ba=-1,bd=1e9;
+  for(let a=0;a<nodes.length;a++){
+    if(c.id[a]!==c.main)continue;
+    const cell=nodes[a],d=Math.abs(cell%W-x)+Math.abs(((cell/W)|0)-y);
+    if(d<bd){bd=d;ba=a;}
+  }
+  return {node:ba,cell:ba>=0?nodes[ba]:-1,d:bd};
+};
+
+/* 도로가 지날 수 없는 칸 — 개발제한구역은 제외한다 (용도지정만 막는다). */
+function roadBlocked149(i){return !!(water[i]||heri[i]||landBank[i]||pubHouse[i]||zoneOwner[i]===ZONE_PLAYER);}
+/* 경로 탐색(autoPathCells·autoDetourPath)은 plannerHardProtected148을 전역 이름으로 부른다.
+   경로 모드 동안, 그리고 이번 지구사업의 연결도로로 확정된 개발제한구역 칸에 대해서는 보호를 풀어
+   도로가 띠를 지나게 한다. 용도지·시설 배치는 그대로 막힌다(roadPass에 없는 칸). */
+let roadPathMode149=false;const roadPass149=new Set();
+const _hardProtected149=plannerHardProtected148;
+plannerHardProtected148=function(i){
+  if(gbelt[i]&&(roadPathMode149||roadPass149.has(i))&&!roadBlocked149(i))return false;
+  return _hardProtected149(i);
+};
+const _autoPickPath149=autoPickPath;
+autoPickPath=function(a,b){
+  roadPathMode149=true;let p=null;
+  try{p=_autoPickPath149(a,b);}finally{roadPathMode149=false;}
+  if(p)for(const i of p)if(gbelt[i])roadPass149.add(i);
+  return p;
+};
+const _autoCreateProject149=autoCreateProject;
+autoCreateProject=function(){roadPass149.clear();return _autoCreateProject149.apply(this,arguments);};
+
+/* 본망에서 도로로 닿을 수 있는 빈 땅(개발제한구역 통과 가능, 수면·문화재·비축지·공공임대·플레이어 구역 불가)
+   — 신규지구 후보는 이 안에 있어야 연결도로를 놓을 수 있다.
+   v148은 후보를 고른 뒤 autoPickPath가 실패하면 아무 기록 없이 그 달을 넘겼다(개발제한구역 고리 안의 도시는 매달 조용히 실패). */
+const reach149={seq:-1,month:-1,mask:null};
+function reachableFromMain149(){
+  const c=roadComponents149(),mo=curMonth();
+  if(reach149.seq===netBuildSeq149&&reach149.month===mo&&reach149.mask)return reach149.mask;
+  const mask=new Uint8Array(NC),queue=[];
+  for(let a=0;a<nodes.length;a++){if(c.id&&c.id[a]!==c.main)continue;const cell=nodes[a];mask[cell]=1;queue.push(cell);}
+  for(let h=0;h<queue.length;h++){
+    const cell=queue[h],x=cell%W,y=(cell/W)|0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(mask[j])continue;
+      if(kind[j]!==K_EMPTY||roadBlocked149(j))continue;
+      mask[j]=1;queue.push(j);
+    }
+  }
+  reach149.seq=netBuildSeq149;reach149.month=mo;reach149.mask=mask;
+  return mask;
+}
+/* autoDistrictCandidate — 원본(v148)의 입지식을 그대로 두고, 본망에서 도달 불가능한 후보만 제외한다.
+   후보가 있었는데 전부 도달 불가능이면 정책차단 사유를 남겨 autoCreateProject가 '신규개발 보류' 결정을 기록하게 한다. */
+autoDistrictCandidate=function(role){
+  const reach=reachableFromMain149();
+  let best=null,bestScore=-1e9,gbBlocked=0,gbAreaBlocked=0,unreachable=0;
+  for(let y=5;y<H-5;y+=2)for(let x=5;x<W-5;x+=2){
+    const ci=idx(x,y);
+    if(gbelt[ci]){gbBlocked++;continue;}
+    if(kind[ci]!==K_EMPTY||water[ci])continue;
+    const nr=autoNearestRoad(x,y);
+    if(nr.node<0||nr.d<2||nr.d>18)continue;
+    let free=0,blocked=0,softN=0,forestN=0,farmN=0,noizN=0,gbN=0,waterN=0;
+    for(let yy=y-4;yy<=y+4;yy++)for(let xx=x-4;xx<=x+4;xx++){
+      const i=idx(xx,yy);
+      if(water[i])waterN++;
+      if(gbelt[i])gbN++;
+      if(soft[i])softN++;if(forest[i])forestN++;if(farm[i])farmN++;if(noiz[i])noizN++;
+      if(kind[i]===K_EMPTY||kind[i]===K_ROAD)free++;else blocked++;
+    }
+    if(gbN>22){gbAreaBlocked++;continue;}
+    if(waterN>10||blocked>12||free<62)continue;
+    if(!reach[ci]){unreachable++;simRnd();continue;}   // 난수 소비를 원본과 맞춰 나머지 순서를 보존한다
+    const access=Math.log10(1+accJ[nr.node]+accP[nr.node]);
+    const landNorm=rentMax>0?clamp(rentP[ci]/rentMax,0,1):0;
+    let sc=free*1.1-blocked*5-softN*0.45-forestN*0.18-farmN*0.08-nr.d*0.72-landNorm*5.2+access*4;
+    if(role==="neighborhood")sc-=noizN*0.8;
+    if(role==="industry")sc+=nr.d*0.28-noizN*0.05;
+    if(role==="office")sc+=access*2.5-nr.d*0.35;
+    if(role==="center")sc+=access*3.0-nr.d*0.45-noizN*.18;
+    sc+=simRnd()*1.5;
+    if(sc>bestScore){bestScore=sc;best={x,y,anchor:nr.cell,score:sc};}
+  }
+  autoDistrictPolicyBlock=!best&&(gbBlocked+gbAreaBlocked+unreachable)>0
+    ?{policy:unreachable>0?"수면·문화재·보호필지에 둘러싸여 연결도로 불가":"개발제한구역",count:gbBlocked+gbAreaBlocked+unreachable,role}:null;
+  return best;
+};
+
+/* 고립 성분 → 본망 최단 연결로 (빈 땅만 통과, 4방향, 개발제한구역 통과 가능). */
+const RECONNECT_MAX=48;   // 14km
+function reconnectPath149(compId){
+  const c=roadComponents149();
+  const prev=new Int32Array(NC).fill(-2),dist=new Int16Array(NC),queue=[];
+  for(let a=0;a<nodes.length;a++){
+    if(c.id[a]!==compId)continue;
+    const cell=nodes[a],x=cell%W,y=(cell/W)|0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;
+      prev[j]=-1;dist[j]=0;queue.push(j);
+    }
+  }
+  let end=-1;
+  for(let h=0;h<queue.length&&end<0;h++){
+    const cell=queue[h],x=cell%W,y=(cell/W)|0,d=dist[cell];
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];
+      if(nd>=0&&c.id[nd]===c.main){end=cell;break;}
+    }
+    if(end>=0||d>=RECONNECT_MAX)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;
+      prev[j]=cell;dist[j]=d+1;queue.push(j);
+    }
+  }
+  if(end<0)return null;
+  const path=[];for(let q=end;q>=0;q=prev[q])path.push(q);
+  return path.reverse();
+}
+let reconnectBlockedYear149=-1;
+function autoReconnectStep149(){
+  const c=roadComponents149(true);
+  if(c.main<0||c.info.length<=1)return false;
+  /* 주민·일자리·용도지정이 있는 고립 성분만 대상. 큰 것부터. */
+  const targets=c.info.filter(q=>q.c!==c.main&&(q.pop>0||q.jobs>0||q.zoned>0)).sort((a,b)=>(b.act+b.zoned*20)-(a.act+a.zoned*20));
+  if(!targets.length)return false;
+  for(const t of targets){
+    const path=reconnectPath149(t.c);
+    if(!path||!path.length){
+      /* 빈 땅으로는 못 잇는다(수면·문화재·보호필지 또는 48칸 초과) — 연 1회 정책차단으로 남긴다. 수면이면 교량사업이 따로 본다. */
+      const yr=Math.floor(curMonth()/12);
+      if(reconnectBlockedYear149!==yr){
+        reconnectBlockedYear149=yr;
+        plannerBlockedByPolicy(`reconnect-block-${t.c}-${yr}`,"단절 도로망 연결 보류",
+          `주민 ${Math.round(t.pop).toLocaleString()}명·일자리 ${Math.round(t.jobs).toLocaleString()}·용도지 ${t.zoned}필지가 있는 도로망이 본시가지와 끊겨 있으나 수면·문화재·보호필지를 지나지 않고 ${RECONNECT_MAX}칸 안에 이을 수 없음`,
+          "수면·보호필지",`고립 성분 ${t.c} · 노드 ${t.nodes}`,"transport",nodes.length?nodes[Math.max(0,c.id.indexOf(t.c))]:-1);
+      }
+      continue;
+    }
+    let cost=0;for(const i of path)cost+=autoRoadCost(i,1);
+    const ok=autoAct(cost,()=>{
+      for(const i of path){kind[i]=K_ROAD;rlev[i]=1;forest[i]=0;try{cond[i]=100;}catch(_){}}
+      netDirty=true;markStatic();
+    },`🔗 본시가지와 끊겨 있던 도로망(주민 ${Math.round(t.pop).toLocaleString()}명·용도지 ${t.zoned}필지)을 연결도로 ${path.length}칸으로 이었습니다.`);
+    if(ok){
+      plannerDecision(`reconnect-${t.c}-${curMonth()}`,"단절 도로망 연결도로 착수",
+        "본시가지와 연결되지 않은 성분은 접근성·기반시설 공급률이 0이라 어떤 용도지도 개발되지 않음",
+        `연결도로 ${path.length}칸 · 비용 ₩${Math.round(cost).toLocaleString()} · 고립 성분 노드 ${t.nodes}`,
+        "major",path[path.length-1],{domain:"transport",horizon:12});
+      return true;
+    }
+    /* 예산 부족 — 다음 달에 다시 본다 */
+    return false;
+  }
+  return false;
+}
+/* 공항 진입로 — v138 원본은 (a) 후보 셀이 '아무 도로'에 8방향으로 닿으면 끝이라 대각으로만 닿은
+   토막(그래프에서는 미연결)을 만들고, (b) 활주로 셀마다 인접도로를 요구해 토막을 매달 하나씩 더 늘렸다
+   (v149 초기 검증 시드 33: 공항 둘레에 미연결 토막 4개). 여기서는 공항 군집이 본망 노드에 8방향으로
+   하나라도 닿아 있으면 연결된 것으로 보고, 아니면 빈 땅(개발제한구역 통과 가능, 수면·보호필지 불가)을
+   4방향으로 탐색해 본망 노드에 4방향으로 접하는 칸에서 끝나는 진입로 하나를 놓는다. */
+const AIRPORT_ACCESS_MAX=24;
+function airportAccessStep149(){
+  if(typeof airportClusters!=="function")return false;
+  const groups=airportClusters();if(!groups.length)return false;
+  const c=roadComponents149();if(!c.id)return false;
+  const touchesMain=cell=>{const x=cell%W,y=(cell/W)|0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&c.id[nd]===c.main)return true;}
+    return false;};
+  let grp=null;for(const g of groups){if(!g.some(touchesMain)){grp=g;break;}}
+  if(!grp)return false;
+  const prev=new Int32Array(NC).fill(-2),dist=new Int16Array(NC),queue=[];
+  for(const cell of grp){const x=cell%W,y=(cell/W)|0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;prev[j]=-1;dist[j]=0;queue.push(j);}}
+  let end=-1;
+  for(let h=0;h<queue.length&&end<0;h++){
+    const cell=queue[h],x=cell%W,y=(cell/W)|0,d=dist[cell];
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&c.id[nd]===c.main){end=cell;break;}}
+    if(end>=0||d>=AIRPORT_ACCESS_MAX)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;prev[j]=cell;dist[j]=d+1;queue.push(j);}
+  }
+  if(end<0)return false;   // 강 건너 등 — 교량사업·연결도로 사업이 따로 본다
+  const path=[];for(let q=end;q>=0;q=prev[q])path.push(q);path.reverse();
+  let cost=0;for(const i of path)cost+=autoRoadCost(i,1);
+  return autoAct(cost,()=>{for(const i of path){kind[i]=K_ROAD;rlev[i]=1;forest[i]=0;try{cond[i]=100;}catch(_){}}netDirty=true;markStatic();},
+    '✈ 도시공항 진입로 '+path.length+'칸을 본시가지 도로망에 연결했습니다.');
+}
+/* 공항 진입로 슬롯: 진입로 → 고립 성분 연결 순으로 한 달에 하나만 한다. */
+autoAirportAccessStep=function(){
+  try{if(airportAccessStep149())return true;}catch(e){console.warn("[v149 airport]",e);}
+  try{return autoReconnectStep149();}catch(e){console.warn("[v149 reconnect]",e);return false;}
+};
+
+/* ── HUD: 배정 최신성 표시 ──
+   '평균 통행' 타일 라벨 옆의 점. 초록=이번 달 스윕 완료, 주황=N개월 전 값(비정상). gapBox는 폭이 고정이라 건드리지 않는다. */
+function sweepAgeMonths(){return sweepLog.lastWrapMonth<0?-1:accMonth()-sweepLog.lastWrapMonth;}
+function ensureHudDot(){
+  const k=document.querySelector('.stat[data-m="time"] .k');if(!k)return null;
+  let el=document.getElementById("sweepFresh149");
+  if(!el){el=document.createElement("span");el.id="sweepFresh149";el.style.cssText="display:inline-block;margin-left:4px;font-size:8px;line-height:1;vertical-align:middle;text-transform:none;letter-spacing:0";el.textContent="●";k.appendChild(el);}
+  return el;
+}
+let hudTick149=-1;
+const _updateHUD149=updateHUD;
+updateHUD=function(){
+  const r=_updateHUD149.apply(this,arguments);
+  if(tick!==hudTick149&&(tick&7)===0){
+    hudTick149=tick;
+    const el=ensureHudDot();
+    if(el){const age=sweepAgeMonths();
+      if(age<0){el.style.color="#8f867a";el.title="통행배정 대기 중";}
+      else if(age<=1){el.style.color="#8fc47f";el.title="통행배정 최신 — 이번 달 스윕 완료";}
+      else{el.style.color="#e08a3c";el.title=`통행배정 ${age}개월 전 값 — 스윕이 완료되지 않았습니다`;}}
+  }
+  return r;
+};
+
+/* ── 저장/새 도시: 스윕 장부는 저장하지 않는다(파생값). 새 도시·불러오기 때 비운다. ── */
+function resetSweepLog(){sweepLog.lastWrapMonth=-1;sweepLog.wrapsThisMonth=0;sweepLog.month=-1;sweepLog.flushRebuild=0;sweepLog.flushMonth=0;sweepLog.ring.length=0;comp149.seq=-1;reconnectBlockedYear149=-1;}
+const _newCity149=newCity;newCity=function(){resetSweepLog();return _newCity149.apply(this,arguments);};
+const _loadGame149=loadGame;loadGame=function(){const ok=_loadGame149.apply(this,arguments);if(ok)resetSweepLog();return ok;};
+
+/* ── 감사 ── */
+function audit149(){
+  const c=roadComponents149(true);
+  const isolated=c.info.filter(q=>q.c!==c.main&&(q.pop>0||q.jobs>0||q.zoned>0)).map(q=>({c:q.c,nodes:q.nodes,pop:Math.round(q.pop),jobs:Math.round(q.jobs),zoned:q.zoned}));
+  const ring=sweepLog.ring.slice(-12),months=ring.length,missed=ring.filter(v=>v===0).length;
+  return {version:TC149.version,
+    sweep:{lastWrapMonth:sweepLog.lastWrapMonth,ageMonths:sweepAgeMonths(),wrapsPerMonthLast12:ring,monthsObserved:months,monthsWithoutWrap:missed,flushOnRebuild:sweepLog.flushRebuild,flushOnMonthEnd:sweepLog.flushMonth},
+    network:{components:c.info.length,main:c.main,mainNodes:c.info[c.main]?.nodes||0,mainPop:Math.round(c.info[c.main]?.pop||0),isolatedWithActivity:isolated},
+    pass:missed===0&&isolated.length===0};
+}
+
+/* ── 버전 표기·변경이력 ── */
+function stamp149(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v149";
+  const b=document.getElementById("tcBuildBadge");if(b)b.textContent="v149";
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v149";
+  window.TC2_BUILD_VERSION="v149";
+  window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v149",build:149};
+}
+function sheet149(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v149-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");if(first&&first!==have)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v149Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v149</b><span>ASSIGNMENT CONTINUITY & NETWORK INTEGRITY</span></div><ul>'+
+    '<li>통행배정 스윕을 한 달에 최소 한 번 반드시 완료 — 망 재구축·월경계가 진행 중 스윕을 버리지 않고 마저 돌림</li>'+
+    '<li>성장기 도시에서 평균통행·V/C·VKT·지대·서비스도달권이 수년간 동결되던 문제 해소</li>'+
+    '<li>HUD에 배정 최신성 표시(배정 최신 / N개월 전)</li>'+
+    '<li>도로망 연결성분을 계산해 신도시·성장전선·공항 앵커를 본시가지 성분에만 둠</li>'+
+    '<li>계획관 도로(연결도로·지구 가로망)가 플레이어 도로처럼 개발제한구역을 지날 수 있음 — 용도·시설 배치는 여전히 금지</li>'+
+    '<li>주민·일자리·용도지가 있는 고립 도로망은 계획관이 연결도로 사업으로 이음 (수면·문화재·보호필지는 통과하지 않음)</li>'+
+    '<li>연결할 부지나 경로가 없으면 조용히 넘기지 않고 보류 결정으로 기록</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet149(){
+  const bg=document.getElementById("tcVersionBackdrop")||document.body;
+  if(!bg||bg.__v149obs)return;bg.__v149obs=true;
+  new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet149();}).observe(bg,{childList:true,subtree:true});
+}
+function init(){stamp149();watchSheet149();const b=document.getElementById("tcBuildBadge");if(b&&!b.__v149){b.__v149=true;b.addEventListener("click",()=>setTimeout(sheet149,60),true);}}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC149={loaded:true,...TC149,audit:audit149,components:()=>roadComponents149(true),sweepLog:()=>({...sweepLog,ring:sweepLog.ring.slice()}),reconnect:autoReconnectStep149,flush:()=>sweepFlush("manual")};
+if(window.__TC)Object.assign(window.__TC,{doTick:(...a)=>doTick(...a),audit149,roadComponents149,autoReconnectStep149,sweepLog149:()=>sweepLog});
+console.info("[TRAFFIC CITY 2] Assignment Continuity & Network Integrity v149 loaded");
+})();
+</script>
+\n</body>
 </html>
