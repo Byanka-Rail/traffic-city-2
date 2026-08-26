@@ -23281,16 +23281,35 @@ function svcSiteLoss151(i){
   return svcSitePeople151(i)+jobs*.75;
 }
 
+/* 원본 점수식은 사업비(AUTO_SVC_COST)와 유지비만 보고 <b>토지 보상비를 보지 못한다</b>.
+   그대로 두면 조성비 ₩90짜리 공원이 보상비 ₩7,000짜리 필지를 헐고 들어서도 점수가 같다
+   (사용자 226년차 화면에서 초록 공원 사각형이 건물 위로 계속 나타난 원인).
+   실제 도시공원 사업비의 대부분이 보상비인 것은 맞지만, 계획관이 그 돈을 못 보고 고르는 것은 틀렸다.
+   비토가 아니라 동점 처리로만 넣는다(점수의 최대 10%) — 수혜가 비슷하면 빈 땅과 값싼 땅이 이긴다.
+   더 크게 주면 '조금 더 좋은 자리'를 돈 때문에 포기해 생활권 회복이 느려진다.
+   autoBestServiceIntervention은 같은 (cat,i) 반복 안에서 marginal 직후 fiscal을 부르므로
+   방금 평가한 후보의 보상비를 그대로 물려준다. */
+let svcLastPrice151=0;
+const _fiscal151=autoServiceFiscalPressure;
+autoServiceFiscalPressure=function(cat){
+  const base=_fiscal151.apply(this,arguments);
+  const price=svcLastPrice151;
+  if(!(price>0))return base;
+  const build=Math.max(1,AUTO_SVC_COST[cat]||1);
+  return base+clamp(price/(price+build*3),0,1)*.02;
+};
+
 /* 한계수혜 평가 — 원본은 빈 땅만 봤다. 매입 가능 필지도 같은 잣대로 본다. */
 const _marginal151=autoServiceMarginalAt;
 autoServiceMarginalAt=function(cat,i){
+  svcLastPrice151=0;
   if(i>=0&&kind[i]!==K_EMPTY){
     if(!svcAcquirable151(i))return null;
     /* 원본과 같은 계산을 쓰되 K_EMPTY 검사만 우회한다. 잠시 빈 땅인 척한다. */
     const k0=kind[i],d0=dev[i];
     kind[i]=K_EMPTY;dev[i]=0;
     let m=null;try{m=_marginal151(cat,i);}finally{kind[i]=k0;dev[i]=d0;}
-    if(m){m.acquire=true;m.price=svcSitePrice151(i);m.people=svcSitePeople151(i);}
+    if(m){m.acquire=true;m.price=svcSitePrice151(i);m.people=svcSitePeople151(i);svcLastPrice151=m.price;}
     return m;
   }
   return _marginal151(cat,i);
@@ -23418,6 +23437,234 @@ window.__TC151={loaded:true,...TC151,audit:audit151,loadPresets:loadPresetText,e
   get on(){return presetOn;},set on(v){presetOn=!!v;invalidate();},svcAcquirable151,stats:()=>({...st151})};
 if(window.__TC)Object.assign(window.__TC,{audit151,loadPresets:loadPresetText,svcAcquirable151});
 console.info("[TRAFFIC CITY 2] Building Presets & Service Site Acquisition v151 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v152 DISPLACEMENT FEEDBACK
+
+   문제 (사용자 저장본 221년차 실측):
+     정착인구 525,103명 · 재정착 대기인구 dispPool 617,801명
+     → 도시 총거주인구의 54%가 집이 없다. 연 1.7만 명씩 단조 증가한다.
+     빈집은 356,707석 있는데 감당가능 필터를 통과하는 칸이 0개다.
+     그런데 대기자 월 이탈률은 저 0.014% · 중 0% · 고 0.166%,
+     같은 달 외부 유입은 1,601명이다.
+
+   원인:
+     cityMigrationUtility()가 dispPool을 아예 보지 않는다.
+       · jobsPerWorker의 분모가 S.pop — 집 있는 사람만 센다
+       · 부담률도 집 있는 사람만의 평균이다 (감당 못한 사람은 대기열에 있다)
+       · 못 들어가는 빈집 35.7만이 '선택지가 많다'며 효용에 가산된다
+     그래서 도시는 사람을 밀어낼수록 지표가 좋아지고, 새 사람이 계속
+     들어오고, 대기자는 나가지 않는다. 생존자 편향 되먹임이다.
+     모형이 자기가 만든 사람을 자기 지표에서 지운다.
+
+   고침 — 새 상수를 최소로 두고 이미 있는 양을 쓴다:
+     ① 일자리/노동자 분모를 residentPopulationTotal()로 (정착+대기)
+     ② afford 항에 housingAffordabilityStats().share[seg]를 곱한다
+        (이 함수는 이미 need에 dispSeg를 넣고 있다 — 계층별 '들어갈 수 있는 재고' 비율)
+     ③ vacChoice를 감당 가능한 공실 기준으로 (segmentBurdenAt<=BURDEN_OUT || pubHouse)
+     ④ 대기자가 보는 도시효용에서는 ③·공급파동 가산을 뺀다 — 못 들어가는 집은 선택지가 아니다
+     ⑤ 대기가 길어질수록 이탈 상한을 올린다. duration 식은 74장이 쓰는 것을 그대로 쓴다
+     ⑥ 58만 명이 어디에도 안 보이던 문제 — HUD 인구 칩과 모형 감사에 노출한다
+
+   ⑥ 외에는 전부 이주 효용 한 함수에서 끝난다. 배정·지대·자동계획 로직은 건드리지 않는다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC152?.loaded)return;
+const TC152=Object.freeze({version:"v152",build:152,title:"DISPLACEMENT FEEDBACK"});
+
+/* ══════════════ ① 월 캐시 ══════════════
+   두 통계 모두 4096칸을 훑는다. 이주 판단은 한 달에 한 번이므로
+   달이 바뀔 때만 다시 센다. curMonth()가 결정론적이라 캐시도 결정론적이다. */
+const cache={mo:-1,af:null,vac:null};
+function affordableVacancy152(){
+  const v=[0,0,0];
+  for(let i=0;i<NC;i++){
+    if(dev[i]<=0||(kind[i]!==K_R&&kind[i]!==K_MX)||site[i])continue;
+    const vac=resVacancyCell(i);if(vac<=0)continue;
+    for(let k=0;k<3;k++)if(pubHouse[i]||segmentBurdenAt(i,k)<=BURDEN_OUT)v[k]+=vac;
+  }
+  return v;
+}
+function stats152(){
+  const mo=curMonth();
+  if(cache.mo!==mo||!cache.af){cache.mo=mo;cache.af=housingAffordabilityStats();cache.vac=affordableVacancy152();}
+  return cache;
+}
+/* 달 단위 캐시로 충분하다 — refreshMigrationCandidates도 processRegionalOutmigration도
+   달마다 한 번만 돈다. 강제로 다시 세고 싶을 때만 부른다. */
+function invalidate152(){cache.mo=-1;}
+
+/* ══════════════ ②③④ 도시 이주효용 ══════════════
+   원식(5431행)의 가중치·상수를 그대로 둔다. 바뀐 것은 세 항의 '무엇을 세는가'다. */
+function cityUtil152(seg,unsettled){
+  const resTot=Math.max(1,residentPopulationTotal());          // ① 대기인구를 분모에 되돌린다
+  const jobsPerWorker=(S.jobs||0)/Math.max(1,resTot*WORK);
+  const job=clamp(.52+.55*(jobsPerWorker-1),0,1);
+  const b=[S.houseBurdenLo,S.houseBurdenMid,S.houseBurdenHi][seg]||S.burden||.9;
+  const c=stats152();
+  /* ② 남은 사람의 부담률 × 그 계층이 실제로 들어갈 수 있는 재고 비율.
+     share[0]=0이면 저소득에게 이 도시의 '감당 가능성'은 0이다 — 실제로 0이다. */
+  const afford=clamp(1.22-.48*b,0,1)*clamp((c.af.share[seg]||0),0,1);
+  const life=clamp((S.life15||0)*.58+(S.urbanism||0)*.27+(1-(S.lifePress||0))*.15,0,1);
+  const commute=1-clamp((S.avgT||28)/58,0,1);
+  const w=seg===0?[.34,.34,.18,.14]:seg===1?[.34,.25,.25,.16]:[.31,.15,.37,.17];
+  let u=job*w[0]+afford*w[1]+life*w[2]+commute*w[3];
+  if(!unsettled){
+    /* ③ 감당 가능한 공실만 '고를 수 있는 집'이다. */
+    const vacChoice=clamp((c.vac[seg]||0)/Math.max(1,S.housingCap||1),0,.55)/.55;
+    const supplyChoice=clamp(S.housingSupplyPulse||0,0,1);
+    u+=vacChoice*.055+supplyChoice*.035;
+  }
+  /* ④ 대기자에게는 신규공급 기대 가산이 없다. 그 집에 들어갈 수 있었다면 대기 중이 아니다. */
+  return clamp(u,0,1.12);
+}
+const _cityUtil=cityMigrationUtility;
+cityMigrationUtility=function(seg){return cityUtil152(seg,false);};
+
+/* ══════════════ ⑤ 대기 지속기간이 이탈을 만든다 ══════════════
+   74장의 duration 식을 그대로 쓴다: clamp((insecureAge-1)/8,0,1).
+   대기 9개월이면 1.0이 되고, 대기자의 월 이탈 상한이 0.35% → 1.05%가 된다.
+   정착민 쪽은 손대지 않는다 — 그쪽은 이사비용·학교·직장이라는 관성이 실재한다. */
+const WAIT_OUT_GAIN=2;
+const _outRate=regionalOutRate;
+regionalOutRate=function(seg,unsettled=false){
+  if(!unsettled)return _outRate.call(this,seg,false);
+  if(!gateways.length)return 0;
+  const cu=cityUtil152(seg,true);
+  let best=-Infinity;
+  for(let side=0;side<4;side++)if(gatewaySideCounts[side]){
+    const r=regionalMarkets[side];
+    best=Math.max(best,regionMigrationUtility(r,seg)-REGION_MOVE_FRICTION-r.time*.0011);
+  }
+  const duration=clamp((insecureAge-1)/8,0,1);
+  const maxRate=REGION_MIG_MONTH*(1+WAIT_OUT_GAIN*duration);
+  const advantage=best-cu;                                   // 대기자는 stayBias가 0이다 (원식 그대로)
+  return advantage>0?maxRate*clamp(advantage/Math.max(.035,REGION_MOVE_FRICTION*3),0,1):0;
+};
+
+/* ══════════════ ⑥ 보이게 한다 ══════════════ */
+function waitShare(){const r=residentPopulationTotal();return r>0?dispPool/r:0;}
+function fmtN(v){try{return fmt(Math.round(v));}catch(_){return String(Math.round(v));}}
+
+let popNote=null;
+function ensurePopNote(){
+  if(popNote&&popNote.isConnected)return popNote;
+  const st=document.querySelector('#hud .stat[data-m="pop"]');if(!st)return null;
+  const k=st.querySelector(".k");if(!k)return null;
+  popNote=document.createElement("span");
+  popNote.id="v152PopNote";
+  popNote.style.cssText="display:block;font-size:9px;line-height:1.15;font-weight:700;letter-spacing:-.02em;margin-top:1px";
+  k.appendChild(popNote);
+  return popNote;
+}
+/* HUD의 '인구'는 원래부터 S.residentPop = 정착 + 대기다 (15725행).
+   빠져 있던 것은 그 안에 집 없는 사람이 몇 %인가였다. 한 줄을 더한다. */
+function syncPopNote(){
+  const n=ensurePopNote();if(!n)return;
+  const sh=waitShare();
+  if(dispPool<1||sh<.01){n.textContent="";return;}
+  n.textContent=`무주택 ${(sh*100).toFixed(0)}%`;
+  n.style.color=sh>=.25?"#e08a7a":sh>=.08?"#d9a441":"rgba(255,255,255,.50)";
+  const st=n.closest(".stat");
+  if(st)st.title=`총거주 ${fmtN(residentPopulationTotal())}명 = 정착 ${fmtN(S.pop||0)} + 재정착 대기 ${fmtN(dispPool)}명 (${(sh*100).toFixed(1)}%)\n`+
+    `대기 중 지도에 보이는 사람: 비공식 ${fmtN(S.informalPop||0)} · 불안정 ${fmtN(S.roughPop||0)} · 나머지 ${fmtN(Math.max(0,dispPool-(S.informalPop||0)-(S.roughPop||0)))}명은 위치 없음`;
+}
+const _hud152=updateHUD;
+updateHUD=function(){const r=_hud152.apply(this,arguments);try{syncPopNote();}catch(_){ }return r;};
+
+/* 대기열 추세 — 12개월 이동 기록. UI 전용이므로 시뮬레이션에 되먹이지 않는다. */
+const hist=[];
+function noteHist(){
+  const mo=curMonth();
+  if(hist.length&&hist[hist.length-1][0]===mo)return;
+  hist.push([mo,dispPool]);
+  while(hist.length>1&&mo-hist[0][0]>12)hist.shift();
+}
+function trend12(){
+  noteHist();
+  if(hist.length<2)return null;
+  const [m0,d0]=hist[0],[m1,d1]=hist[hist.length-1];
+  const months=Math.max(1,m1-m0);
+  return {perYear:(d1-d0)*12/months,months};
+}
+
+const _audit152=modelAudit;
+modelAudit=function(){
+  const a=_audit152.apply(this,arguments);
+  try{
+    const t=trend12(),res=Math.max(1,residentPopulationTotal()),sh=dispPool/res;
+    const growth=t?t.perYear:0;
+    const bad=sh>=.25||(t&&t.months>=6&&growth>res*.02);
+    const warn=!bad&&(sh>=.08||(t&&t.months>=6&&growth>0));
+    a.tests.push({id:"waittrend",nm:"재정착 대기열 추세",
+      status:bad?"fail":warn?"warn":"pass",
+      why:"대기인구는 도시가 흡수하거나 도시를 떠나야 한다. 총거주인구의 25%를 넘거나 해마다 인구의 2% 이상 쌓이면 회계는 맞아도 모형이 사람을 잃고 있는 것이다.",
+      detail:`대기 ${fmtN(dispPool)}명 · 총거주 대비 ${(sh*100).toFixed(1)}%`+(t&&t.months>=2?` · 최근 ${t.months}개월 추세 ${growth>=0?"+":""}${fmtN(growth)}명/년`:" · 추세 관측 중"),
+      kind:"health"});
+    a.pass=a.tests.filter(q=>q.status==="pass").length;
+    a.warn=a.tests.filter(q=>q.status==="warn").length;
+    a.fail=a.tests.filter(q=>q.status==="fail").length;
+  }catch(_){ }
+  return a;
+};
+
+/* ══════════════ 감사 API ══════════════ */
+function audit152(){
+  const c=stats152(),res=residentPopulationTotal();
+  return {version:TC152.version,
+    pop:Math.round(S.pop||0),waiting:Math.round(dispPool),resident:Math.round(res),
+    waitShare:+(dispPool/Math.max(1,res)).toFixed(3),
+    affShare:c.af.share.map(v=>+v.toFixed(3)),
+    affVacancy:c.vac.map(v=>Math.round(v)),
+    housingVacant:Math.round(S.housingVacant||0),
+    cityUtil:[0,1,2].map(k=>+cityUtil152(k,false).toFixed(4)),
+    cityUtilWait:[0,1,2].map(k=>+cityUtil152(k,true).toFixed(4)),
+    outWait:[0,1,2].map(k=>+regionalOutRate(k,true).toFixed(5)),
+    outHoused:[0,1,2].map(k=>+regionalOutRate(k,false).toFixed(5)),
+    insecureAge,trend:trend12()};
+}
+
+/* ══════════════ 버전 표기 ══════════════ */
+function stamp152(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v152";
+  const b=document.getElementById("tcBuildBadge");if(b)b.textContent="v152";
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v152";
+  window.TC2_BUILD_VERSION="v152";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v152",build:152};
+}
+function sheet152(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v152-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<152)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v152Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v152</b><span>DISPLACEMENT FEEDBACK</span></div><ul>'+
+    '<li>재정착 대기인구가 도시 지표로 돌아옴 — 일자리/노동자 분모, 감당가능 재고, 공실 선택가치</li>'+
+    '<li>못 들어가는 빈집은 더 이상 이주 매력으로 가산되지 않음 (35.7만 석이 효용을 올리던 문제)</li>'+
+    '<li>대기가 길어질수록 도시를 떠남 — 대기자 월 이탈 상한 0.35% → 최대 1.05%</li>'+
+    '<li>HUD 인구 칩에 대기인구 표기 · 모형 감사에 「재정착 대기열 추세」 추가</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet152(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v152obs)return;bg.__v152obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet152();}).observe(bg,{childList:true,subtree:true});}
+/* v141 모듈이 250·420·900ms 뒤에 자기 BUILD.version으로 다시 찍는다. 그 뒤에 한 번 더 찍는다. */
+function watchBadge152(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v152obs)return;
+  b.__v152obs=true;
+  new MutationObserver(()=>{if(b.textContent!=="v152")b.textContent="v152";}).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function init(){
+  stamp152();watchSheet152();
+  for(const d of [300,700,1200,2000])setTimeout(()=>{stamp152();watchBadge152();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v152){b.__v152=true;b.addEventListener("click",()=>setTimeout(sheet152,100),true);}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC152={loaded:true,...TC152,audit:audit152,cityUtil:cityUtil152,invalidate:invalidate152,
+  original:{cityMigrationUtility:_cityUtil,regionalOutRate:_outRate}};
+if(window.__TC)Object.assign(window.__TC,{audit152});
+console.info("[TRAFFIC CITY 2] Displacement Feedback v152 loaded");
 })();
 </script>
 
