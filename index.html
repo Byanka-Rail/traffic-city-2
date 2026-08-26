@@ -21551,11 +21551,11 @@ window.__TC={
 
   const BUILD_INFO = Object.freeze({
     product:'TRAFFIC CITY 2',
-    version:'v149',
-    build:149,
+    version:'v150',
+    build:150,
     saveSchemaVersion:47,
     terminology:'academic-consistency-2',
-    title:'ASSIGNMENT CONTINUITY & NETWORK INTEGRITY'
+    title:'ROAD ACQUISITION & NETWORK REDUNDANCY'
   });
   const WEB_URL='https://byanka-rail.github.io/traffic-city-2/';
 
@@ -21780,7 +21780,7 @@ window.__TC={
 (() => {
   'use strict';
   if(window.__TC2_V141?.loaded)return;
-  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v149',build:149,saveSchemaVersion:47,title:'ASSIGNMENT CONTINUITY & NETWORK INTEGRITY'});
+  const BUILD=Object.freeze({product:'TRAFFIC CITY 2',version:'v150',build:150,saveSchemaVersion:47,title:'ROAD ACQUISITION & NETWORK REDUNDANCY'});
 
   function sourceName(){
     if(location.protocol==='https:'&&/byanka-rail\.github\.io$/i.test(location.hostname))return 'GitHub Pages';
@@ -22690,7 +22690,7 @@ function stamp149(){
 function sheet149(){
   const sh=document.getElementById("tcVersionSheet");if(!sh)return;
   const have=sh.querySelector("[data-v149-entry]");
-  if(have){const first=sh.querySelector(".tcVEntry");if(first&&first!==have)first.before(have);return;}
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<149)first.before(have);return;}
   const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v149Entry="1";
   sec.innerHTML='<div class="tcVTitle"><b>v149</b><span>ASSIGNMENT CONTINUITY & NETWORK INTEGRITY</span></div><ul>'+
     '<li>통행배정 스윕을 한 달에 최소 한 번 반드시 완료 — 망 재구축·월경계가 진행 중 스윕을 버리지 않고 마저 돌림</li>'+
@@ -22715,5 +22715,337 @@ if(window.__TC)Object.assign(window.__TC,{doTick:(...a)=>doTick(...a),audit149,r
 console.info("[TRAFFIC CITY 2] Assignment Continuity & Network Integrity v149 loaded");
 })();
 </script>
-\n</body>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v150 ROAD ACQUISITION & NETWORK REDUNDANCY
+   문제: 계획관 도로 경로가 빈 땅만 지나므로 시가지가 차면 우회도로를 낼 자리가 없고,
+         신규지구는 진입로가 하나뿐이라 지구가 사슬로 이어져 통행이 한 칸으로 몰린다
+         (사용자 저장본 52년차: 도로그래프 단절링크 91개 / 노드 220, 최대 링크 V/C 3.71).
+   처리: (1) 토지보상·철거를 포함한 도로 경로 탐색 — 보상비는 토지비축 매입가 bankPrice(i)
+             (잠재지대+건축분+정착기간+과밀가구), 주민은 displaceResidents로 재정착 대기열로.
+         (2) 신규지구는 진입로를 2개(서로 다른 방향의 본망 앵커)로 놓는다.
+         (3) 6개월마다 도로그래프의 단절링크(bridge edge)를 찾아, 뒤에 매달린 인구·일자리가 크고
+             그 링크가 포화면 사전 교통영향평가(roadTIAEvaluateX)로 확인한 뒤 우회도로를 놓는다.
+         (4) 혼잡이 심하면 지구사업과 별도로 회랑 교통영향평가(autoCorridorStep)를 돌린다.
+         (5) 기반시설(발전·정수·폐기물) 부지가 없으면 숲 정리 또는 비주거 필지 매입으로 확보한다.
+         (6) 정책 레버 '도로개설 토지보상' — 불허 / 상업·공업만 / 주거 포함 (기본: 상업·공업만).
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC150?.loaded)return;
+const TC150=Object.freeze({version:"v150",build:150,title:"ROAD ACQUISITION & NETWORK REDUNDANCY"});
+
+/* ── 정책: 도로개설 토지보상 범위 ── */
+const ROAD_ACQ_STEPS=["불허","상업·공업만","주거 포함"];
+let roadAcqIx=1;
+const st150={bypassLast:-99,corridorLast:-99,access2Last:-99,utilLast:-99,spent:0,acquired:0,displaced:0,bypasses:0,access2:0};
+function roadAcqLabel(){return ROAD_ACQ_STEPS[roadAcqIx];}
+function setRoadAcq(dir){
+  const ix=clamp(roadAcqIx+dir,0,ROAD_ACQ_STEPS.length-1);if(ix===roadAcqIx)return;roadAcqIx=ix;
+  try{policySocialPost("roadacq",`도로개설 토지보상 범위를 '${roadAcqLabel()}'으로 정했습니다.`,["교통","주거"],{dir,value:roadAcqLabel()});}catch(_){ }
+  try{flash(`🏗 도로개설 보상: ${roadAcqLabel()}`);}catch(_){ }
+  renderAcqRow();
+  if(typeof updatePanel==="function"&&(panelOpen||policyOpen))updatePanel();
+}
+/* 매입해서 도로로 바꿀 수 있는 필지인가 (도로·빈 땅은 별도) */
+function acquirable150(i){
+  const k=kind[i];
+  if(k===K_ROAD||k===K_EMPTY)return false;
+  if(!isZoneK(k))return false;                                  // 학교·의료·공원·기반시설·공항·문화재는 매입 대상이 아니다
+  if(water[i]||heri[i]||landBank[i]||pubHouse[i]||zoneOwner[i]===ZONE_PLAYER)return false;
+  if(roadAcqIx===0)return false;
+  if(roadAcqIx===1&&(k===K_R||k===K_MX))return false;
+  return true;
+}
+function compOf150(i){return acquirable150(i)?bankPrice(i):0;}
+function residentsOf150(i){try{return (kind[i]===K_R||kind[i]===K_MX)?Math.round(resFormalPop(i)||0):0;}catch(_){return 0;}}
+
+/* ── 보상 포함 경로 탐색 ──
+   sources: 출발 도로칸 목록(비용 0). isGoal(cell): 여기까지 오면 새 도로가 본망에 접한다.
+   기존 도로칸은 지나지 않는다(새 도로여야 우회가 된다). 가중치는 돈 단위/60 + 이주 주민 페널티. */
+const ACQ_UNIT=60;
+function roadPath150(sources,isGoal,opt={}){
+  const maxLen=opt.maxLen||40,allowAcq=opt.allowAcq!==false;
+  const dist=new Float64Array(NC).fill(Infinity),prev=new Int32Array(NC).fill(-2),hops=new Int16Array(NC);
+  const heap=[],hd=[];
+  const push=(v,d)=>{let i=heap.length;heap.push(v);hd.push(d);while(i>0){const p=(i-1)>>1;if(hd[p]<=hd[i])break;[heap[p],heap[i]]=[heap[i],heap[p]];[hd[p],hd[i]]=[hd[i],hd[p]];i=p;}};
+  const pop=()=>{const v=heap[0],d=hd[0],L=heap.length-1;heap[0]=heap[L];hd[0]=hd[L];heap.pop();hd.pop();let i=0;while(true){const l=i*2+1,r=l+1;let m=i;if(l<heap.length&&hd[l]<hd[m])m=l;if(r<heap.length&&hd[r]<hd[m])m=r;if(m===i)break;[heap[m],heap[i]]=[heap[i],heap[m]];[hd[m],hd[i]]=[hd[i],hd[m]];i=m;}return [v,d];};
+  const passable=j=>{if(kind[j]===K_ROAD)return false;if(kind[j]===K_EMPTY)return !(water[j]||heri[j]||landBank[j]||pubHouse[j]||zoneOwner[j]===ZONE_PLAYER);return allowAcq&&acquirable150(j);};
+  const weight=j=>{let w=(autoRoadCost(j,1)+compOf150(j))/ACQ_UNIT;if(kind[j]===K_EMPTY){if(soft[j])w+=1;}else{w+=residentsOf150(j)/40+1.5;}return w;};
+  for(const s of sources){if(s<0)continue;dist[s]=0;prev[s]=-1;hops[s]=0;push(s,0);}
+  let end=-1;
+  while(heap.length){
+    const [v,d]=pop();if(d>dist[v]+1e-9)continue;
+    if(prev[v]!==-1&&isGoal(v)){end=v;break;}
+    if(hops[v]>=maxLen)continue;
+    const x=v%W,y=(v/W)|0;
+    for(let q=0;q<4;q++){const nx=x+DX[q],ny=y+DY[q];if(!inb(nx,ny))continue;const u=idx(nx,ny);
+      if(!passable(u))continue;
+      const nd=d+weight(u);
+      if(nd<dist[u]-1e-9){dist[u]=nd;prev[u]=v;hops[u]=hops[v]+1;push(u,nd);}}
+  }
+  if(end<0)return null;
+  const path=[];let v=end,guard=0;while(v>=0&&prev[v]!==-1&&guard++<NC){path.push(v);v=prev[v];}
+  path.reverse();
+  let cost=0,comp=0,people=0,acq=0;
+  for(const i of path){cost+=autoRoadCost(i,1);if(kind[i]!==K_EMPTY){comp+=compOf150(i);people+=residentsOf150(i);acq++;}}
+  return {path,start:v,cost:cost+comp,roadCost:cost,comp,people,acq};
+}
+/* 경로를 실제로 놓는다 — 보상·철거·이주·도로개설. 돈은 여기서 한 번에 나간다. */
+function buildRoadPath150(r,why){
+  if(!r||!r.path.length)return false;
+  if(money<r.cost*1.15)return false;
+  money-=r.cost;st150.spent+=r.cost;
+  for(const i of r.path){
+    if(kind[i]!==K_EMPTY){
+      try{displaceResidents(i,why);}catch(_){ }
+      try{clearDiagCell(i);}catch(_){ }
+      if(typeof site!=="undefined"){site[i]=0;if(typeof siteTo!=="undefined")siteTo[i]=0;}
+      dev[i]=0;builtAt[i]=0;ctrl[i]=0;zoneOwner[i]=ZONE_NONE;st150.acquired++;
+    }
+    kind[i]=K_ROAD;rlev[i]=1;forest[i]=0;try{cond[i]=100;}catch(_){ }
+  }
+  st150.displaced+=r.people;
+  netDirty=true;try{warm();}catch(_){ }markStatic();
+  return true;
+}
+function acqText150(r){return r.acq?` · 토지보상 ${r.acq}필지 ₩${Math.round(r.comp).toLocaleString()}${r.people?` · 이주 ${r.people.toLocaleString()}명`:""}`:"";}
+function acqCap150(){return Math.max(5000,Math.min(money*.45,(S.rev||0)*24));}
+
+/* ── 도로그래프 도구 ── */
+function mainSet150(){const c=window.__TC149.components();const s=new Uint8Array(nodes.length);if(c.id)for(let a=0;a<nodes.length;a++)if(c.id[a]===c.main)s[a]=1;return s;}
+function bridges150(){
+  const n=nodes.length,disc=new Int32Array(n).fill(-1),low=new Int32Array(n),out=[];let t=0;
+  const dfs=(u,pe)=>{disc[u]=low[u]=t++;for(let k=0;k<deg[u];k++){const v=adj[u*RSTR+k];if(v<0)continue;
+    if(disc[v]<0){dfs(v,u);if(low[v]<low[u])low[u]=low[v];if(low[v]>disc[u])out.push([u,v]);}else if(v!==pe&&disc[v]<low[u])low[u]=disc[v];}};
+  for(let s=0;s<n;s++)if(disc[s]<0)dfs(s,-1);
+  return out;
+}
+/* (u,v) 링크를 끊었을 때 v 쪽에 남는 노드 집합과 그 안의 인구·일자리 */
+function sideOf150(u,v){
+  const n=nodes.length,seen=new Uint8Array(n),q=[v];seen[v]=1;let pop=0,jobs=0;
+  for(let h=0;h<q.length;h++){const a=q[h];pop+=popAt[a]||0;jobs+=jobAt[a]||0;
+    for(let k=0;k<deg[a];k++){const b=adj[a*RSTR+k];if(b<0||seen[b])continue;if(a===v&&b===u)continue;seen[b]=1;q.push(b);}}
+  return {set:seen,n:q.length,pop,jobs,mass:pop+jobs*.5};
+}
+function hopsFrom150(root,within){const n=nodes.length,h=new Int16Array(n).fill(-1),q=[root];h[root]=0;for(let i=0;i<q.length;i++){const a=q[i];for(let k=0;k<deg[a];k++){const b=adj[a*RSTR+k];if(b<0||h[b]>=0||(within&&!within[b]))continue;h[b]=h[a]+1;q.push(b);}}return h;}
+function edgeVC150(u,v){for(let k=0;k<deg[u];k++){if(adj[u*RSTR+k]===v){const e=u*RSTR+k;return eCap[e]>0?eFlow[e]/eCap[e]:0;}}return 0;}
+/* 사전 교통영향평가: 가상 링크 하나를 넣었을 때 전체 통행시간 변화(%) */
+function tiaDelta150(aCell,bCell,km){
+  try{
+    const od=roadTIABuildOD();if(!od)return null;
+    const iters=nodes.length>1800?3:4,base=roadTIAEvaluateX(od,[],0,[],iters);if(!base||!(base.tstt>0))return null;
+    const m=roadTIAEvaluateX(od,[],0,[{a:nodeOf[aCell],b:nodeOf[bCell],km,level:1}],iters);if(!m)return null;
+    return 100*(m.tstt/base.tstt-1);
+  }catch(_){return null;}
+}
+
+/* ── (3) 단절링크 우회도로 사업 ── */
+const BYPASS_EVERY=6,BYPASS_MIN_MASS=1500,BYPASS_MIN_VC=.70;
+function autoBypassStep150(){
+  if(curMonth()-st150.bypassLast<BYPASS_EVERY)return false;
+  if(!((S.avgVC||0)>=.62||(S.avgT||0)>=22))return false;
+  const n=nodes.length;if(n<20)return false;
+  const main=mainSet150();
+  const cands=[];
+  for(const [u,v] of bridges150()){
+    if(!main[u]||!main[v])continue;
+    const sv=sideOf150(u,v),su=sideOf150(v,u);
+    const small=sv.mass<=su.mass?{root:v,other:u,side:sv,big:su}:{root:u,other:v,side:su,big:sv};
+    if(small.side.n<3||small.side.mass<BYPASS_MIN_MASS)continue;
+    const vc=edgeVC150(u,v);
+    if(vc<BYPASS_MIN_VC&&small.side.mass<BYPASS_MIN_MASS*4)continue;
+    cands.push({u,v,vc,...small,score:small.side.mass*(0.5+vc)});
+  }
+  if(!cands.length){st150.bypassLast=curMonth();return false;}
+  cands.sort((a,b)=>b.score-a.score);
+  const cap=acqCap150();let tried=0;
+  for(const c of cands.slice(0,4)){
+    tried++;
+    const hIn=hopsFrom150(c.root,c.side.set),hOut=hopsFrom150(c.other,c.big.set);
+    const sources=[];for(let a=0;a<n;a++)if(c.side.set[a]&&hIn[a]>=1)sources.push(nodes[a]);
+    if(!sources.length)continue;
+    const goalNode=new Uint8Array(n);for(let a=0;a<n;a++)if(c.big.set[a]&&hOut[a]>=2)goalNode[a]=1;
+    const isGoal=cell=>{const x=cell%W,y=(cell/W)|0;for(let q=0;q<4;q++){const nx=x+DX[q],ny=y+DY[q];if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&goalNode[nd])return true;}return false;};
+    const r=roadPath150(sources,isGoal,{maxLen:40});
+    if(!r||r.path.length<1||r.cost>cap)continue;
+    /* 끝 도로칸(본망 쪽) 찾기 */
+    const last=r.path[r.path.length-1];let endCell=-1;{const x=last%W,y=(last/W)|0;for(let q=0;q<4&&endCell<0;q++){const nx=x+DX[q],ny=y+DY[q];if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&goalNode[nd])endCell=idx(nx,ny);}}
+    const km=(r.path.length+1)*TILE_M/1000,delta=tiaDelta150(r.start,endCell,km);
+    if(delta!==null&&delta>0.2)continue;                       // 전체 통행시간을 악화시키는 안만 거른다 — 단절 해소 자체의 가치는 TSTT에 다 잡히지 않는다
+    const why=`우회도로 개설로 토지가 수용되었습니다 — 보상 후 재정착 경로로 이동합니다`;
+    if(!buildRoadPath150(r,why))continue;
+    st150.bypassLast=curMonth();st150.bypasses++;
+    const dir=autoDirName(r.start%W,(r.start/W)|0);
+    autoPost(`🛣 ${dir} 우회도로 ${r.path.length}칸을 개설했습니다. 단절링크 V/C ${c.vc.toFixed(2)} 뒤에 주민 ${Math.round(c.side.pop).toLocaleString()}명·일자리 ${Math.round(c.side.jobs).toLocaleString()}이 매달려 있었습니다${delta!==null?` · 예상 통행시간 ${delta.toFixed(1)}%`:""}${acqText150(r)}.`);
+    plannerDecision(`bypass-${curMonth()}`,`${dir} 우회도로 개설`,
+      "도로망 단절링크 하나에 인구·일자리가 매달려 있고 그 링크가 포화 — 대체 경로가 없으면 확폭·대중교통으로도 풀리지 않음",
+      `링크 V/C ${c.vc.toFixed(2)} · 배후 ${Math.round(c.side.mass).toLocaleString()} · ${r.path.length}칸 ₩${Math.round(r.cost).toLocaleString()}${acqText150(r)}${delta!==null?` · TIA ${delta.toFixed(1)}%`:""}`,
+      "major",r.start,{domain:"transport",horizon:12});
+    return true;
+  }
+  st150.bypassLast=curMonth()-Math.floor(BYPASS_EVERY/2);      // 후보는 있었으나 못 놓음 — 3개월 뒤 다시
+  if(tried&&roadAcqIx===0){const yr=Math.floor(curMonth()/12);plannerBlockedByPolicy(`bypass-policy-${yr}`,"우회도로 개설 보류","단절링크 뒤에 인구·일자리가 매달려 있으나 토지보상이 불허라 시가지를 지나는 대안경로를 놓을 수 없음","도로개설 토지보상 불허",`후보 ${cands.length}곳`,"transport");}
+  return false;
+}
+
+/* ── (2) 신규지구 제2진입로 ── */
+const _autoCreateProject150=autoCreateProject;
+autoCreateProject=function(){
+  const ok=_autoCreateProject150.apply(this,arguments);
+  if(!ok||!autoProject||autoProject.type!=="district")return ok;
+  try{secondAccess150(autoProject);}catch(e){console.warn("[v150 access2]",e);}
+  return ok;
+};
+function secondAccess150(p){
+  const n=nodes.length,main=mainSet150();
+  const planSet=new Set(p.roadPlan);
+  const first=p.roadPlan.length?p.roadPlan[0]:-1;if(first<0)return;
+  const cx=p.cx,cy=p.cy,a1=Math.atan2(((first/W)|0)-cy,(first%W)-cx);
+  const goalNode=new Uint8Array(n);let any=0;
+  for(let a=0;a<n;a++){if(!main[a])continue;const c=nodes[a];if(planSet.has(c))continue;const x=c%W,y=(c/W)|0,d=Math.abs(x-cx)+Math.abs(y-cy);if(d>22||d<3)continue;
+    let da=Math.abs(Math.atan2(y-cy,x-cx)-a1);if(da>Math.PI)da=2*Math.PI-da;if(da<Math.PI*.5)continue;goalNode[a]=1;any++;}
+  if(!any)return;
+  const sources=p.roadPlan.filter(i=>Math.max(Math.abs(i%W-cx),Math.abs(((i/W)|0)-cy))<=p.releaseRadius&&kind[i]!==K_ROAD);
+  if(!sources.length)return;
+  const isGoal=cell=>{const x=cell%W,y=(cell/W)|0;for(let q=0;q<4;q++){const nx=x+DX[q],ny=y+DY[q];if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&goalNode[nd])return true;}return false;};
+  /* 지구 안 계획도로 칸은 아직 빈 땅이라 passable — 경로가 지구 격자를 지나 밖으로 나가도 된다 */
+  const r=roadPath150(sources,isGoal,{maxLen:24});
+  if(!r||r.cost>acqCap150()*.5)return;
+  const cells=r.path.filter(i=>!planSet.has(i));if(!cells.length)return;
+  /* 매입 필지는 지금 보상·철거하고, 빈 칸은 지구 도로계획 뒤에 붙여 정상 시공 단계에서 놓는다 */
+  const acq=cells.filter(i=>kind[i]!==K_EMPTY),empty=cells.filter(i=>kind[i]===K_EMPTY);
+  if(acq.length){const sub={path:acq,start:r.start,cost:acq.reduce((z,i)=>z+autoRoadCost(i,1)+compOf150(i),0),roadCost:0,comp:acq.reduce((z,i)=>z+compOf150(i),0),people:acq.reduce((z,i)=>z+residentsOf150(i),0),acq:acq.length};
+    if(!buildRoadPath150(sub,`${p.name} 제2진입로 개설로 토지가 수용되었습니다`))return;}
+  for(const i of empty)p.roadPlan.push(i);
+  p.secondAccess150=true;st150.access2++;st150.access2Last=curMonth();
+  autoPost(`↔ ${p.name}: 다른 방향의 본망 도로로 제2진입로 ${cells.length}칸을 계획했습니다. 진입로가 하나면 지구 전체 통행이 한 링크로 몰립니다${acqText150(r)}.`);
+  plannerDecision(`access2-${p.id}`,`${p.name} 제2진입로`,"신규지구 진입로가 하나면 단절링크가 되어 성장할수록 병목이 됨 — 서로 다른 방향의 본망 앵커 2개를 원칙으로 함",`${cells.length}칸${acqText150(r)}`,"major",p.serviceCell,{domain:"transport",horizon:12});
+}
+
+/* ── (5) 기반시설 부지 확보 — 숲 정리 → 비주거 필지 매입 ── */
+const _autoUtilityStep150=autoUtilityStep;
+autoUtilityStep=function(){
+  const done=_autoUtilityStep150.apply(this,arguments);
+  if(done)return done;
+  try{return utilitySiteFallback150();}catch(e){console.warn("[v150 utility]",e);return false;}
+};
+function utilitySiteFallback150(){
+  if(curMonth()-st150.utilLast<2)return false;
+  const map=[[0,K_PWR,9000,"발전소"],[1,K_WTR,6000,"정수장"],[2,K_WST,7000,"폐기물처리장"]];
+  for(const [u,kk,cost,nm] of map){
+    const raw=utilityRawStatus(u),reserve=utilReserveTarget();
+    if(!isFinite(raw.ratio)||raw.ratio>=reserve)continue;
+    const target=raw.comp;let best=-1,bs=-1e9,bestExtra=0,mode="";
+    for(let i=0;i<NC;i++){
+      if(gbelt[i]||water[i])continue;
+      const x=i%W,y=(i/W)|0,nd=nearNode(x,y,2);if(nd<0)continue;
+      if(target>=0&&roadComp[nd]!==target)continue;
+      let extra=0,m="";
+      if(kind[i]===K_EMPTY){if(!forest[i])continue;extra=CLEAR_COST;m="숲 정리";}                  // 원본이 숲을 제외했다
+      else{if(!(kind[i]===K_I||kind[i]===K_AGR||kind[i]===K_C||kind[i]===K_OFF))continue;if(!acquirable150(i))continue;extra=bankPrice(i);m="필지 매입";}
+      let sc=-Math.log10(1+accP[nd])*4-popAt[nd]*0.03+Math.hypot(x-SEED_CX,y-SEED_CY)*0.18-extra/120;
+      if(kk===K_WTR){for(let d=0;d<4;d++){const nx=x+DX[d],ny=y+DY[d];if(inb(nx,ny)&&water[idx(nx,ny)])sc+=3;}}
+      if(sc>bs){bs=sc;best=i;bestExtra=extra;mode=m;}
+    }
+    if(best<0)continue;
+    const total=cost+bestExtra;if(money<total*1.2)continue;
+    money-=total;st150.spent+=bestExtra;
+    if(kind[best]!==K_EMPTY){try{displaceResidents(best,`${nm} 부지로 수용되었습니다`);}catch(_){ }st150.acquired++;}
+    kind[best]=kk;dev[best]=1;forest[best]=0;zoneOwner[best]=ZONE_NONE;builtAt[best]=0;ctrl[best]=0;
+    netDirty=true;try{warm();}catch(_){ }markStatic();st150.utilLast=curMonth();
+    autoPost(`⚙️ ${nm}${nm.endsWith("소")?"를":"을"} ${mode}으로 부지를 확보해 증설했습니다 (₩${Math.round(bestExtra).toLocaleString()} 추가). 원시 예비율 ${Math.round(raw.ratio*100)}%가 기준 ${Math.round(reserve*100)}% 아래였고 빈 부지가 없었습니다.`);
+    plannerDecision(`utility-acq-${u}-${Math.floor(curMonth()/6)}`,`${nm} 증설 (${mode})`,"공급부족 연결망 안에 빈 부지가 없어 숲 정리 또는 비주거 필지 매입으로 확보",`원시예비 ${Math.round(raw.ratio*100)}% · 기준 ${Math.round(reserve*100)}% · 추가비 ₩${Math.round(bestExtra).toLocaleString()}`,"major",best,{domain:"utility",horizon:6});
+    return true;
+  }
+  return false;
+}
+
+/* ── (4) 회랑 교통영향평가 트리거 ── */
+function corridorTrigger150(){
+  const severe=((S.avgVC||0)>=.85||(S.avgT||0)>=26)&&(S.gap===undefined||S.gap<0||S.gap<=.10);
+  if(!severe||autoProject)return false;
+  if(curMonth()-st150.corridorLast<3)return false;
+  st150.corridorLast=curMonth();
+  try{return !!autoCorridorStep();}catch(e){console.warn("[v150 corridor]",e);return false;}
+}
+
+/* 슬롯: 공항/고립성분(v149) → 우회도로 → 회랑 TIA. 한 달에 하나. */
+const _slot149=autoAirportAccessStep;
+autoAirportAccessStep=function(){
+  if(_slot149.apply(this,arguments))return true;
+  try{if(autoBypassStep150())return true;}catch(e){console.warn("[v150 bypass]",e);}
+  return corridorTrigger150();
+};
+
+/* ── 정책 패널 행 ── */
+function renderAcqRow(){
+  const v=document.getElementById("roadAcqV");if(v)v.textContent=roadAcqLabel();
+}
+function ensureAcqRow(){
+  const p=document.getElementById("policy");if(!p||document.getElementById("roadAcqRow"))return;
+  const h=document.createElement("h4");h.textContent="도로개설 토지보상 (v150)";
+  const row=document.createElement("div");row.className="lineRow";row.id="roadAcqRow";
+  row.innerHTML=`<span class="nm">보상·수용 범위</span><span class="hbtn" id="roadAcqDn">−</span><span id="roadAcqV">${roadAcqLabel()}</span><span class="hbtn" id="roadAcqUp">＋</span>`;
+  const tip=document.createElement("div");tip.className="tip";tip.id="roadAcqTip";
+  tip.innerHTML="계획관이 우회도로·제2진입로·기반시설 부지를 위해 기존 건물을 <b>보상하고 철거</b>할 수 있는 범위입니다. 보상비는 토지비축 매입가(잠재지대+건축분+정착기간)이고, 주민은 재정착 대기열로 갑니다. 문화재·공공임대·비축지·학교·의료는 대상이 아닙니다.";
+  const group=p.querySelector('.policyGroup[data-pcat="transport"]')||p.querySelector(".policyGroup");
+  const anchor=group?group.querySelector("h4"):p.querySelector("h4");
+  if(anchor&&anchor.parentNode){anchor.parentNode.insertBefore(h,anchor);anchor.parentNode.insertBefore(row,anchor);anchor.parentNode.insertBefore(tip,anchor);}
+  else{p.appendChild(h);p.appendChild(row);p.appendChild(tip);}
+  document.getElementById("roadAcqDn").addEventListener("click",()=>setRoadAcq(-1));
+  document.getElementById("roadAcqUp").addEventListener("click",()=>setRoadAcq(1));
+}
+const _renderPolicyCockpit150=renderPolicyCockpit;
+renderPolicyCockpit=function(){const r=_renderPolicyCockpit150.apply(this,arguments);try{ensureAcqRow();renderAcqRow();}catch(_){ }return r;};
+
+/* ── 저장/복원 ── */
+const _saveStateObject150=saveStateObject;
+saveStateObject=function(){const st=_saveStateObject150.apply(this,arguments);st.v150={roadAcqIx,...st150};return st;};
+const _loadGame150=loadGame;
+loadGame=function(txt){let raw=null;try{raw=typeof txt==="string"?JSON.parse(txt):txt;}catch(_){ }const ok=_loadGame150.apply(this,arguments);
+  if(ok){const q=raw?.v150||{};roadAcqIx=Number.isFinite(q.roadAcqIx)?clamp(q.roadAcqIx|0,0,2):1;for(const k of Object.keys(st150))st150[k]=Number.isFinite(q[k])?q[k]:(k.endsWith("Last")?-99:0);renderAcqRow();}return ok;};
+const _newCity150=newCity;
+newCity=function(){roadAcqIx=1;for(const k of Object.keys(st150))st150[k]=k.endsWith("Last")?-99:0;renderAcqRow();return _newCity150.apply(this,arguments);};
+
+/* ── 감사 ── */
+function audit150(){
+  const br=bridges150(),main=mainSet150();const sides=[];
+  for(const [u,v] of br){if(!main[u]||!main[v])continue;const sv=sideOf150(u,v),su=sideOf150(v,u);const s=sv.mass<=su.mass?sv:su;if(s.mass>=BYPASS_MIN_MASS)sides.push({u,v,vc:+edgeVC150(u,v).toFixed(2),mass:Math.round(s.mass),nodes:s.n});}
+  sides.sort((a,b)=>b.mass*(0.5+b.vc)-a.mass*(0.5+a.vc));
+  return {version:TC150.version,policy:roadAcqLabel(),bridges:br.length,nodes:nodes.length,heavyBridges:sides.slice(0,8),stats:{...st150}};
+}
+
+/* ── 버전 표기·변경이력 ── */
+function stamp150(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v150";
+  const b=document.getElementById("tcBuildBadge");if(b)b.textContent="v150";
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v150";
+  window.TC2_BUILD_VERSION="v150";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v150",build:150};
+}
+function sheet150(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v150-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<150)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v150Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v150</b><span>ROAD ACQUISITION & NETWORK REDUNDANCY</span></div><ul>'+
+    '<li>도로개설 토지보상: 계획관이 기존 건물을 보상(토지비축 매입가)·철거하고 도로를 낼 수 있음 — 정책으로 불허/상업·공업만/주거 포함 선택</li>'+
+    '<li>신규지구 제2진입로: 서로 다른 방향의 본망 앵커 2개를 원칙으로 함</li>'+
+    '<li>단절링크 우회도로: 6개월마다 도로그래프의 bridge edge를 찾아 배후 인구·일자리와 링크 V/C가 크면 사전 교통영향평가 후 우회도로 개설</li>'+
+    '<li>혼잡이 심하면 지구사업과 별개로 회랑 교통영향평가(확폭·신설·BRT·철도 비교) 실행</li>'+
+    '<li>기반시설 부지가 없으면 숲 정리 또는 비주거 필지 매입으로 확보</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet150(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v150obs)return;bg.__v150obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet150();}).observe(bg,{childList:true,subtree:true});}
+function init(){stamp150();watchSheet150();const b=document.getElementById("tcBuildBadge");if(b&&!b.__v150){b.__v150=true;b.addEventListener("click",()=>setTimeout(sheet150,80),true);}}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC150={loaded:true,...TC150,audit:audit150,setRoadAcq,get roadAcqIx(){return roadAcqIx;},bypass:autoBypassStep150,bridges:bridges150,roadPath:roadPath150,stats:()=>({...st150})};
+if(window.__TC)Object.assign(window.__TC,{audit150,setRoadAcq,autoBypassStep150,bridges150});
+console.info("[TRAFFIC CITY 2] Road Acquisition & Network Redundancy v150 loaded");
+})();
+</script>
+
+</body>
 </html>
