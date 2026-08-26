@@ -22401,10 +22401,12 @@ doTick=function(){
          2성분, 동부 지구 4곳 미개발 25필지 전부 utility 0)
    처리: (1) 도로그래프 연결성분을 계산하고 인구·일자리가 가장 큰 성분을 '본망'으로 정한다.
          (2) autoNearestRoad는 본망 노드만 후보로 본다 — 신도시·성장전선·공항 앵커가 모두 본망에 붙는다.
-         (3) 이미 고립된 성분(주민·일자리·용도지정이 있는)은 계획관이 '단절 성분 연결도로'
-             사업으로 잇는다. 수면은 교량사업(기존)에 맡기고, 개발제한구역·문화재·보호필지는
-             hard constraint로 남긴다. 개발제한구역만이 막고 있으면 정책차단 결정으로 기록해
-             플레이어가 알 수 있게 한다.
+         (3) 도로는 개발제한구역을 지날 수 있다. 플레이어 도로 도구가 그렇고(용도·시설만 막힘),
+             실제 개발제한구역도 도로·기반시설은 허용한다. v148이 도로 경로에까지 hard protection을
+             적용한 것이 '띠 바깥 개구리뜀 지구'의 연결도로를 잘라 유령지구를 만든 직접 원인이다.
+             수면·문화재·비축지·공공임대·플레이어 관리구역은 도로도 지나지 않는다.
+         (4) 이미 고립된 성분(주민·일자리·용도지정이 있는)은 계획관이 '단절 성분 연결도로'
+             사업으로 잇는다. 수면은 교량사업(기존)에 맡긴다.
    ───────────────────────────────────────────────────────────────── */
 const comp149={seq:-1,month:-1,id:null,main:-1,info:[]};
 function roadComponents149(force=false){
@@ -22450,8 +22452,29 @@ autoNearestRoad=function(x,y){
   return {node:ba,cell:ba>=0?nodes[ba]:-1,d:bd};
 };
 
-/* 본망에서 보호필지(개발제한구역·문화재·비축지·공공임대·플레이어 관리구역)와 수면을 지나지 않고
-   닿을 수 있는 빈 땅 — 신규지구 후보는 이 안에 있어야 연결도로를 놓을 수 있다.
+/* 도로가 지날 수 없는 칸 — 개발제한구역은 제외한다 (용도지정만 막는다). */
+function roadBlocked149(i){return !!(water[i]||heri[i]||landBank[i]||pubHouse[i]||zoneOwner[i]===ZONE_PLAYER);}
+/* 경로 탐색(autoPathCells·autoDetourPath)은 plannerHardProtected148을 전역 이름으로 부른다.
+   경로 모드 동안, 그리고 이번 지구사업의 연결도로로 확정된 개발제한구역 칸에 대해서는 보호를 풀어
+   도로가 띠를 지나게 한다. 용도지·시설 배치는 그대로 막힌다(roadPass에 없는 칸). */
+let roadPathMode149=false;const roadPass149=new Set();
+const _hardProtected149=plannerHardProtected148;
+plannerHardProtected148=function(i){
+  if(gbelt[i]&&(roadPathMode149||roadPass149.has(i))&&!roadBlocked149(i))return false;
+  return _hardProtected149(i);
+};
+const _autoPickPath149=autoPickPath;
+autoPickPath=function(a,b){
+  roadPathMode149=true;let p=null;
+  try{p=_autoPickPath149(a,b);}finally{roadPathMode149=false;}
+  if(p)for(const i of p)if(gbelt[i])roadPass149.add(i);
+  return p;
+};
+const _autoCreateProject149=autoCreateProject;
+autoCreateProject=function(){roadPass149.clear();return _autoCreateProject149.apply(this,arguments);};
+
+/* 본망에서 도로로 닿을 수 있는 빈 땅(개발제한구역 통과 가능, 수면·문화재·비축지·공공임대·플레이어 구역 불가)
+   — 신규지구 후보는 이 안에 있어야 연결도로를 놓을 수 있다.
    v148은 후보를 고른 뒤 autoPickPath가 실패하면 아무 기록 없이 그 달을 넘겼다(개발제한구역 고리 안의 도시는 매달 조용히 실패). */
 const reach149={seq:-1,month:-1,mask:null};
 function reachableFromMain149(){
@@ -22464,8 +22487,7 @@ function reachableFromMain149(){
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
       if(mask[j])continue;
-      if(kind[j]!==K_EMPTY||water[j])continue;
-      if(typeof plannerHardProtected148==="function"&&plannerHardProtected148(j))continue;
+      if(kind[j]!==K_EMPTY||roadBlocked149(j))continue;
       mask[j]=1;queue.push(j);
     }
   }
@@ -22505,13 +22527,13 @@ autoDistrictCandidate=function(role){
     if(sc>bestScore){bestScore=sc;best={x,y,anchor:nr.cell,score:sc};}
   }
   autoDistrictPolicyBlock=!best&&(gbBlocked+gbAreaBlocked+unreachable)>0
-    ?{policy:unreachable>0?"개발제한구역·수면·보호필지에 둘러싸여 연결 불가":"개발제한구역",count:gbBlocked+gbAreaBlocked+unreachable,role}:null;
+    ?{policy:unreachable>0?"수면·문화재·보호필지에 둘러싸여 연결도로 불가":"개발제한구역",count:gbBlocked+gbAreaBlocked+unreachable,role}:null;
   return best;
 };
 
-/* 고립 성분 → 본망 최단 연결로 (빈 땅만 통과, 4방향). allowGB=true면 개발제한구역도 지나 본다(진단용). */
-const RECONNECT_MAX=48;   // 14km — 개발제한구역을 돌아가는 우회 연결까지 허용한다
-function reconnectPath149(compId,allowGB){
+/* 고립 성분 → 본망 최단 연결로 (빈 땅만 통과, 4방향, 개발제한구역 통과 가능). */
+const RECONNECT_MAX=48;   // 14km
+function reconnectPath149(compId){
   const c=roadComponents149();
   const prev=new Int32Array(NC).fill(-2),dist=new Int16Array(NC),queue=[];
   for(let a=0;a<nodes.length;a++){
@@ -22519,8 +22541,7 @@ function reconnectPath149(compId,allowGB){
     const cell=nodes[a],x=cell%W,y=(cell/W)|0;
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
-      if(prev[j]!==-2||kind[j]!==K_EMPTY||water[j]||(!allowGB&&gbelt[j]))continue;
-      if(typeof plannerHardProtected148==="function"&&plannerHardProtected148(j)&&!(allowGB&&gbelt[j]))continue;
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;
       prev[j]=-1;dist[j]=0;queue.push(j);
     }
   }
@@ -22534,8 +22555,7 @@ function reconnectPath149(compId,allowGB){
     if(end>=0||d>=RECONNECT_MAX)continue;
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
-      if(prev[j]!==-2||kind[j]!==K_EMPTY||water[j]||(!allowGB&&gbelt[j]))continue;
-      if(typeof plannerHardProtected148==="function"&&plannerHardProtected148(j)&&!(allowGB&&gbelt[j]))continue;
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;
       prev[j]=cell;dist[j]=d+1;queue.push(j);
     }
   }
@@ -22551,15 +22571,15 @@ function autoReconnectStep149(){
   const targets=c.info.filter(q=>q.c!==c.main&&(q.pop>0||q.jobs>0||q.zoned>0)).sort((a,b)=>(b.act+b.zoned*20)-(a.act+a.zoned*20));
   if(!targets.length)return false;
   for(const t of targets){
-    const path=reconnectPath149(t.c,false);
+    const path=reconnectPath149(t.c);
     if(!path||!path.length){
-      /* 빈 땅으로는 못 잇는다 — 개발제한구역만이 막고 있는지 확인해 정책차단으로 남긴다 */
+      /* 빈 땅으로는 못 잇는다(수면·문화재·보호필지 또는 48칸 초과) — 연 1회 정책차단으로 남긴다. 수면이면 교량사업이 따로 본다. */
       const yr=Math.floor(curMonth()/12);
-      if(reconnectBlockedYear149!==yr&&reconnectPath149(t.c,true)){
+      if(reconnectBlockedYear149!==yr){
         reconnectBlockedYear149=yr;
-        plannerBlockedByPolicy(`reconnect-gb-${t.c}-${yr}`,"단절 도로망 연결 보류",
-          `주민 ${Math.round(t.pop).toLocaleString()}명·일자리 ${Math.round(t.jobs).toLocaleString()}·용도지 ${t.zoned}필지가 있는 도로망이 본시가지와 끊겨 있으나 개발제한구역을 지나지 않고는 이을 수 없음`,
-          "개발제한구역",`고립 성분 ${t.c} · 노드 ${t.nodes}`,"transport",nodes.length?nodes[Math.max(0,c.id.indexOf(t.c))]:-1);
+        plannerBlockedByPolicy(`reconnect-block-${t.c}-${yr}`,"단절 도로망 연결 보류",
+          `주민 ${Math.round(t.pop).toLocaleString()}명·일자리 ${Math.round(t.jobs).toLocaleString()}·용도지 ${t.zoned}필지가 있는 도로망이 본시가지와 끊겨 있으나 수면·문화재·보호필지를 지나지 않고 ${RECONNECT_MAX}칸 안에 이을 수 없음`,
+          "수면·보호필지",`고립 성분 ${t.c} · 노드 ${t.nodes}`,"transport",nodes.length?nodes[Math.max(0,c.id.indexOf(t.c))]:-1);
       }
       continue;
     }
@@ -22580,10 +22600,42 @@ function autoReconnectStep149(){
   }
   return false;
 }
-/* 공항 진입로 슬롯에 함께 둔다: 원래 단계가 아무 것도 안 했으면 고립 성분 연결을 시도한다. */
-const _autoAirportAccessStep149=autoAirportAccessStep;
+/* 공항 진입로 — v138 원본은 (a) 후보 셀이 '아무 도로'에 8방향으로 닿으면 끝이라 대각으로만 닿은
+   토막(그래프에서는 미연결)을 만들고, (b) 활주로 셀마다 인접도로를 요구해 토막을 매달 하나씩 더 늘렸다
+   (v149 초기 검증 시드 33: 공항 둘레에 미연결 토막 4개). 여기서는 공항 군집이 본망 노드에 8방향으로
+   하나라도 닿아 있으면 연결된 것으로 보고, 아니면 빈 땅(개발제한구역 통과 가능, 수면·보호필지 불가)을
+   4방향으로 탐색해 본망 노드에 4방향으로 접하는 칸에서 끝나는 진입로 하나를 놓는다. */
+const AIRPORT_ACCESS_MAX=24;
+function airportAccessStep149(){
+  if(typeof airportClusters!=="function")return false;
+  const groups=airportClusters();if(!groups.length)return false;
+  const c=roadComponents149();if(!c.id)return false;
+  const touchesMain=cell=>{const x=cell%W,y=(cell/W)|0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&c.id[nd]===c.main)return true;}
+    return false;};
+  let grp=null;for(const g of groups){if(!g.some(touchesMain)){grp=g;break;}}
+  if(!grp)return false;
+  const prev=new Int32Array(NC).fill(-2),dist=new Int16Array(NC),queue=[];
+  for(const cell of grp){const x=cell%W,y=(cell/W)|0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;prev[j]=-1;dist[j]=0;queue.push(j);}}
+  let end=-1;
+  for(let h=0;h<queue.length&&end<0;h++){
+    const cell=queue[h],x=cell%W,y=(cell/W)|0,d=dist[cell];
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const nd=nodeOf[idx(nx,ny)];if(nd>=0&&c.id[nd]===c.main){end=cell;break;}}
+    if(end>=0||d>=AIRPORT_ACCESS_MAX)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);
+      if(prev[j]!==-2||kind[j]!==K_EMPTY||roadBlocked149(j))continue;prev[j]=cell;dist[j]=d+1;queue.push(j);}
+  }
+  if(end<0)return false;   // 강 건너 등 — 교량사업·연결도로 사업이 따로 본다
+  const path=[];for(let q=end;q>=0;q=prev[q])path.push(q);path.reverse();
+  let cost=0;for(const i of path)cost+=autoRoadCost(i,1);
+  return autoAct(cost,()=>{for(const i of path){kind[i]=K_ROAD;rlev[i]=1;forest[i]=0;try{cond[i]=100;}catch(_){}}netDirty=true;markStatic();},
+    '✈ 도시공항 진입로 '+path.length+'칸을 본시가지 도로망에 연결했습니다.');
+}
+/* 공항 진입로 슬롯: 진입로 → 고립 성분 연결 순으로 한 달에 하나만 한다. */
 autoAirportAccessStep=function(){
-  if(_autoAirportAccessStep149.apply(this,arguments))return true;
+  try{if(airportAccessStep149())return true;}catch(e){console.warn("[v149 airport]",e);}
   try{return autoReconnectStep149();}catch(e){console.warn("[v149 reconnect]",e);return false;}
 };
 
@@ -22645,8 +22697,9 @@ function sheet149(){
     '<li>성장기 도시에서 평균통행·V/C·VKT·지대·서비스도달권이 수년간 동결되던 문제 해소</li>'+
     '<li>HUD에 배정 최신성 표시(배정 최신 / N개월 전)</li>'+
     '<li>도로망 연결성분을 계산해 신도시·성장전선·공항 앵커를 본시가지 성분에만 둠</li>'+
-    '<li>주민·일자리·용도지가 있는 고립 도로망은 계획관이 연결도로 사업으로 이음 (개발제한구역·수면·보호필지는 통과하지 않음)</li>'+
-    '<li>개발제한구역만이 연결을 막으면 정책차단 결정으로 기록해 플레이어에게 알림</li></ul>';
+    '<li>계획관 도로(연결도로·지구 가로망)가 플레이어 도로처럼 개발제한구역을 지날 수 있음 — 용도·시설 배치는 여전히 금지</li>'+
+    '<li>주민·일자리·용도지가 있는 고립 도로망은 계획관이 연결도로 사업으로 이음 (수면·문화재·보호필지는 통과하지 않음)</li>'+
+    '<li>연결할 부지나 경로가 없으면 조용히 넘기지 않고 보류 결정으로 기록</li></ul>';
   const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
 }
 function watchSheet149(){
