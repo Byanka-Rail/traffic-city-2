@@ -13546,7 +13546,7 @@ function drawGround(){
   /* ── 고가구조물 (교재 44장) ──
      지상 도로와 같은 층에 그리면 '굵은 도로'로 보인다. 떠 있어야 고가다 —
      아래에 그림자를 깔고, 교각을 세우고, 상판을 위로 올려 그린다. */
-  if(t>6){
+  if(t>6&&!window.__TC154_elev){          /* v154 고가 렌더러가 있으면 그쪽이 뒤에서 그린다 */
     const lift=t*0.30, pierC="rgba(88,78,66,.55)";
     const decks=[];
     for(let y=ay;y<=by;y++)for(let x=ax;x<=bx;x++){
@@ -13860,6 +13860,9 @@ function drawGround(){
       }
     }
   }
+  /* v154 고가 — 지상 도로·표식·가로수·버스노선·선로를 다 그린 뒤에 그 위로 얹는다.
+     선로 뒤로 옮긴 이유: 지상 선로 패스가 elev 3 칸에도 사다리를 그려 상판을 덮었다. */
+  if(window.__TC154_elev)window.__TC154_elev({g,t,tx,ty,ax,ay,bx,by});
   for(const st of stations){                       // 역
     const x=st.cell%W,y=(st.cell/W)|0;
     if(x<ax||x>bx||y<ay||y>by)continue;
@@ -14804,7 +14807,9 @@ function drawCars(t){
     const axp=(aCell%W)+0.5,ayp=((aCell/W)|0)+0.5,bxp=(bCell%W)+0.5,byp=((bCell/W)|0)+0.5;
     const rp=visRoundaboutPose(c);
     const gx=rp?rp.x:axp+(bxp-axp)*c.p,gy=rp?rp.y:ayp+(byp-ayp)*c.p;
-    const px=sx(gx),py=sy(gy);
+    const px=sx(gx);let py=sy(gy);
+    /* v154 — 고가 위를 달리는 차는 상판 위에 있어야 한다. 지상에 찍으면 다리 밑을 달린다. */
+    if(window.__TC154_lift&&elev[aCell]===1&&elev[bCell]===1)py-=window.__TC154_lift*t;
     if(px<-10||py<-10||px>VW+10||py>VH/YS+10)continue;
     const dx=rp?rp.dx:(bxp-axp),dy=rp?rp.dy:(byp-ayp),hy=Math.hypot(dx,dy)||1,ux=dx/hy,uy=dy/hy;
     const ox=-uy*t*0.13,oy=ux*t*0.13;
@@ -23903,6 +23908,904 @@ window.__TC153={loaded:true,...TC153,
   count(){let keep=0,prose=0;for(const n of document.querySelectorAll(".tip[data-tcv]"))n.getAttribute("data-tcv")==="keep"?keep++:prose++;return {keep,prose,dev};}};
 if(window.__TC)Object.assign(window.__TC,{setDevMode:setDev});
 console.info("[TRAFFIC CITY 2] Clean UI / Developer Mode v153 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v154 ELEVATED STRUCTURES
+
+   문제: 고가도로가 그냥 굵은 도로로 보인다.
+     · 상판을 <b>칸 단위 사각형</b>으로 그려서 도로 모양(리본)이 아니라 슬래브였다
+     · 상판 색 #b3a892가 지상 도로 #cdc4af와 거의 같은 계열이었다
+     · 노면 표식이 없어 '도로 위'라는 신호가 없었다
+     · 지상 도로 리본이 상판 아래 그대로 남아 두 겹으로 겹쳐 보였다
+     · 상판을 도로 표식·가로수보다 먼저 그려서 그 위에 지상 요소가 다시 얹혔다
+
+   고침 — 다리처럼 그린다:
+     ① 상판을 도로와 같은 리본 경로로 그린다 (위계별 폭, 대각선 포함)
+     ② 재료를 갈라 놓는다 — 밝은 콘크리트 난간 + 어두운 아스팔트 노면
+     ③ 노면에 중앙선을 긋는다. 도로라는 신호는 표식에서 온다
+     ④ 지상에는 교각과 그림자를 남긴다. 상판 아래 지상 도로는 그늘로 덮는다
+     ⑤ 들어올림을 0.30t → 0.46t로 키우고, 그림자를 광원 반대쪽으로 밀어 띄운다
+     ⑥ 고가철도는 강재 계열(청회색)로 갈라, 고가도로와도 구분한다
+     ⑦ 램프는 삼각형이 아니라 지상에서 상판까지 이어지는 경사판으로 그린다
+
+   호출 지점도 옮겼다 — 지상 도로·표식·가로수·버스노선을 다 그린 <b>뒤에</b> 얹는다.
+   시뮬레이션 코드는 건드리지 않는다. 순수 렌더링이다.
+
+   원본 소스에 필요한 갈고리는 두 줄뿐이다:
+     A) 기존 고가 블록  if(t>6){          →  if(t>6&&!window.__TC154_elev){
+     B) '역' 그리기 루프 앞에 한 줄 (지상 선로 패스보다 뒤여야 한다):
+        if(window.__TC154_elev)window.__TC154_elev({g,t,tx,ty,ax,ay,bx,by});
+     C) drawCars의 차량 좌표 한 줄 — 고가 구간의 차를 상판 위로 올린다:
+        if(window.__TC154_lift&&elev[aCell]===1&&elev[bCell]===1)py-=window.__TC154_lift*t;
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC154?.loaded)return;
+const TC154=Object.freeze({version:"v154",build:154,title:"ELEVATED STRUCTURES"});
+
+/* ── 재료 ──
+   지상 도로는 #cdc4af(밝은 사장). 고가는 같은 계열을 쓰면 안 된다.
+   난간은 더 밝게, 노면은 더 어둡게 — 명도 양끝으로 벌려야 축소해도 구분된다. */
+const M={
+  shade:  "rgba(40,32,22,.18)",   // 상판 아래 그늘 — 지우는 게 아니라 '그늘 진 길'로 낮춘다
+  cast:   "rgba(40,32,22,.15)",   // 바닥에 지는 그림자
+  pier:   "#6e6557",
+  pierDk: "rgba(40,34,26,.62)",
+  edge:   "rgba(38,32,25,.78)",   // 상판 외곽선
+  rail:   "#e9e2d0",              // 난간·연석 (밝은 콘크리트)
+  deck:   "#5d564b",              // 차도 아스팔트 (어둡게)
+  line:   "rgba(246,240,224,.62)",// 중앙선
+  rEdge:  "rgba(32,38,46,.75)",
+  rRail:  "#c9d2da",              // 고가철도 난간 — 강재 계열
+  rDeck:  "#565f69",
+  rTie:   "rgba(226,233,240,.42)"
+};
+/* 들어올림은 상판 반폭보다 커야 한다 — 작으면 상판이 지상 발자국을 통째로 덮어
+   교각도 그림자도 안 보이고 그냥 두꺼운 띠가 된다. 0.30t에서 이 문제가 났다. */
+const LIFT=0.55;                  // 들어올림 (t 배수)
+
+function build(pred,neigh,dy,t,tx,ty,g){
+  /* 도로와 같은 방식으로 리본을 만든다 — 중심에서 이웃 중심 절반까지.
+     이래야 대각선·교차부가 지상 도로와 똑같이 매끈하게 이어진다. */
+  const half=t/2;let any=false;
+  g.beginPath();
+  for(const i of pred){
+    const x=i%W,y=(i/W)|0,cx=tx(x)+half,cy=ty(y)+half+dy;
+    let deg2=0;
+    for(let d=0;d<8;d++){
+      if(!neigh(i,d))continue;
+      deg2++;any=true;
+      g.moveTo(cx,cy);g.lineTo(cx+DXr[d]*half,cy+DYr[d]*half);
+    }
+    if(!deg2){g.moveTo(cx,cy);g.lineTo(cx+0.01,cy);any=true;}
+  }
+  return any;
+}
+function ribbon(g,cells,neigh,dy,t,tx,ty,color,w,dash){
+  if(!cells.length||w<=0)return;
+  g.save();
+  g.strokeStyle=color;g.lineWidth=w;g.lineCap="round";g.lineJoin="round";
+  if(dash)g.setLineDash(dash);
+  if(build(cells,neigh,dy,t,tx,ty,g))g.stroke();
+  g.restore();
+}
+
+window.__TC154_lift=LIFT;                 // drawCars가 같은 값을 쓴다
+window.__TC154_elev=function({g,t,tx,ty,ax,ay,bx,by}){
+  if(t<=5)return;
+  const lift=t*LIFT;
+  const roadByLv=[[],[],[],[]],rails=[],ramps=[];
+  for(let y=ay;y<=by;y++)for(let x=ax;x<=bx;x++){
+    if(!inb(x,y))continue;
+    const i=idx(x,y),e=elev[i];
+    if(e===1&&kind[i]===K_ROAD)roadByLv[Math.min(3,Math.max(1,rlev[i]||1))].push(i);
+    else if(e===2&&kind[i]===K_ROAD)ramps.push(i);
+    if(e===3&&rail[i])rails.push(i);
+  }
+  const anyRoad=roadByLv[1].length+roadByLv[2].length+roadByLv[3].length;
+  if(!anyRoad&&!rails.length&&!ramps.length)return;
+
+  const rNeigh=(i,d)=>roadEdgeExists(i,d);
+  const tNeigh=(i,d)=>{                                   // 고가철도는 4방향만
+    if(d>=4)return false;
+    const x=i%W,y=(i/W)|0,nx=x+DXr[d],ny=y+DYr[d];
+    if(!inb(nx,ny))return false;
+    const j=idx(nx,ny);return !!rail[j]&&elev[j]===3;
+  };
+  /* 상판은 지상 도로보다 <b>좁다</b>. 넓으면 아래가 다 가려 떠 있는 것으로 안 읽힌다. */
+  const W_rail=lv=>t*RW[lv]*0.78;                       // 난간 바깥 (밝은 콘크리트)
+  const W_edge=lv=>W_rail(lv)+Math.max(1.3,t*.036);     // 외곽선
+  const W_deck=lv=>t*RW[lv]*0.50;                       // 차도 (어두운 아스팔트)
+  const TW_rail=t*0.36, TW_edge=TW_rail+Math.max(1.3,t*.036), TW_deck=t*0.23;
+
+  /* ① 상판 아래 — 지상 도로를 그늘로 덮는다.
+     덮지 않으면 밝은 지상 리본이 상판 옆으로 삐져나와 '두 겹 도로'가 된다. */
+  for(let lv=1;lv<=3;lv++)ribbon(g,roadByLv[lv],rNeigh,0,t,tx,ty,M.shade,t*RW[lv]+Math.max(1.4,t*.05));
+  ribbon(g,rails,tNeigh,0,t,tx,ty,M.shade,t*0.42);   // 지상 선로 사다리까지 덮을 만큼
+
+  /* ② 바닥 그림자 — 광원이 좌상단이므로 우하단으로 진다 */
+  const sx=t*0.06,sy=t*0.15;
+  g.save();g.translate(sx,sy);
+  for(let lv=1;lv<=3;lv++)ribbon(g,roadByLv[lv],rNeigh,0,t,tx,ty,M.cast,W_edge(lv));
+  ribbon(g,rails,tNeigh,0,t,tx,ty,M.cast,TW_edge);
+  g.restore();
+
+  /* v155 입체교차 — 그늘을 깐 뒤, 교각·상판 앞에 지상 통과도로를 그린다.
+     그늘보다 앞에 그리면 통과도로까지 어두워져 상판 밑 유령도로와 구분이 안 된다. */
+  if(window.__TC155_under)try{window.__TC155_under({g,t,tx,ty,ax,ay,bx,by});}catch(_){ }
+
+  /* ③ 교각 — 칸마다 한 쌍. 이게 있어야 '떠 있다'가 읽힌다 */
+  const pier=(list,wRatio)=>{
+    for(const i of list){
+      const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cyG=ty(y)+t/2;
+      const pw=Math.max(1.5,t*wRatio),off=Math.max(1.7,t*0.115);
+      for(const s of [-1,1]){
+        const px=cx+s*off-pw/2;
+        g.fillStyle=M.pier;g.fillRect(px,cyG-lift+t*0.02,pw,lift);
+        g.fillStyle=M.pierDk;g.fillRect(px+pw*0.62,cyG-lift+t*0.02,pw*0.38,lift);
+      }
+    }
+  };
+  if(t>9){
+    for(let lv=1;lv<=3;lv++)pier(roadByLv[lv],0.058);
+    pier(rails,0.050);
+  }
+
+  /* ④ 상판 — 외곽선 → 밝은 난간 → 어두운 노면. 재료가 세 겹으로 갈린다 */
+  for(let lv=1;lv<=3;lv++){
+    const c=roadByLv[lv];if(!c.length)continue;
+    ribbon(g,c,rNeigh,-lift,t,tx,ty,M.edge, W_edge(lv));
+    ribbon(g,c,rNeigh,-lift,t,tx,ty,M.rail, W_rail(lv));
+    ribbon(g,c,rNeigh,-lift,t,tx,ty,M.deck, W_deck(lv));
+    if(t>13)ribbon(g,c,rNeigh,-lift,t,tx,ty,M.line,Math.max(0.7,t*0.026),
+                   lv>=3?null:[t*0.17,t*0.13]);
+  }
+
+  /* ⑤ 고가철도 — 강재 계열로 갈라 고가도로와도 구분한다 */
+  if(rails.length){
+    ribbon(g,rails,tNeigh,-lift,t,tx,ty,M.rEdge,TW_edge);
+    ribbon(g,rails,tNeigh,-lift,t,tx,ty,M.rRail,TW_rail);
+    ribbon(g,rails,tNeigh,-lift,t,tx,ty,M.rDeck,TW_deck);
+    if(t>12){                                            // 침목
+      g.save();g.strokeStyle=M.rTie;g.lineWidth=Math.max(0.6,t*0.022);g.beginPath();
+      for(const i of rails){
+        const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cy=ty(y)+t/2-lift;
+        const vert=tNeigh(i,1)||tNeigh(i,3);
+        for(let s=-1;s<=1;s++){
+          const o=s*t*0.26;
+          if(vert){g.moveTo(cx-TW_deck*.42,cy+o);g.lineTo(cx+TW_deck*.42,cy+o);}
+          else    {g.moveTo(cx+o,cy-TW_deck*.42);g.lineTo(cx+o,cy+TW_deck*.42);}
+        }
+      }
+      g.stroke();g.restore();
+    }
+  }
+
+  /* ⑥ 램프 — 지상에서 상판까지 이어지는 경사판.
+     삼각형 하나로는 '어느 쪽으로 오르는지'가 안 읽힌다. 이웃한 고가 쪽으로 기울인다. */
+  for(const i of ramps){
+    const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cy=ty(y)+t/2,lv=Math.min(3,Math.max(1,rlev[i]||1));
+    let ux=0,uy=0;
+    for(let d=0;d<8;d++){
+      const nx=x+DXr[d],ny=y+DYr[d];if(!inb(nx,ny))continue;
+      const j=idx(nx,ny);if(elev[j]!==1)continue;
+      ux=DXr[d];uy=DYr[d];break;
+    }
+    const w=W_rail(lv)/2,px=-uy,py=ux;
+    const hx=cx+ux*t*0.5,hy=cy+uy*t*0.5-lift;            // 고가 쪽 끝 (높다)
+    const gx=cx-ux*t*0.5,gy=cy-uy*t*0.5;                 // 지상 쪽 끝
+    g.beginPath();
+    g.moveTo(gx+px*w,gy+py*w);g.lineTo(hx+px*w,hy+py*w);
+    g.lineTo(hx-px*w,hy-py*w);g.lineTo(gx-px*w,gy-py*w);g.closePath();
+    g.fillStyle=M.rail;g.fill();
+    g.strokeStyle=M.edge;g.lineWidth=Math.max(0.7,t*0.022);g.stroke();
+    g.beginPath();                                        // 노면
+    const w2=W_deck(lv)/2;
+    g.moveTo(gx+px*w2,gy+py*w2);g.lineTo(hx+px*w2,hy+py*w2);
+    g.lineTo(hx-px*w2,hy-py*w2);g.lineTo(gx-px*w2,gy-py*w2);g.closePath();
+    g.fillStyle=M.deck;g.fill();
+  }
+};
+
+/* ── 버전 표기 ── */
+function stamp154(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v154";
+  const b=document.getElementById("tcBuildBadge");
+  if(b&&!/154/.test(b.textContent||"")){const d=b.querySelector(".devBadge153");b.textContent="v154";if(d)b.appendChild(d);}
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v154";
+  window.TC2_BUILD_VERSION="v154";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v154",build:154};
+}
+function watchBadge154(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v154obs)return;
+  b.__v154obs=true;
+  new MutationObserver(()=>{                              // 더 낮은 번호로 덮였을 때만 되돌린다
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=154)){const d=b.querySelector(".devBadge153");b.textContent="v154";if(d)b.appendChild(d);}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet154(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v154-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<154)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v154Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v154</b><span>ELEVATED STRUCTURES</span></div><ul>'+
+    '<li>고가 상판을 칸 사각형이 아니라 도로와 같은 리본으로 — 위계별 폭·대각선 그대로</li>'+
+    '<li>밝은 콘크리트 난간 + 어두운 아스팔트 노면 + 중앙선으로 지상 도로와 재료를 분리</li>'+
+    '<li>교각·그림자를 지상에 남기고 상판 아래 지상 도로는 그늘로 덮음 (두 겹 도로 해소)</li>'+
+    '<li>고가철도는 강재 청회색 · 램프는 지상에서 상판까지 이어지는 경사판</li>'+
+    '<li>지상 표식·가로수·버스노선을 다 그린 뒤에 얹도록 호출 순서 변경</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet154(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v154obs)return;bg.__v154obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet154();}).observe(bg,{childList:true,subtree:true});}
+function init(){
+  stamp154();watchSheet154();
+  for(const d of [250,700,1300,2300])setTimeout(()=>{stamp154();watchBadge154();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v154){b.__v154=true;b.addEventListener("click",()=>setTimeout(sheet154,110),true);}
+  try{markStatic();stLastBake=0;}catch(_){ }
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC154={loaded:true,...TC154,materials:M,lift:LIFT,
+  count(){let r=0,t3=0,rp=0;for(let i=0;i<NC;i++){if(elev[i]===1&&kind[i]===K_ROAD)r++;else if(elev[i]===2&&kind[i]===K_ROAD)rp++;if(elev[i]===3&&rail[i])t3++;}return {viaduct:r,ramp:rp,elevRail:t3};},
+  redraw(){try{markStatic();stLastBake=0;}catch(_){ }}};
+console.info("[TRAFFIC CITY 2] Elevated Structures v154 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v155 GRADE SEPARATION — 고가는 넘어간다
+
+   발견: 그림과 모형이 서로 반대로 말하고 있었다.
+     roadEdgeExists()에는 "고가와 지상은 평면에서 만나지 않는다 —
+     램프가 있어야 이어진다"는 규칙이 있는데, rebuildNet()은 그 함수를
+     부르지 않는다. 8방향 인접만 보고 링크를 만든다. 실측:
+
+       교통그래프 (22,19)-(22,20)  연결됨 · cap 3200   ← 지상 → 고가 직결
+       렌더 규칙 roadCellConnected  false              ← 화면은 끊어 그림
+
+     결과 ① 화면에서는 교차가로가 고가에서 뚝 끊긴 것처럼 보이고
+     결과 ② 모형에서는 옆길에서 고가 위로 램프 없이 바로 올라탄다.
+     램프는 지금까지 순수 장식이었다.
+
+   고침 — 현실의 고가가 하는 일을 그대로 만든다:
+     ① 층 규칙을 <b>교통그래프에</b> 넣는다. 지상↔고가 직결은 끊는다.
+        램프(elev 2)만 두 층을 잇는다. 이제 램프가 필요해진다.
+     ② 대신 <b>지상 도로는 고가 밑을 통과한다.</b> 고가 칸을 사이에 둔
+        양쪽 지상 도로를 길이 2칸짜리 링크로 잇는다 — 입체교차다.
+        고가를 놓아도 격자가 끊기지 않는다. 그것이 고가를 짓는 이유다.
+     ③ 그림도 맞춘다 — 상판 아래로 지상 도로가 지나가는 것을 그린다.
+
+   구현은 rebuildNet 뒤에 인접행렬을 다시 쓰는 방식이다. 노드 집합은
+   바뀌지 않고 간선만 바뀌므로 attachLand·popAt 같은 노드 배열은 그대로다.
+   간선 수는 늘지 않는다 — 막힌 방향 자리에 통과링크가 대신 들어간다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC155?.loaded)return;
+const TC155=Object.freeze({version:"v155",build:155,title:"GRADE SEPARATION"});
+
+const VIA=1, RAMP=2;
+const isVia=i=>elev[i]===VIA;
+const isRamp=i=>elev[i]===RAMP;
+/* 같은 층이거나, 한쪽이 램프면 만난다. 램프가 두 층을 잇는 유일한 장치다. */
+const compat=(a,b)=>(a===RAMP||b===RAMP)||((a===VIA)===(b===VIA));
+
+let st155={viaduct:0,ramp:0,under:0,cutEdges:0,orphanRuns:0};
+
+/* ── 간선 재작성 ── */
+function relayer155(){
+  const n=nodes.length;if(!n)return;
+  let cut=0,under=0;
+  for(let a=0;a<n;a++){
+    const c=nodes[a],x=c%W,y=(c/W)|0,La=elev[c]|0;
+    let k=0;
+    for(let d=0;d<8;d++){
+      const nx=x+RDX[d],ny=y+RDY[d];
+      if(!inb(nx,ny))continue;
+      const nc=idx(nx,ny);if(kind[nc]!==K_ROAD)continue;
+      if(d>=4&&!(roadDiag[c]&diagBit(d)))continue;
+      const Lb=elev[nc]|0;
+      let tgt=-1,cells=1,lvCell=nc;
+      if(compat(La,Lb)){
+        tgt=nodeOf[nc];
+      }else{
+        cut++;
+        /* 지상에서 고가를 만났다 — 평면에서는 못 만난다.
+           대신 그 <b>밑으로</b> 지나간다. 반대편에 지상 도로가 있으면 2칸 링크로 잇는다.
+           대각 통과는 만들지 않는다 — 고가 밑을 비스듬히 관통하는 도로는 없다. */
+        if(d<4&&La!==VIA&&Lb===VIA){
+          const fx=x+RDX[d]*2,fy=y+RDY[d]*2;
+          if(inb(fx,fy)){
+            const fc=idx(fx,fy);
+            if(kind[fc]===K_ROAD&&elev[fc]!==VIA&&compat(La,elev[fc]|0)&&nodeOf[fc]>=0){
+              tgt=nodeOf[fc];cells=2;lvCell=fc;under++;
+            }
+          }
+        }
+      }
+      if(tgt<0)continue;
+      const e=a*RSTR+k;
+      const fac=(d>=4?DIAG_K:1)*cells;
+      const lv=Math.min(rlev[lvCell]||1,3);
+      adj[e]=tgt;eDir[e]=d;
+      eLen[e]=(TILE_M/1000)*fac;
+      eT0[e]=eLen[e]/SPD[lv]*60;
+      eCap[e]=CAP[lv]*(blane[lvCell]?BLANE_CAP:1);
+      if(cond[c]&&cond[c]<CLOSE_AT)eCap[e]=0;
+      if(cond[lvCell]&&cond[lvCell]<CLOSE_AT)eCap[e]=0;
+      eFlow[e]=flowCell[c*RSTR+d]||0;
+      eTruck[e]=tFlowCell[c*RSTR+d]||0;
+      eAcc[e]=0;eTruckAcc[e]=0;eCost[e]=0;
+      k++;
+    }
+    for(let z=k;z<RSTR;z++){const e=a*RSTR+z;adj[e]=-1;eDir[e]=0;eLen[e]=0;eT0[e]=0;eCap[e]=0;eFlow[e]=0;eTruck[e]=0;eAcc[e]=0;eTruckAcc[e]=0;eCost[e]=0;}
+    deg[a]=k;
+  }
+  st155.cutEdges=cut;st155.under=under;
+  /* 층 규칙이 바뀌었으니 비용·도달시간을 다시 만든다. 노드 집합은 그대로다. */
+  try{updateCost();}catch(_){ }
+  try{svcDirty=true;computeSvcReach();}catch(_){ }
+  try{computeBusTimes();}catch(_){ }
+}
+
+/* 램프 없는 고가 구간 — 올라갈 수 없는 다리다. 세어서 알린다. */
+function orphanRuns155(){
+  const seen=new Uint8Array(NC);let runs=0,orphan=0,via=0,ramp=0;
+  for(let i=0;i<NC;i++){if(elev[i]===RAMP&&kind[i]===K_ROAD)ramp++;if(isVia(i)&&kind[i]===K_ROAD)via++;}
+  for(let i=0;i<NC;i++){
+    if(seen[i]||!isVia(i)||kind[i]!==K_ROAD)continue;
+    runs++;let hasRamp=false;const st=[i];seen[i]=1;
+    while(st.length){
+      const c=st.pop(),x=c%W,y=(c/W)|0;
+      for(let d=0;d<8;d++){
+        const nx=x+RDX[d],ny=y+RDY[d];if(!inb(nx,ny))continue;
+        const j=idx(nx,ny);if(kind[j]!==K_ROAD)continue;
+        if(d>=4&&!(roadDiag[c]&diagBit(d)))continue;
+        if(isRamp(j)){hasRamp=true;continue;}
+        if(isVia(j)&&!seen[j]){seen[j]=1;st.push(j);}
+      }
+    }
+    if(!hasRamp)orphan++;
+  }
+  st155.viaduct=via;st155.ramp=ramp;st155.orphanRuns=orphan;
+  return {runs,orphan,via,ramp};
+}
+
+const _rebuild155=rebuildNet;
+rebuildNet=function(){
+  const r=_rebuild155.apply(this,arguments);
+  try{relayer155();orphanRuns155();}catch(e){console.warn("[v155]",e);}
+  return r;
+};
+
+/* ── 그림 ── 상판 아래로 지상 도로가 지나가는 것을 그린다.
+   v154가 그늘을 깐 뒤, 교각·상판을 그리기 직전에 부른다.
+   그늘보다 앞서 그리면 통과도로까지 어두워져 상판 밑 유령도로와 구분되지 않는다. */
+window.__TC155_under=function(a){try{drawUnder155(a);}catch(_){ }};
+function drawUnder155({g,t,tx,ty,ax,ay,bx,by}){
+  if(t<=5)return;
+  const seg=[];
+  for(let y=ay;y<=by;y++)for(let x=ax;x<=bx;x++){
+    if(!inb(x,y))continue;
+    const i=idx(x,y);if(!isVia(i)||kind[i]!==K_ROAD)continue;
+    for(let d=0;d<2;d++){                                  // 0: 동서(E), 2: 남북(S)
+      const dd=d===0?0:2, op=d===0?1:3;
+      const nx=x+RDX[dd],ny=y+RDY[dd],px=x+RDX[op],py=y+RDY[op];
+      if(!inb(nx,ny)||!inb(px,py))continue;
+      const A=idx(nx,ny),B=idx(px,py);
+      if(kind[A]!==K_ROAD||kind[B]!==K_ROAD)continue;
+      if(isVia(A)||isVia(B))continue;                      // 고가끼리는 통과가 아니다
+      const lv=Math.min(3,Math.max(rlev[A]||1,rlev[B]||1));
+      seg.push([x,y,dd,lv]);
+    }
+  }
+  if(!seg.length)return;
+  /* 이웃 중심까지 뻗어(±t) 지상 도로 리본이 끊긴 자리를 메운다. */
+  const byLv={};for(const s of seg)(byLv[s[3]]=byLv[s[3]]||[]).push(s);
+  for(const lv of Object.keys(byLv)){
+    const list=byLv[lv],L=+lv;
+    const draw=(color,w)=>{g.save();g.strokeStyle=color;g.lineWidth=w;g.lineCap="butt";g.beginPath();
+      for(const [x,y,dd] of list){const cx=tx(x)+t/2,cy=ty(y)+t/2,ux=RDX[dd],uy=RDY[dd];
+        g.moveTo(cx-ux*t,cy-uy*t);g.lineTo(cx+ux*t,cy+uy*t);}
+      g.stroke();g.restore();};
+    /* 그늘 밑을 지나므로 지상 도로보다 한 톤 낮춘다 (#cdc4af → #bdb4a1) */
+    draw("rgba(43,38,32,.58)",t*RW[L]+Math.max(1.4,t*0.06));
+    draw("#bdb4a1",t*RW[L]);
+  }
+}
+
+/* ── 감사 ── */
+const _audit155=modelAudit;
+modelAudit=function(){
+  const a=_audit155.apply(this,arguments);
+  try{
+    const o=orphanRuns155();
+    a.tests.push({id:"gradesep",nm:"고가 층 분리",
+      status:o.orphan?"warn":"pass",
+      why:"고가는 지상과 평면에서 만나지 않고 램프로만 이어진다. 대신 지상 도로는 고가 밑을 통과한다. 램프가 하나도 없는 고가 구간은 올라갈 수 없는 다리다.",
+      detail:`고가 ${o.via}칸 · 램프 ${o.ramp}칸 · 밑을 지나는 링크 ${st155.under}개 · 평면차단 ${st155.cutEdges}개`+(o.orphan?` · ⚠ 램프 없는 구간 ${o.orphan}곳`:""),
+      kind:"health"});
+    a.pass=a.tests.filter(q=>q.status==="pass").length;
+    a.warn=a.tests.filter(q=>q.status==="warn").length;
+    a.fail=a.tests.filter(q=>q.status==="fail").length;
+  }catch(_){ }
+  return a;
+};
+
+/* 램프 없는 고가를 만들면 한 번 알려 준다 — 조용히 안 통하는 다리를 남기지 않는다. */
+let warned=-1;
+const _tick155=doTick;
+doTick=function(){
+  const r=_tick155.apply(this,arguments);
+  try{
+    if(st155.orphanRuns>0&&curMonth()!==warned){warned=curMonth();
+      flash(`╤ 램프 없는 고가 구간 ${st155.orphanRuns}곳 — 램프를 놓아야 차가 올라갑니다`);}
+    else if(!st155.orphanRuns)warned=-1;
+  }catch(_){ }
+  return r;
+};
+
+/* ── 버전 표기 ── */
+function stamp155(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v155";
+  const b=document.getElementById("tcBuildBadge");
+  if(b&&!/155/.test(b.textContent||"")){const d=b.querySelector(".devBadge153");b.textContent="v155";if(d)b.appendChild(d);}
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v155";
+  window.TC2_BUILD_VERSION="v155";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v155",build:155};
+}
+function watchBadge155(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v155obs)return;b.__v155obs=true;
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=155)){const d=b.querySelector(".devBadge153");b.textContent="v155";if(d)b.appendChild(d);}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet155(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v155-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<155)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v155Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v155</b><span>GRADE SEPARATION</span></div><ul>'+
+    '<li>층 규칙이 교통그래프에 들어감 — 지상↔고가 직결 차단, 램프로만 진출입</li>'+
+    '<li>지상 도로는 고가 밑을 통과 — 고가 칸을 사이에 둔 2칸 링크. 격자가 끊기지 않음</li>'+
+    '<li>상판 아래로 지나는 지상 도로를 그림</li>'+
+    '<li>램프 없는 고가 구간을 감사·알림으로 표시</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet155(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v155obs)return;bg.__v155obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet155();}).observe(bg,{childList:true,subtree:true});}
+function init(){
+  stamp155();watchSheet155();
+  for(const d of [260,720,1350,2400])setTimeout(()=>{stamp155();watchBadge155();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v155){b.__v155=true;b.addEventListener("click",()=>setTimeout(sheet155,120),true);}
+  try{netDirty=true;rebuildNet();markStatic();stLastBake=0;}catch(_){ }
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC155={loaded:true,...TC155,stats:()=>({...st155}),relayer:relayer155,orphans:orphanRuns155,
+  probe(ca,cb){const a=nodeOf[ca];if(a<0)return null;for(let k=0;k<deg[a];k++)if(nodes[adj[a*RSTR+k]]===cb)return {edge:true,cap:eCap[a*RSTR+k],t0:eT0[a*RSTR+k],len:eLen[a*RSTR+k]};return {edge:false};}};
+if(window.__TC)Object.assign(window.__TC,{gradeSep:()=>({...st155})});
+console.info("[TRAFFIC CITY 2] Grade Separation v155 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v156 CELL REPORT HONESTY
+
+   유저 스크린샷 (1,19) 구역 보고서:
+       용도 · 개발 1단계
+       Rent Gap (지대 격차)   100%  재개발 압력 높음
+       토지 최고입찰          주거  현재용도보다 100% 우위
+
+   두 줄 다 거짓말이다.
+
+   ① "용도" — zoneName()의 폴백 문자열이다 (6951행).
+      주거·근린상업·업무·제조·농업·혼합·관광상업·포켓공원·소광장만 이름이 있고
+      학교·의료·문화행정·경찰·발전소·정수장·폐기물·공항·문화재·빈 땅·도로는
+      전부 "용도"로 나온다. 무슨 칸인지 알 수 없다.
+
+   ② Rent Gap 100% — 실현지대가 0이라는 뜻인데, 지대 계산은 7160행에서
+      dev<=0 이거나 시장용도(isZoneK)가 아니면 rentC를 0으로 두고 넘어간다.
+      즉 도로·공원·학교·시설·빈 땅은 <b>정의상 항상 100%</b>다.
+      그런데 셀 보고서의 gp에는 그 필터가 없어서(16291·16385행)
+      "재개발 압력 높음"이라는 정반대 결론을 붙인다.
+      실측 (221년차 저장본): 100%로 찍히는 1,029칸이 전부 그런 칸이다 —
+      도로 663 · 공원 109 · 학교 66 · 의료 39 · 빈땅 36 · 공사장 47 …
+      정작 개발된 용도지역 894칸의 실제 최대는 96.1%,
+      도시 평균은 84.5%다. 주제도는 dev>0 && isZoneK 마스크가 있어 멀쩡하다.
+
+   ③ 토지 최고입찰 "현재용도보다 100% 우위" — 현재 용도가 시장 입찰
+      대상이 아니면 (bidCur=0) 비교 자체가 성립하지 않는다.
+
+   고침: 이름을 제대로 붙이고, 지대 두 줄은 세 갈래로 나눠 말한다.
+     · 개발된 시장용도  → 지금처럼 진짜 Rent Gap
+     · 미개발 시장용도  → "미개발" — 재개발이 아니라 신규개발 여지다
+     · 비시장 용도      → "해당 없음" — 시장 지대를 만드는 건물이 없다
+   시뮬레이션은 건드리지 않는다. 표기만 고친다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC156?.loaded)return;
+const TC156=Object.freeze({version:"v156",build:156,title:"CELL REPORT HONESTY"});
+
+/* ── ① 이름 ── 폴백 "용도"를 없앤다 */
+const NM156={};
+try{
+  NM156[K_EMPTY]="빈 땅";NM156[K_ROAD]="도로";
+  NM156[K_SCH]="학교";NM156[K_CLI]="의료";NM156[K_CIV]="문화·행정";NM156[K_PLC]="경찰서";
+  NM156[K_PWR]="발전소";NM156[K_WTR]="정수장";NM156[K_WST]="폐기물처리장";
+  NM156[K_AIR]="공항";NM156[K_HRT]="문화재";
+}catch(_){ }
+const _zoneName156=zoneName;
+zoneName=function(k){
+  const s=_zoneName156.call(this,k);
+  return (s==="용도"&&NM156[k])?NM156[k]:s;
+};
+
+/* ── ② 지대 두 줄 ── */
+function rentState(i){
+  if(i<0||i>=NC)return "none";
+  if(!isZoneK(kind[i]))return "none";        // 도로·공원·학교·시설 — 시장 지대 없음
+  if(!(dev[i]>0))return "vacant";            // 용도는 있는데 건물이 없다
+  return "market";
+}
+const KV=(name,val,note)=>
+  `<div class="kv"><span>${name}</span><span>${val}${note?` <em style="opacity:.6">${note}</em>`:""}</span></div>`;
+/* 값 span 안에는 중첩 </span>이 없으므로 첫 </span></div>가 정확히 그 줄의 끝이다. */
+/* 받침이 있으면 은/이, 없으면 는/가. "빈 땅는"이 나오지 않게. */
+function josa(w,withT,noT){
+  const c=(w||"").trim().slice(-1).charCodeAt(0);
+  if(!(c>=0xAC00&&c<=0xD7A3))return noT;
+  return ((c-0xAC00)%28)?withT:noT;
+}
+function reEsc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");}
+const rowRe=nm=>new RegExp('<div class="kv"><span>'+reEsc(nm)+'</span><span>[\\s\\S]*?</span></div>');
+
+function fixHTML156(html,i){
+  if(typeof html!=="string"||!html)return html;
+  const st=rentState(i);
+  if(st==="market")return html;              // 원래 표시가 옳다
+
+  let gapRow;
+  if(st==="vacant"){
+    gapRow=(site[i]>0)
+      ? KV("Rent Gap (지대 격차)",`<b style="color:#c2922a">공사 중</b>`,
+          `준공하면 실현지대가 생깁니다 (${site[i]}/${SITE_MAX})`)
+      : KV("Rent Gap (지대 격차)",`<b style="color:#c2922a">미개발</b>`,
+          "건물이 없어 실현지대가 0 — 재개발 압력이 아니라 신규개발 여지");
+  }else{
+    let nm="이 용도";try{nm=zoneName(kind[i]);}catch(_){ }
+    const note=(kind[i]===K_EMPTY)
+      ? "아직 용도가 지정되지 않았습니다"
+      : `${nm}${josa(nm,"은","는")} 시장 지대를 만들지 않습니다`;
+    gapRow=KV("Rent Gap (지대 격차)",`<b style="color:#8a8073">해당 없음</b>`,note);
+  }
+  html=html.replace(rowRe("Rent Gap (지대 격차)"),gapRow);
+
+  if(st==="none"){
+    html=html.replace(rowRe("토지 최고입찰"),(m)=>{
+      let top="없음";try{const mb=marketBidsAt(i,nodeOf[i]>=0?nodeOf[i]:cellNode[i]);if(mb&&mb.use)top=zoneName(mb.use);}catch(_){ }
+      return KV("토지 최고입찰",top,"현재 용도는 시장 입찰 대상이 아니라 비교하지 않습니다");
+    });
+  }
+  return html;
+}
+
+for(const fn of ["cellReportSummaryHTML","cellReportTechnicalHTML"]){
+  try{
+    const f=window[fn];if(typeof f!=="function")continue;
+    window[fn]=function(i){return fixHTML156(f.apply(this,arguments),i);};
+  }catch(_){ }
+}
+
+/* ── 버전 표기 ── */
+function stamp156(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v156";
+  const b=document.getElementById("tcBuildBadge");
+  if(b&&!/156/.test(b.textContent||"")){const d=b.querySelector(".devBadge153");b.textContent="v156";if(d)b.appendChild(d);}
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v156";
+  window.TC2_BUILD_VERSION="v156";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v156",build:156};
+}
+function watchBadge156(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v156obs)return;b.__v156obs=true;
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=156)){const d=b.querySelector(".devBadge153");b.textContent="v156";if(d)b.appendChild(d);}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet156(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v156-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<156)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v156Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v156</b><span>CELL REPORT HONESTY</span></div><ul>'+
+    '<li>학교·의료·문화행정·경찰·발전소·정수장·폐기물·공항·문화재·빈 땅·도로에 이름을 붙임 (폴백 "용도" 제거)</li>'+
+    '<li>Rent Gap을 세 갈래로 — 개발된 시장용도만 실제 격차, 미개발은 「미개발」, 비시장 용도는 「해당 없음」</li>'+
+    '<li>도로·공원을 눌렀을 때 100% + "재개발 압력 높음"이 뜨던 문제 해소</li>'+
+    '<li>현재 용도가 시장 입찰 대상이 아니면 「현재용도보다 N% 우위」를 표시하지 않음</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet156(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v156obs)return;bg.__v156obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet156();}).observe(bg,{childList:true,subtree:true});}
+function init(){
+  stamp156();watchSheet156();
+  for(const d of [270,730,1400,2500])setTimeout(()=>{stamp156();watchBadge156();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v156){b.__v156=true;b.addEventListener("click",()=>setTimeout(sheet156,130),true);}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC156={loaded:true,...TC156,rentState,names:NM156,
+  scan(){const o={};for(let i=0;i<NC;i++){const s=rentState(i);o[s]=(o[s]||0)+1;}return o;}};
+console.info("[TRAFFIC CITY 2] Cell Report Honesty v156 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v157 SHORT VIADUCT SHAPE
+
+   v154에서 고가를 리본으로 그리고 나니 <b>짧은 구간</b>이 문제가 됐다.
+   3칸짜리 고가가 화면에서 알약(캡슐)처럼 보인다:
+
+     · 리본 끝을 둥근 캡(lineCap round)으로 마감해 양끝이 부풀었다
+     · 난간이 거의 흰색(#e9e2d0)이라 옅은 팔레트 위에서 혼자 튄다
+     · 들어올림 0.55t가 상판 반폭(0.27t)의 두 배라 상판이 제 칸을 벗어나 떠 있다
+     · 교각이 칸마다 얇은 막대 한 쌍이라 다리가 아니라 울타리 말뚝으로 읽힌다
+     · 끝이 그냥 잘려서 '이 다리가 어디로 내려가는지'가 없다
+
+   고침 — 다리의 문법을 지킨다:
+     ① 끝 칸에 <b>교대(abutment)</b>를 얹어 둥근 캡을 덮고 각지게 마감한다.
+        교대가 지상까지 내려오므로 '여기서 다리가 땅에 닿는다'가 읽힌다.
+     ② 들어올림 0.55t → 0.36t. 상판이 제 칸 위에 머문다.
+     ③ 난간 #e9e2d0 → #dbd3c0, 노면 #5d564b → #6a6357. 대비는 남기고 비명은 줄인다.
+     ④ 교각은 중간 칸에만, 더 굵고 짧게. 끝 칸은 교대가 받는다.
+     ⑤ 한 칸짜리 고가도 축을 골라 짧은 상판 + 교대 둘로 그린다.
+
+   v154의 __TC154_elev를 통째로 대체한다. v155의 지상 통과도로 훅
+   (__TC155_under)은 같은 자리에서 그대로 부른다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC157?.loaded)return;
+const TC157=Object.freeze({version:"v157",build:157,title:"SHORT VIADUCT SHAPE"});
+
+const M={
+  shade:  "rgba(40,32,22,.18)",
+  cast:   "rgba(40,32,22,.15)",
+  pier:   "#7a7163",
+  pierDk: "rgba(40,34,26,.55)",
+  abut:   "#8d8476",                // 교대 — 교각보다 밝게 (콘크리트 덩어리)
+  abutDk: "rgba(38,32,25,.72)",
+  edge:   "rgba(40,34,26,.74)",
+  rail:   "#dbd3c0",                // 난간 — v154의 #e9e2d0보다 한 톤 낮춤
+  deck:   "#6a6357",                // 노면 — v154의 #5d564b보다 한 톤 높임
+  line:   "rgba(242,236,220,.55)",
+  rEdge:  "rgba(32,38,46,.74)",
+  rRail:  "#c3ccd5",
+  rDeck:  "#5f6772",
+  rTie:   "rgba(226,233,240,.40)"
+};
+const LIFT=0.36;                    // 상판 반폭(≈0.30t)과 비슷한 높이가 읽기 좋다
+
+function ribbon(g,cells,neigh,dy,t,tx,ty,color,w,dash){
+  if(!cells.length||w<=0)return;
+  const half=t/2;let any=false;
+  g.save();
+  g.strokeStyle=color;g.lineWidth=w;g.lineCap="round";g.lineJoin="round";
+  if(dash)g.setLineDash(dash);
+  g.beginPath();
+  for(const i of cells){
+    const x=i%W,y=(i/W)|0,cx=tx(x)+half,cy=ty(y)+half+dy;
+    let deg2=0;
+    for(let d=0;d<8;d++){
+      if(!neigh(i,d))continue;
+      deg2++;any=true;
+      g.moveTo(cx,cy);g.lineTo(cx+DXr[d]*half,cy+DYr[d]*half);
+    }
+    if(!deg2){                       // 외톨이 고가 — 축을 골라 짧은 상판을 놓는다
+      any=true;
+      const ax=isoAxis(i);
+      g.moveTo(cx-DXr[ax]*t*0.30,cy-DYr[ax]*t*0.30);
+      g.lineTo(cx+DXr[ax]*t*0.30,cy+DYr[ax]*t*0.30);
+    }
+  }
+  if(any)g.stroke();
+  g.restore();
+}
+/* 외톨이 칸의 방향 — 붙어 있는 지상 도로 쪽을 따른다. 없으면 동서. */
+function isoAxis(i){
+  const x=i%W,y=(i/W)|0;
+  for(const d of [0,2,1,3]){
+    const nx=x+DXr[d],ny=y+DYr[d];
+    if(inb(nx,ny)&&kind[idx(nx,ny)]===K_ROAD)return d===1?0:d===3?2:d;
+  }
+  return 0;
+}
+
+window.__TC157_elev=function({g,t,tx,ty,ax,ay,bx,by}){
+  if(t<=5)return;
+  const lift=t*LIFT;
+  const roadByLv=[[],[],[],[]],rails=[],ramps=[],all=[];
+  for(let y=ay;y<=by;y++)for(let x=ax;x<=bx;x++){
+    if(!inb(x,y))continue;
+    const i=idx(x,y),e=elev[i];
+    if(e===1&&kind[i]===K_ROAD){roadByLv[Math.min(3,Math.max(1,rlev[i]||1))].push(i);all.push(i);}
+    else if(e===2&&kind[i]===K_ROAD)ramps.push(i);
+    if(e===3&&rail[i])rails.push(i);
+  }
+  if(!all.length&&!rails.length&&!ramps.length)return;
+
+  const rNeigh=(i,d)=>roadEdgeExists(i,d)&&elev[idx((i%W)+DXr[d],((i/W)|0)+DYr[d])]===1;
+  const tNeigh=(i,d)=>{
+    if(d>=4)return false;
+    const x=i%W,y=(i/W)|0,nx=x+DXr[d],ny=y+DYr[d];
+    if(!inb(nx,ny))return false;
+    const j=idx(nx,ny);return !!rail[j]&&elev[j]===3;
+  };
+  const W_rail=lv=>t*RW[lv]*0.86;
+  const W_edge=lv=>W_rail(lv)+Math.max(1.2,t*.032);
+  const W_deck=lv=>t*RW[lv]*0.56;
+  const TW_rail=t*0.40, TW_edge=TW_rail+Math.max(1.2,t*.032), TW_deck=t*0.24;
+
+  /* ① 상판 아래 그늘 — 지상 도로를 지우지 않고 낮춘다 */
+  for(let lv=1;lv<=3;lv++)ribbon(g,roadByLv[lv],rNeigh,0,t,tx,ty,M.shade,t*RW[lv]+Math.max(1.4,t*.05));
+  ribbon(g,rails,tNeigh,0,t,tx,ty,M.shade,t*0.42);
+
+  /* ② 바닥 그림자 */
+  g.save();g.translate(t*0.05,t*0.12);
+  for(let lv=1;lv<=3;lv++)ribbon(g,roadByLv[lv],rNeigh,0,t,tx,ty,M.cast,W_edge(lv));
+  ribbon(g,rails,tNeigh,0,t,tx,ty,M.cast,TW_edge);
+  g.restore();
+
+  /* v155 — 고가 밑을 지나는 지상 도로 */
+  if(window.__TC155_under)try{window.__TC155_under({g,t,tx,ty,ax,ay,bx,by});}catch(_){ }
+
+  /* ③ 교각 — 중간 칸에만. 끝 칸은 교대가 받는다 */
+  const degOf=(i,nb)=>{let n=0;for(let d=0;d<8;d++)if(nb(i,d))n++;return n;};
+  if(t>10){
+    const pier=(list,nb,wR)=>{
+      for(const i of list){
+        if(degOf(i,nb)<2)continue;                       // 끝 칸은 건너뛴다
+        const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cyG=ty(y)+t/2;
+        const pw=Math.max(1.8,t*wR),off=Math.max(2.0,t*0.13);
+        for(const s of [-1,1]){
+          const px=cx+s*off-pw/2;
+          g.fillStyle=M.pier;g.fillRect(px,cyG-lift+t*0.02,pw,lift);
+          g.fillStyle=M.pierDk;g.fillRect(px+pw*0.66,cyG-lift+t*0.02,pw*0.34,lift);
+        }
+      }
+    };
+    for(let lv=1;lv<=3;lv++)pier(roadByLv[lv],rNeigh,0.085);
+    pier(rails,tNeigh,0.075);
+  }
+
+  /* ④ 상판 */
+  for(let lv=1;lv<=3;lv++){
+    const c=roadByLv[lv];if(!c.length)continue;
+    ribbon(g,c,rNeigh,-lift,t,tx,ty,M.edge, W_edge(lv));
+    ribbon(g,c,rNeigh,-lift,t,tx,ty,M.rail, W_rail(lv));
+    ribbon(g,c,rNeigh,-lift,t,tx,ty,M.deck, W_deck(lv));
+    if(t>13)ribbon(g,c,rNeigh,-lift,t,tx,ty,M.line,Math.max(0.7,t*0.024),lv>=3?null:[t*0.17,t*0.13]);
+  }
+
+  /* ⑤ 고가철도 */
+  if(rails.length){
+    ribbon(g,rails,tNeigh,-lift,t,tx,ty,M.rEdge,TW_edge);
+    ribbon(g,rails,tNeigh,-lift,t,tx,ty,M.rRail,TW_rail);
+    ribbon(g,rails,tNeigh,-lift,t,tx,ty,M.rDeck,TW_deck);
+    if(t>12){
+      g.save();g.strokeStyle=M.rTie;g.lineWidth=Math.max(0.6,t*0.022);g.beginPath();
+      for(const i of rails){
+        const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cy=ty(y)+t/2-lift;
+        const vert=tNeigh(i,1)||tNeigh(i,3);
+        for(let s=-1;s<=1;s++){
+          const o=s*t*0.26;
+          if(vert){g.moveTo(cx-TW_deck*.42,cy+o);g.lineTo(cx+TW_deck*.42,cy+o);}
+          else    {g.moveTo(cx+o,cy-TW_deck*.42);g.lineTo(cx+o,cy+TW_deck*.42);}
+        }
+      }
+      g.stroke();g.restore();
+    }
+  }
+
+  /* ⑥ 교대 — 끝 칸의 둥근 캡을 덮어 각지게 마감하고 지상까지 내린다.
+     이게 없으면 짧은 고가가 알약처럼 보인다. */
+  if(t>8){
+    const abut=(list,nb,wFn,isRail)=>{
+      for(const i of list){
+        const nd=degOf(i,nb);if(nd>=2)continue;
+        const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cyG=ty(y)+t/2,cyD=cyG-lift;
+        /* 다리가 뻗어 나가는 방향 — 그 반대쪽 끝을 막는다 */
+        let dir=-1;for(let d=0;d<8;d++)if(nb(i,d)){dir=d;break;}
+        if(dir<0)dir=isRail?0:isoAxis(i);
+        const ux=DXr[dir],uy=DYr[dir];
+        const wp=wFn, len=Math.max(2.4,t*0.30);
+        /* 상판 축에 수직인 폭 wp, 축 방향 길이 len 의 블록 */
+        const hx=Math.abs(ux)>Math.abs(uy);
+        const bw=hx?len:wp, bh=hx?wp:len;
+        const bx0=cx-(hx?len*(0.5+ux*0.18):wp/2);
+        const by0=cyD-(hx?wp/2:len*(0.5+uy*0.18));
+        g.fillStyle=M.abut;g.fillRect(bx0,by0,bw,bh);
+        g.strokeStyle=M.abutDk;g.lineWidth=Math.max(0.8,t*0.022);g.strokeRect(bx0,by0,bw,bh);
+        /* 지상까지 내려오는 받침 */
+        const sw=Math.max(2.2,t*0.16);
+        g.fillStyle=M.abut;g.fillRect(cx-sw/2,cyD,sw,lift+t*0.04);
+        g.fillStyle=M.pierDk;g.fillRect(cx+sw*0.20,cyD,sw*0.30,lift+t*0.04);
+      }
+    };
+    for(let lv=1;lv<=3;lv++)abut(roadByLv[lv],rNeigh,W_rail(lv),false);
+    abut(rails,tNeigh,TW_rail,true);
+  }
+
+  /* ⑦ 램프 */
+  for(const i of ramps){
+    const x=i%W,y=(i/W)|0,cx=tx(x)+t/2,cy=ty(y)+t/2,lv=Math.min(3,Math.max(1,rlev[i]||1));
+    let ux=0,uy=0;
+    for(let d=0;d<8;d++){
+      const nx=x+DXr[d],ny=y+DYr[d];if(!inb(nx,ny))continue;
+      if(elev[idx(nx,ny)]!==1)continue;ux=DXr[d];uy=DYr[d];break;
+    }
+    const w=W_rail(lv)/2,px=-uy,py=ux;
+    const hx=cx+ux*t*0.5,hy=cy+uy*t*0.5-lift;
+    const gx=cx-ux*t*0.5,gy=cy-uy*t*0.5;
+    g.beginPath();
+    g.moveTo(gx+px*w,gy+py*w);g.lineTo(hx+px*w,hy+py*w);
+    g.lineTo(hx-px*w,hy-py*w);g.lineTo(gx-px*w,gy-py*w);g.closePath();
+    g.fillStyle=M.rail;g.fill();
+    g.strokeStyle=M.edge;g.lineWidth=Math.max(0.7,t*0.022);g.stroke();
+    const w2=W_deck(lv)/2;
+    g.beginPath();
+    g.moveTo(gx+px*w2,gy+py*w2);g.lineTo(hx+px*w2,hy+py*w2);
+    g.lineTo(hx-px*w2,hy-py*w2);g.lineTo(gx-px*w2,gy-py*w2);g.closePath();
+    g.fillStyle=M.deck;g.fill();
+  }
+};
+
+/* v154의 자리를 넘겨받는다. v155 훅은 위에서 직접 부른다. */
+window.__TC154_elev=window.__TC157_elev;
+window.__TC154_lift=LIFT;                 // drawCars가 같은 값을 쓴다
+
+/* ── 버전 표기 ── */
+function stamp157(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v157";
+  const b=document.getElementById("tcBuildBadge");
+  if(b&&!/157/.test(b.textContent||"")){const d=b.querySelector(".devBadge153");b.textContent="v157";if(d)b.appendChild(d);}
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v157";
+  window.TC2_BUILD_VERSION="v157";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v157",build:157};
+}
+function watchBadge157(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v157obs)return;b.__v157obs=true;
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=157)){const d=b.querySelector(".devBadge153");b.textContent="v157";if(d)b.appendChild(d);}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet157(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v157-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<157)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v157Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v157</b><span>SHORT VIADUCT SHAPE</span></div><ul>'+
+    '<li>고가 끝에 교대(abutment)를 얹어 둥근 캡을 덮음 — 짧은 구간이 알약처럼 보이던 문제</li>'+
+    '<li>들어올림 0.55t → 0.36t · 난간·노면 대비를 한 톤씩 좁혀 옅은 팔레트에 맞춤</li>'+
+    '<li>교각은 중간 칸에만, 더 굵고 짧게 · 끝 칸은 교대가 받음</li>'+
+    '<li>한 칸짜리 고가도 축을 골라 상판+교대로 그림 · 고가끼리만 상판을 잇도록 이웃 판정 보정</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet157(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v157obs)return;bg.__v157obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet157();}).observe(bg,{childList:true,subtree:true});}
+function init(){
+  stamp157();watchSheet157();
+  for(const d of [280,760,1450,2600])setTimeout(()=>{stamp157();watchBadge157();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v157){b.__v157=true;b.addEventListener("click",()=>setTimeout(sheet157,140),true);}
+  try{markStatic();stLastBake=0;}catch(_){ }
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC157={loaded:true,...TC157,materials:M,lift:LIFT};
+console.info("[TRAFFIC CITY 2] Short Viaduct Shape v157 loaded");
 })();
 </script>
 
