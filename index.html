@@ -24809,5 +24809,529 @@ console.info("[TRAFFIC CITY 2] Short Viaduct Shape v157 loaded");
 })();
 </script>
 
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v158 LOGSUM APPRAISAL (회랑 사전평가 전면 교체)
+
+   증상: "철도 어지간히 안타네" — 30년 신규도시에서 TIA 9회 중 확폭 7 / 철도 2,
+         30년 뒤 철도 25칸·역 4곳·분담 0.4%.
+
+   원인 ① 목적함수가 틀렸다.
+     roadTIARailEval / roadTIATransitEval:
+         totalMin = carNet.tstt + transitMin
+         delta    = 100*(totalMin/base.tstt − 1)
+     로짓이 "철도가 더 싸다"고 판단해 사람을 옮겨놓고,
+     그 사람의 통행시간을 그대로 <b>비용</b>으로 다시 더한다.
+     철도 GC에는 ASC_TR(1.5)·요금·환승보행이 들어 있어 순수 person-min은
+     승용차보다 길 때가 많으므로, 이용자가 스스로 고른 개선이
+     평가상으로는 언제나 손실로 찍힌다. 실측 delta: +0.30 +0.41 +0.14 +0.24 +0.38.
+
+   원인 ② 게이트가 정책 레버보다 먼저 돈다.
+         acceptable = pool.filter(x => x.delta <= .05);      // ← 먼저
+         ranked.sort((a,b)=>(a.delta+prioBias(a)) - ...);    // ← 나중
+     「강한 대중교통」의 prioBias = −0.62가 아무 일도 하지 않는다.
+     철도는 delta +0.14~+0.41이라 게이트에서 이미 탈락해 정렬에 오지도 못한다.
+
+   고침 — 표준 교통경제학의 이용자편익(소비자잉여)으로 목적함수를 바꾼다.
+     선택지가 하나(승용차)뿐인 기준상태의 이용자비용은 그냥 통행비용이고,
+     선택지가 둘이 되면 로그섬
+         L = −ln( e^(−θ·car) + e^(−θ·transit) ) / θ
+     은 <b>이론상 절대 커질 수 없다</b>(Small–Rosen). 즉 "탈 사람이 있으면
+     그만큼 편익"이고, 아무도 안 타면 편익 0이지 손실이 아니다.
+     θ는 게임이 이미 쓰는 THETA=0.14/min을 그대로 쓴다.
+
+     · 도로안(확폭·평행우회·횡단연결): 대표 OD 이용자비용
+           U = Σ vol·min(pairTime, 200)
+       으로 델타를 매긴다. 승용차 단일수단이므로 이것이 곧 로그섬이다.
+       (기존 tstt는 링크 기준 총통행시간이라 대중교통안과 척도가 달랐다.)
+     · 대중교통안(버스·BRT·철도): OD 배열을 <b>줄이지 않고</b> 전량 유지해
+       carNet.pairTimes 인덱스를 base와 정렬시킨 뒤
+           L1 = U_car_after − scale · (car − logsum)
+       용량초과 scale(만석)은 편익 쪽에 곱한다. 못 태우면 편익도 없다.
+
+   고침 — 게이트 순서를 뒤집는다.
+         score      = delta + prioBias(x)          // 레버를 먼저 반영
+         acceptable = pool.filter(score <= −MIN_GAIN)
+     로그섬에서는 델타가 거의 항상 ≤0이므로, 0에 가까운 무의미한 사업을
+     짓지 않도록 최소편익 문턱 MIN_GAIN=0.04%를 둔다.
+
+   고침 — 라벨. 이제 "총 person-min"이 아니라 "이용자편익"이다.
+
+   시뮬레이션 본체(수단분담·배정·지대)는 손대지 않는다.
+   바뀌는 것은 오직 자동계획가의 회랑 사전평가 판단이다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC158?.loaded)return;
+const TC158=Object.freeze({version:"v158",build:158,title:"LOGSUM APPRAISAL"});
+
+const TCAP=120;      // 로짓 지수에 넣는 통행시간 상한 (기존 코드와 동일)
+const UCAP=200;      // 이용자비용 상한 (도달불가 OD의 벌점)
+const MIN_GAIN=0.04; // 최소편익 문턱 (%) — 이보다 못 줄이면 짓지 않는다
+
+/* ── 이용자비용 U = Σ vol · min(pairTime, UCAP) ───────────────────── */
+function ucostOf(od,net){
+  if(!od||!net||!net.pairTimes)return 0;
+  const pt=net.pairTimes;let u=0;
+  for(let qi=0;qi<od.pairs.length;qi++){
+    const t=pt[qi];u+=od.pairs[qi][2]*(isFinite(t)?Math.min(t,UCAP):UCAP);
+  }
+  return u;
+}
+/* roadTIAEvaluateX 결과에 ucost를 얹는다. 내부 수식은 건드리지 않는다. */
+const _evalX158=roadTIAEvaluateX;
+roadTIAEvaluateX=function(od,cells,target,virtuals,iters,blaneCells){
+  const r=_evalX158.apply(this,arguments);
+  if(r)r.ucost=ucostOf(od,r);
+  return r;
+};
+
+/* ── 로그섬 편익 ────────────────────────────────────────────────── */
+/* car·transit 모두 분 단위. 반환값은 "이 OD쌍 1인당 절감된 일반화비용(분)". */
+function logsumGain(car,transit){
+  if(!isFinite(car)||!isFinite(transit))return 0;
+  const c=Math.min(TCAP,car),t=Math.min(TCAP,transit);
+  /* L = −ln(e^−θc + e^−θt)/θ,  gain = c − L  (항상 ≥ 0) */
+  const d=t-c;                                   // ≥0이면 대중교통이 더 비쌈
+  /* 수치안정: c를 밖으로 빼낸다 → L = c − ln(1+e^(−θd))/θ */
+  const g=Math.log1p(Math.exp(-THETA*d))/THETA;
+  return g>0?g:0;
+}
+
+/* ── 버스 / BRT ─────────────────────────────────────────────────── */
+roadTIATransitEval=function(od,base,cand,iters=3){
+  if(!cand||!cand.path||cand.path.length<5)return null;
+  const stops0=cand.stops||autoStopCells(cand.path);if(stops0.length<2)return null;
+  const pos=stops0.map(s=>cand.path.indexOf(s));
+  const N=od.pairs.length;
+  const busQ=new Float64Array(N),busTime=new Float64Array(N);let raw=0;
+  for(let qi=0;qi<N;qi++){
+    const q=od.pairs[qi],o=roadTIANearestStop(q[0],stops0),d=roadTIANearestStop(q[1],stops0),car=base.pairTimes[qi];
+    if(!o||!d||o.i===d.i||!isFinite(car))continue;
+    const i1=pos[o.i],i2=pos[d.i];if(i1<0||i2<0)continue;
+    let iv=roadTIAPathBusMinutes(cand.path,i1,i2,cand.brtCells||[]);if(!(iv>0))continue;
+    const nstop=Math.abs(o.i-d.i);iv+=Math.max(0,nstop-1)*BUS_DWELL;
+    const bt=o.walk+(cand.headway||8)/2+iv+d.walk+ASC_BUS+fareB();busTime[qi]=bt;
+    const ec=Math.exp(-THETA*Math.min(TCAP,car)),eb=Math.exp(-THETA*Math.min(TCAP,bt));
+    busQ[qi]=q[2]*(eb/(ec+eb));raw+=busQ[qi];
+  }
+  const cap=(60/(cand.headway||8))*BUS_CAP*2,scale=raw>cap?cap/raw:1;
+  /* OD를 줄이지 않는다 — 인덱스를 base와 맞춰야 로그섬을 쓸 수 있다. */
+  const pairs=[];let shift=0,transitMin=0,total=0;
+  for(let qi=0;qi<N;qi++){
+    const q=od.pairs[qi],bq=busQ[qi]*scale,cq=Math.max(0,q[2]-bq);
+    pairs.push([q[0],q[1],cq]);total+=cq;
+    if(bq>0){shift+=bq;transitMin+=bq*busTime[qi];}
+  }
+  const carNet=roadTIAEvaluateX({pairs,total},[],0,[],iters,cand.brtCells||[]);
+  if(!carNet)return null;
+  let U1=0;
+  for(let qi=0;qi<N;qi++){
+    const vol=od.pairs[qi][2],ct=carNet.pairTimes[qi];
+    const cu=isFinite(ct)?Math.min(ct,UCAP):UCAP;
+    const bt=busTime[qi];
+    U1+=vol*(bt>0?Math.max(0,cu-scale*logsumGain(ct,bt)):cu);
+  }
+  const U0=base.ucost||ucostOf(od,base);
+  return {delta:U0>0?100*(U1/U0-1):0,totalMin:carNet.tstt+transitMin,userCost:U1,shift,
+          share:od.total>0?shift/od.total:0,maxVC:carNet.maxVC,
+          busTime:shift>0?transitMin/shift:0,capacity:cap,capScale:scale};
+};
+
+/* ── 철도 ───────────────────────────────────────────────────────── */
+roadTIARailEval=function(od,base,cand,iters=3){
+  if(!cand||!cand.path||cand.path.length<9||!cand.stations||cand.stations.length<2)return null;
+  const sta=cand.stations,staPos=sta.map(c=>cand.path.indexOf(c));
+  const N=od.pairs.length;
+  const railQ=new Float64Array(N),railTime=new Float64Array(N);let raw=0;
+  for(let qi=0;qi<N;qi++){
+    const q=od.pairs[qi],o=roadTIANearestRail(q[0],sta),d=roadTIANearestRail(q[1],sta),car=base.pairTimes[qi];
+    if(!o||!d||o.i===d.i||!isFinite(car))continue;
+    const iv=roadTIARailMinutes(cand.path,staPos,o.i,d.i);if(!isFinite(iv))continue;
+    const rt=o.walk+(cand.headway||6)/2+iv+d.walk+ASC_TR+fareR();railTime[qi]=rt;
+    const ec=Math.exp(-THETA*Math.min(TCAP,car)),er=Math.exp(-THETA*Math.min(TCAP,rt));
+    railQ[qi]=q[2]*(er/(ec+er));raw+=railQ[qi];
+  }
+  const cap=(60/(cand.headway||6))*TRAIN_CAP*2,scale=raw>cap?cap/raw:1;
+  const pairs=[];let shift=0,transitMin=0,total=0;
+  for(let qi=0;qi<N;qi++){
+    const q=od.pairs[qi],rq=railQ[qi]*scale,cq=Math.max(0,q[2]-rq);
+    pairs.push([q[0],q[1],cq]);total+=cq;
+    if(rq>0){shift+=rq;transitMin+=rq*railTime[qi];}
+  }
+  const carNet=roadTIAEvaluateX({pairs,total},[],0,[],iters,[]);
+  if(!carNet)return null;
+  let U1=0;
+  for(let qi=0;qi<N;qi++){
+    const vol=od.pairs[qi][2],ct=carNet.pairTimes[qi];
+    const cu=isFinite(ct)?Math.min(ct,UCAP):UCAP;
+    const rt=railTime[qi];
+    U1+=vol*(rt>0?Math.max(0,cu-scale*logsumGain(ct,rt)):cu);
+  }
+  const U0=base.ucost||ucostOf(od,base);
+  return {delta:U0>0?100*(U1/U0-1):0,totalMin:carNet.tstt+transitMin,userCost:U1,shift,
+          share:od.total>0?shift/od.total:0,maxVC:carNet.maxVC,
+          railTime:shift>0?transitMin/shift:0,capacity:cap,capScale:scale};
+};
+
+/* ── 회랑 선택 단계 ─────────────────────────────────────────────── */
+autoCorridorStep=function(){
+  const wc=roadTIACandidates(3),lc=roadTIANewLinkCandidates(3);
+  if(!wc.length&&!lc.length&&autoProject)return false;
+  if(curMonth()-roadTIALast<3)return false;roadTIALast=curMonth();
+  const od=roadTIABuildOD();if(!od)return false;
+  const iters=nodes.length>1800?3:4,base=roadTIAEvaluateX(od,[],0,[],iters);
+  if(!base||!(base.tstt>0))return false;
+  const U0=base.ucost||ucostOf(od,base);if(!(U0>0))return false;
+  const ev=[];
+  for(const c of wc){const m=roadTIAEvaluateX(od,c.cells,c.target,[],iters);
+    if(m)ev.push({type:"widen",c,delta:100*(m.ucost/U0-1),maxVC:m.maxVC,focusVC:m.focusVC,cost:(c.target===2?220:700)*c.cells.length,label:c.label});}
+  for(const c of lc){const v={a:c.a,b:c.b,km:c.km,level:c.target},m=roadTIAEvaluateX(od,[],0,[v],iters);
+    if(m)ev.push({type:c.type,c,delta:100*(m.ucost/U0-1),maxVC:m.maxVC,cost:c.cells.reduce((z,i)=>z+autoRoadCost(i,c.target),0),label:c.label});}
+  if(!autoProject){const bc=roadTIABusCandidate();if(bc){const m=roadTIATransitEval(od,base,bc,Math.max(2,iters-1));
+    if(m)ev.push({type:"bus",c:bc,delta:m.delta,maxVC:m.maxVC,cost:bc.cost,label:bc.label,shift:m.shift,shiftShare:m.share,busTime:m.busTime});}}
+  const br=roadTIABrtCandidate();if(br){const m=roadTIATransitEval(od,base,br,Math.max(2,iters-1));
+    if(m)ev.push({type:"brt",c:br,delta:m.delta,maxVC:m.maxVC,cost:br.cost,label:br.label,shift:m.shift,shiftShare:m.share,busTime:m.busTime});}
+  if(!autoProject){const rc=roadTIARailCandidate();if(rc){const m=roadTIARailEval(od,base,rc,Math.max(2,iters-1));
+    if(m)ev.push({type:"rail",c:rc,delta:m.delta,maxVC:m.maxVC,cost:rc.cost,label:rc.label,shift:m.shift,shiftShare:m.share,railTime:m.railTime});}}
+  if(!ev.length)return false;
+
+  const isTransit=x=>x.type==="bus"||x.type==="brt"||x.type==="rail";
+  const prioBias=x=>{const t=isTransit(x);
+    if(transitPrioIx===0)return t?.55:-.12;
+    if(transitPrioIx===2)return t?-.30:.08;
+    if(transitPrioIx===3)return t?-.62:.16;return 0;};
+  const score=x=>x.delta+prioBias(x);
+
+  const feasible=ev.filter(x=>afford(Math.max(0,x.cost||0))),pool=(feasible.length?feasible:ev);
+  /* v158: 정책 레버를 게이트보다 먼저 반영하고, 최소편익 문턱을 둔다. */
+  const acceptable=pool.filter(x=>score(x)<=-MIN_GAIN);
+  const ranked=(acceptable.length?acceptable:pool).slice();
+  ranked.sort((a,b)=>score(a)-score(b)||a.cost-b.cost||a.maxVC-b.maxVC);
+  ev.sort((a,b)=>a.delta-b.delta||a.cost-b.cost||a.maxVC-b.maxVC);
+  const best=ranked[0],worse=!acceptable.length||score(best)>-MIN_GAIN;
+  const D=x=>`${x.delta<=0?"":"+"}${(-x.delta).toFixed(2)}%p 편익`;
+
+  roadTIAHistory.unshift({mo:curMonth(),base:{tstt:base.tstt,ucost:U0,avgT:base.avgT,maxVC:base.maxVC},
+    candidates:ev.map(x=>({type:x.type,label:x.label,cell:x.c.cell??-1,n:x.c.cells?x.c.cells.length:(x.c.path?x.c.path.length:0),
+      delta:x.delta,bias:prioBias(x),score:score(x),maxVC:x.maxVC,cost:x.cost,shift:x.shift||0,shiftShare:x.shiftShare||0})),
+    chosen:worse?"hold":best.type,metric:"logsum"});
+  if(roadTIAHistory.length>24)roadTIAHistory.length=24;
+
+  if(worse){
+    const all=ev.slice(0,4).map(x=>`${x.label} ${(-x.delta).toFixed(2)}%`).join(" · ");
+    plannerDecision(`transport-tia-hold-${Math.floor(curMonth()/3)}`,"교통사업 보류",
+      "확폭·새 연결축·대중교통을 같은 대표 OD의 이용자편익(로그섬)으로 비교했지만 문턱을 넘는 안이 없음",
+      `이용자편익 기준 · 문턱 ${MIN_GAIN}% · ${all}`,"major",best.c.cell??-1,
+      {domain:"transport",horizon:6,expected:"수요·병목 위치 변화 뒤 재평가"});
+    autoPost(`🧪 교통 사전평가: 최선안 ${best.label}의 이용자편익이 ${(-best.delta).toFixed(2)}%에 그쳐 보류했습니다.`);
+    return false;
+  }
+  if(best.type==="widen"){
+    const todo=best.c.cells,target=best.c.target;
+    const ok=autoAct(best.cost,()=>{for(const i of todo)rlev[i]=target;},`🛣 교통영향평가 최선안: ${best.label} ${todo.length}칸을 시행했습니다.`);
+    if(ok)plannerDecision(`transport-tia-${Math.floor(curMonth()/3)}`,best.label,
+      "확폭·새 연결축·대중교통 후보 중 대표 OD 이용자편익이 가장 큰 안을 선택",
+      `이용자편익 ${D(best)} · 평가후 최대 V/C ${best.maxVC.toFixed(2)}`,"major",best.c.cell,{domain:"transport",horizon:12});
+    return ok;
+  }
+  if(best.type==="parallel"||best.type==="cross"){
+    const todo=best.c.cells,target=best.c.target;
+    const ok=autoAct(best.cost,()=>{for(const i of todo){kind[i]=K_ROAD;rlev[i]=target;forest[i]=0;cond[i]=100;}},`🛣 교통영향평가 최선안: ${best.label} ${todo.length}칸을 신설했습니다.`);
+    if(ok)plannerDecision(`transport-link-${Math.floor(curMonth()/3)}`,best.label,
+      "기존 척추축 확폭보다 새 대체경로의 이용자편익이 더 큼",
+      `우회율 ${best.c.ratio.toFixed(2)} · 이용자편익 ${D(best)} · 건설 ${todo.length}칸`,"major",best.c.cell,{domain:"transport",horizon:12});
+    return ok;
+  }
+  if(best.type==="brt"){
+    const todo=best.c.brtCells;
+    const ok=autoAct(best.cost,()=>{for(const i of todo){if(rlev[i]<2)rlev[i]=2;blane[i]=1;}},`🟨 교통영향평가 최선안: BRT ${todo.length}칸을 전환했습니다.`);
+    if(ok)plannerDecision(`transport-brt-${Math.floor(curMonth()/3)}`,"BRT 전환",
+      "도로 확폭·새 연결축과 비교했을 때 선택지를 늘리는 안의 이용자편익이 가장 큼",
+      `예상 자동차 전환 ${Math.round((best.shiftShare||0)*100)}% · 이용자편익 ${D(best)}`,"major",todo[0],{domain:"transport",horizon:12});
+    return ok;
+  }
+  if(best.type==="bus"){
+    if(money<best.cost)return false;
+    const ok=autoCreateBusProjectFromCandidate(best.c);
+    if(ok)plannerDecision(`transport-bus-${Math.floor(curMonth()/3)}`,best.label,
+      "도로 확폭·새 연결축과 같은 대표 OD를 놓고 비교했을 때 신규 버스 선택지의 이용자편익이 가장 큼",
+      `예상 자동차 전환 ${Math.round((best.shiftShare||0)*100)}% · 이용자편익 ${D(best)} · 노선 ${best.c.path.length}칸`,"major",best.c.path[(best.c.path.length/2)|0],{domain:"transport",horizon:12});
+    return ok;
+  }
+  if(best.type==="rail"){
+    if(!afford(best.cost))return false;
+    const ok=autoCreateRailProjectFromCandidate(best.c);
+    if(ok)plannerDecision(`transport-rail-tia-${Math.floor(curMonth()/3)}`,best.label,
+      "버스/BRT·도로 확폭·새 연결축과 동일 대표 OD를 비교했을 때 철도 승격의 이용자편익이 가장 큼",
+      `예상 자동차 전환 ${Math.round((best.shiftShare||0)*100)}% · 이용자편익 ${D(best)} · 역 ${best.c.stations.length}곳 · 사업비 ₩${fmt(Math.round(best.cost))}`,"major",best.c.path[(best.c.path.length/2)|0],{domain:"transport",horizon:24});
+    return ok;
+  }
+  return false;
+};
+
+/* ── 표기 정정 ── 회랑 리포트의 "총 person-min" 문구 ─────────────── */
+(function relabel158(){
+  const RE=[[/총\s*person-min/g,"이용자편익"],[/표본\s*person-min/g,"표본 이용자편익"],[/총통행시간\s*변화/g,"이용자편익"]];
+  for(const fn of ["roadTIAReportHTML","autoTIAPanelHTML","tiaPanelHTML"]){
+    try{const f=window[fn];if(typeof f!=="function")continue;
+      window[fn]=function(){let s=f.apply(this,arguments);
+        if(typeof s==="string")for(const [r,t] of RE)s=s.replace(r,t);
+        return s;};}catch(_){ }
+  }
+})();
+
+/* ── 버전 표기 ── */
+function stamp158(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v158";
+  const b=document.getElementById("tcBuildBadge");
+  if(b&&!/158/.test(b.textContent||"")){const d=b.querySelector(".devBadge153");b.textContent="v158";if(d)b.appendChild(d);}
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v158";
+  window.TC2_BUILD_VERSION="v158";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v158",build:158};
+}
+/* 이전 버전 패치의 지연 스탬프가 뒤늦게 v157로 되돌리는 것을 막는다.
+   낮은 버전 문자열은 무시하고, 높은 버전은 그대로 통과시킨다. */
+function lockVersion158(){
+  if(window.__v158lock)return;window.__v158lock=true;
+  let cur="v158";
+  try{
+    Object.defineProperty(window,"TC2_BUILD_VERSION",{configurable:true,
+      get(){return cur;},
+      set(v){const n=parseInt(((""+v).match(/\d+/)||[0])[0],10)||0;if(n>=158)cur=""+v;}});
+  }catch(_){ }
+}
+function watchBadge158(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v158obs)return;b.__v158obs=true;
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=158)){const d=b.querySelector(".devBadge153");b.textContent="v158";if(d)b.appendChild(d);}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet158(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v158-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<158)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v158Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v158</b><span>LOGSUM APPRAISAL</span></div><ul>'+
+    '<li>회랑 사전평가의 목적함수를 총 person-min에서 로그섬 이용자편익(소비자잉여)으로 교체</li>'+
+    '<li>대중교통안이 승객을 태운 만큼 손실로 집계되던 오류 제거 — 선택지가 늘면 편익은 음수가 되지 않음</li>'+
+    '<li>도로안도 링크 총통행시간 대신 대표 OD 이용자비용으로 평가해 대중교통안과 척도를 맞춤</li>'+
+    '<li>「투자 우선도」 레버를 게이트보다 먼저 반영 — 강한 대중교통 설정이 실제로 작동</li>'+
+    '<li>최소편익 문턱(0.04%) 도입 — 편익이 없는 사업은 짓지 않고 보류</li>'+
+    '<li>용량 초과 시 편익을 실제 수송 가능량만큼만 인정</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet158(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v158obs)return;bg.__v158obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet158();}).observe(bg,{childList:true,subtree:true});}
+function init(){
+  stamp158();lockVersion158();watchSheet158();
+  for(const d of [270,730,1400,2500,4200,7000])setTimeout(()=>{stamp158();watchBadge158();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v158){b.__v158=true;b.addEventListener("click",()=>setTimeout(sheet158,130),true);}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC158={loaded:true,...TC158,THETA_USED:THETA,TCAP,UCAP,MIN_GAIN,ucostOf,logsumGain};
+console.info("[TRAFFIC CITY 2] Logsum Appraisal v158 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v159 CAR COST & STATION ACCESS
+
+   v158에서 회랑 사전평가를 로그섬으로 바꿨지만 철도 분담은 거의 그대로였다.
+   실측이 이유를 말해줬다 (v158 30년 도시, 계획가 정지, 1년 수렴):
+
+       평균 GC   승용차 41.0분 · 철도 36.7분
+       철도 대안이 있는 OD 표본   1.7%      ← 이게 진짜 벽이다
+       기본 정책   연료 ₩120/km · 자동차세 ₩15,000/월 · 목적지 주차 ₩0
+
+   그래서 두 가지를 같이 고친다.
+
+   ── ② 승용차 비용 기본값 (레버 감응도 실측) ───────────────────────
+   같은 도시에서 레버만 바꿔 1년 돌린 결과 (승용차 분담):
+
+       기준(연료120·세15k·주차0)      92.54%   철도 0.80  버스 3.39  도보 3.26
+       연료 ₩200/km                   92.08%   철도 0.84
+       연료 ₩320/km                   91.29%   철도 0.91
+       자동차세 ₩40,000               92.54%   철도 0.80   ← 변화 없음
+       자동차세 ₩80,000               92.53%   철도 0.80   ← 변화 없음
+       목적지 주차 ₩1,000             91.03%   철도 0.92  버스 4.07  도보 3.97
+       목적지 주차 ₩2,000             89.32%   철도 1.05  버스 4.92  도보 4.72
+       목적지 주차 ₩4,000             85.40%   철도 1.28  버스 7.11  도보 6.21
+       주차공급 0.70×                 92.24%   철도 0.83
+       TOD 주차상한 +14분             92.54%   철도 0.80   ← 변화 없음
+
+   읽히는 것:
+     · <b>목적지 주차요금이 압도적으로 센 레버</b>다. 그런데 기본값이 ₩0이다.
+       도심 주차가 공짜인 도시를 기본으로 놓고 "왜 다들 차를 타지"라고 물어온 셈이다.
+     · 연료비는 완만하다. ₩120 → ₩200은 실제 한계운행비(연료+타이어+정비)에 가깝다.
+     · <b>자동차세는 구조적으로 죽어 있다</b>. gcC에 안 들어가고 보유확률에만 들어가는데,
+       ownershipTargetFromCosts의 net = ownBen − carTax/(vot·44) 에서 ownBen이
+       대안 없는 도시에서는 OWN_NOALT=35분에 붙어버려, ₩150,000을 매겨도
+       net 35→21.4, p 0.9995→0.9915 (OWN_LOGIT_SCALE=4.5의 꼬리). 보유율 0.912 고정.
+       이건 경제적으로는 옳다 — 차 없이 못 사는 도시에서는 세금이 안 먹힌다.
+       대안이 생기면 저절로 물린다. 그래서 모델은 건드리지 않고 기본값만 기준점으로 옮긴다.
+     · TOD 주차상한은 TOD 지구가 지정돼야 작동한다 (todDestAt). 지정 없으면 0.
+     · 혼잡통행료도 마찬가지 — `toll>0 && cordon[목적지] && !cordon[출발지]`.
+       징수구역을 그리지 않으면 요율을 올려도 아무 일도 없다. 기본값 0 유지.
+
+   바꾸는 기본값 (새 도시 기준. 저장본은 저장된 값을 그대로 씀):
+       fuelIx    2 → 3   ₩120/km  → ₩200/km
+       parkFeeIx 0 → 2   ₩0       → ₩1,000/통행
+       cartaxIx  1 → 2   ₩15,000  → ₩40,000/월  (코드가 명시한 기준점 CARTAX_REF)
+
+   ── ③ TIA의 역 접근을 본 시뮬과 맞춘다 ───────────────────────────
+   본 시뮬(6427행)은 이미 "역까지 걸어가거나, 지선버스를 타고 간다 중 싼 쪽"을 푼다.
+   그런데 사전평가의 roadTIANearestRail은 <b>보행 전용</b>에 반경 5칸(18.75분)이었다.
+   같은 노선을 놓고 계획가는 시민보다 좁은 역세권을 가정한 채 판단해 왔다.
+
+   교체: 접근비용 = min(보행 ≤6칸, 지선버스) , 상한 XACC_MAX(40분)
+     지선버스는 <b>실제로 버스가 있을 때만</b> 인정한다 —
+     출발노드와 역셀이 각각 1칸 이내에 버스노선을 갖고, 그 둘이 같은 버스
+     연결성분(bComp)에 있어야 한다. 없는 버스를 가정해 철도를 과대평가하지 않는다.
+     지선 소요 = 정류장보행 + 배차/2 + 거리×0.62분/칸 + 환승저항 4분 + 역측보행
+
+   시뮬레이션 본체(split4·배정·지대)는 건드리지 않는다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC159?.loaded)return;
+const TC159=Object.freeze({version:"v159",build:159,title:"CAR COST & STATION ACCESS"});
+
+/* ── ② 기본 정책값 ─────────────────────────────────────────────── */
+const DEF159={fuelIx:3,cartaxIx:2,parkFeeIx:2};
+function applyDefaults159(){
+  try{
+    fuelIx=DEF159.fuelIx;cartaxIx=DEF159.cartaxIx;parkFeeIx=DEF159.parkFeeIx;
+    if(typeof netDirty!=="undefined")netDirty=true;
+  }catch(_){ }
+}
+/* 새 도시는 새 기본값에서 출발한다.
+   newCity가 옛 기본값으로 되돌린 뒤, 시작 경로에 지연 초기화가 더 있을 수 있으므로
+   짧은 창(0·60·200·600ms) 동안 다시 덮는다. 그 창 안에 세이브를 불러오면 취소한다. */
+let pend159=0;
+function schedule159(){
+  const gen=++pend159;
+  const put=()=>{if(pend159===gen)applyDefaults159();};
+  put();
+  for(const d of [60,200,600])setTimeout(()=>{if(pend159===gen){applyDefaults159();
+    try{if(typeof updatePanel==="function"&&(window.panelOpen||window.policyOpen))updatePanel();}catch(_){ }}},d);
+}
+function wrapNew159(host,key){
+  try{const f=host[key];if(typeof f!=="function"||f.__v159)return;
+    const g=function(){const r=f.apply(this,arguments);schedule159();return r;};
+    g.__v159=true;host[key]=g;}catch(_){ }
+}
+try{const _n=newCity;if(typeof _n==="function"&&!_n.__v159){
+  const g=function(){const r=_n.apply(this,arguments);schedule159();return r;};
+  g.__v159=true;newCity=g;}}catch(_){ }
+if(window.__TC)wrapNew159(window.__TC,"newCity");
+/* 저장본은 저장된 정책을 그대로 쓴다 — 예약된 덮어쓰기를 취소한다. */
+try{const _lg=loadGame;if(typeof _lg==="function"&&!_lg.__v159){
+  const g=function(){pend159++;return _lg.apply(this,arguments);};
+  g.__v159=true;loadGame=g;}}catch(_){ }
+if(window.__TC)try{const f=window.__TC.loadGame;if(typeof f==="function"&&!f.__v159){
+  const g=function(){pend159++;return f.apply(this,arguments);};g.__v159=true;window.__TC.loadGame=g;}}catch(_){ }
+schedule159();
+
+/* ── ③ 사전평가의 역 접근 ──────────────────────────────────────── */
+const WALK_D159 = 6;      // 보행 접근 상한 6칸 = 22.5분 (본 시뮬의 25분 상한과 맞춤)
+const FEED_D159 = 16;     // 지선버스 접근 상한 거리(칸)
+const BUS_TILE159 = 0.62; // 버스 차내 분/칸 — 0.3km/50km/h×BUS_SLOW + 정차분담
+const NEAR159 = 1;        // 정류장까지 허용 보행(칸)
+
+/* 셀 c에서 r칸 이내에 있는 버스노선까지의 거리와 그 버스노드. 없으면 null */
+function nearBus159(c,r){
+  if(c<0||c>=NC)return null;
+  const x=c%W,y=(c/W)|0;
+  for(let d=0;d<=r;d++){
+    for(let dy=-d;dy<=d;dy++){
+      const ry=d-Math.abs(dy),ys=y+dy;if(ys<0||ys>=H)continue;
+      for(const dx of (ry?[-ry,ry]:[0])){
+        const xs=x+dx;if(xs<0||xs>=W)continue;
+        const cc=ys*W+xs,bn=(typeof busOf!=="undefined")?busOf[cc]:-1;
+        if(bn>=0)return {d,bn};
+      }
+    }
+  }
+  return null;
+}
+function busCompOf159(nb){
+  try{return (nb>=0&&typeof bComp!=="undefined"&&bComp)?bComp[nb]:-1;}catch(_){return -1;}
+}
+function busHeadway159(){
+  try{const s=transitStd();return (s&&s.bus>0)?s.bus:8;}catch(_){return 8;}
+}
+
+roadTIANearestRail=function(node,staCells,maxD=WALK_D159){
+  if(node<0||!staCells||!staCells.length)return null;
+  const c=nodes[node],x=c%W,y=(c/W)|0;
+  const oB=nearBus159(c,NEAR159),oC=oB?busCompOf159(oB.bn):-2;
+  const hw=busHeadway159();
+  let best=-1,bt=Infinity;
+  for(let i=0;i<staCells.length;i++){
+    const sc=staCells[i],d=Math.abs(sc%W-x)+Math.abs(((sc/W)|0)-y);
+    let t=Infinity;
+    if(d<=maxD)t=d*WALK_MIN;                       // 걸어서
+    if(d<=FEED_D159&&oB&&oC>=0){                   // 지선버스 타고 갈아타서
+      const sB=nearBus159(sc,NEAR159);
+      if(sB&&busCompOf159(sB.bn)===oC){
+        const ft=oB.d*WALK_MIN+hw/2+d*BUS_TILE159+XFER_PEN+sB.d*WALK_MIN;
+        if(ft<t)t=ft;
+      }
+    }
+    if(t<bt){bt=t;best=i;}
+  }
+  return (best>=0&&bt<=XACC_MAX)?{i:best,walk:bt}:null;
+};
+
+/* ── 버전 표기 ── */
+function stamp159(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v159";
+  const b=document.getElementById("tcBuildBadge");
+  if(b&&!/159/.test(b.textContent||"")){const d=b.querySelector(".devBadge153");b.textContent="v159";if(d)b.appendChild(d);}
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v159";
+  window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v159",build:159};
+  try{window.TC2_BUILD_VERSION="v159";}catch(_){ }
+}
+function lockVersion159(){
+  if(window.__v159lock)return;window.__v159lock=true;let cur="v159";
+  try{Object.defineProperty(window,"TC2_BUILD_VERSION",{configurable:true,
+    get(){return cur;},
+    set(v){const n=parseInt(((""+v).match(/\d+/)||[0])[0],10)||0;if(n>=159)cur=""+v;}});}catch(_){ }
+}
+function watchBadge159(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v159obs)return;b.__v159obs=true;
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=159)){const d=b.querySelector(".devBadge153");b.textContent="v159";if(d)b.appendChild(d);}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet159(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v159-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<159)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v159Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v159</b><span>CAR COST &amp; STATION ACCESS</span></div><ul>'+
+    '<li>새 도시 기본 정책 현실화 — 연료 ₩120→₩200/km · 목적지 주차 ₩0→₩1,000 · 자동차세 ₩15,000→₩40,000</li>'+
+    '<li>목적지 주차요금이 승용차 분담에 가장 센 레버인데 기본값이 ₩0이었음 (실측: ₩4,000이면 승용차 92.5%→85.4%)</li>'+
+    '<li>사전평가의 역 접근을 본 시뮬과 일치시킴 — 보행 전용 5칸에서 「보행 6칸 또는 지선버스」로</li>'+
+    '<li>지선버스 접근은 실제 버스노선이 같은 연결성분으로 이어질 때만 인정 (없는 버스로 철도를 과대평가하지 않음)</li>'+
+    '<li>저장본은 저장된 정책값을 그대로 유지 — 기본값 변경은 새 도시에만 적용</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet159(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v159obs)return;bg.__v159obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet159();}).observe(bg,{childList:true,subtree:true});}
+function init(){
+  stamp159();lockVersion159();watchSheet159();
+  for(const d of [270,730,1400,2500,4200,7000])setTimeout(()=>{stamp159();watchBadge159();},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v159){b.__v159=true;b.addEventListener("click",()=>setTimeout(sheet159,130),true);}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC159={loaded:true,...TC159,DEF159,WALK_D159,FEED_D159,BUS_TILE159,nearBus159,applyDefaults159};
+console.info("[TRAFFIC CITY 2] Car Cost & Station Access v159 loaded");
+})();
+</script>
+
 </body>
 </html>
