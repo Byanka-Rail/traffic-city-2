@@ -23652,7 +23652,12 @@ function watchSheet152(){const bg=document.getElementById("tcVersionBackdrop")||
 function watchBadge152(){
   const b=document.getElementById("tcBuildBadge");if(!b||b.__v152obs)return;
   b.__v152obs=true;
-  new MutationObserver(()=>{if(b.textContent!=="v152")b.textContent="v152";}).observe(b,{childList:true,characterData:true,subtree:true});
+  /* 다음 버전이 이길 수 있어야 한다 — 더 낮은 번호로 덮였을 때만 되돌린다.
+     서로 강제하면 감시자 둘이 무한히 주고받는다 (v151 변경이력에서 겪은 그 문제다). */
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=152))b.textContent="v152";
+  }).observe(b,{childList:true,characterData:true,subtree:true});
 }
 function init(){
   stamp152();watchSheet152();
@@ -23665,6 +23670,239 @@ window.__TC152={loaded:true,...TC152,audit:audit152,cityUtil:cityUtil152,invalid
   original:{cityMigrationUtility:_cityUtil,regionalOutRate:_outRate}};
 if(window.__TC)Object.assign(window.__TC,{audit152});
 console.info("[TRAFFIC CITY 2] Displacement Feedback v152 loaded");
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TRAFFIC CITY 2 · v153 CLEAN UI / DEVELOPER MODE
+
+   문제: 버튼마다 문단이 붙어 있다. 정책 패널 한 화면에 설명문이
+   레버보다 길고, HUD에는 ? 버튼과 학술용어 밑줄이 깔려 있다.
+   교재(📖)에 같은 내용이 이미 다 있는데도 조작면이 교재를 겸하고 있었다.
+
+   고침: 기본은 '말끔한 화면'. 설명은 개발자 모드에서만.
+     · 긴 설명문(.tip 60자 초과)은 숨긴다.
+       단 ⚠ 경고와 빈 상태 안내("아직 ~ 없습니다")는 남긴다 — 그건 상태 정보다.
+     · ? 도움말 버튼 · 용어 밑줄 · 인라인 지식카드/인용 · 메뉴 섹션 설명문
+       · 분석실 '읽는 법' 탭 · 주제도 범례의 산문을 숨긴다.
+     · 숫자·레버·경고·자문관 조언·교재는 건드리지 않는다.
+
+   구현은 CSS 한 장과 스탬프 한 번이다. 기본이 숨김이므로 새로 그려진
+   설명문도 스탬프 전까지 보이지 않는다 — 문단이 떴다가 접히는 깜빡임이 없다.
+   시뮬레이션 코드는 한 줄도 건드리지 않는다.
+   ══════════════════════════════════════════════════════════════════ */
+(() => {
+'use strict';
+if(window.__TC153?.loaded)return;
+const TC153=Object.freeze({version:"v153",build:153,title:"CLEAN UI / DEVELOPER MODE"});
+
+const KEY="tc2_dev_mode";
+const TIP_LIMIT=60;                       // 이보다 길면 설명문으로 본다
+const KEEP_RE=/^(⚠|‼|❗|🚨|✕)/;           // 경고는 설명이 아니다
+const EMPTY_RE=/(없습니다|비어 있습니다|두면|두세요|기다립니다)/;  // 빈 상태·조작 안내
+
+let dev=false;
+try{dev=localStorage.getItem(KEY)==="1";}catch(_){ }
+
+/* ── CSS ── */
+function installStyle(){
+  if(document.getElementById("tcCleanStyle153"))return;
+  const s=document.createElement("style");
+  s.id="tcCleanStyle153";
+  s.textContent=`
+/* 기본(말끔) — 스탬프로 keep 표시된 것만 보인다 */
+html:not(.tcDev153) .tip:not([id]):not([data-tcv="keep"]){display:none!important}
+html:not(.tcDev153) .metricHelp{display:none!important}
+html:not(.tcDev153) .tcInlineKnowledge,
+html:not(.tcDev153) .tcInlineCite{display:none!important}
+html:not(.tcDev153) .tcMainSection136>p,
+html:not(.tcDev153) .tcClimateSection137>p,
+html:not(.tcDev153) .tcClimateStageNote137,
+html:not(.tcDev153) .tcMenuFoot136,
+html:not(.tcDev153) .tcMainTitle136 p{display:none!important}
+/* 이 토글만은 설명이 남아야 한다 — 무엇을 끄는 스위치인지 알려면 */
+html:not(.tcDev153) #devSec153>p{display:block!important}
+html:not(.tcDev153) .labTab[data-labtab="learn"]{display:none!important}
+html:not(.tcDev153) [data-tcv153="prose"]{display:none!important}
+html:not(.tcDev153) #policyActiveSummary>span{display:none!important}
+/* 용어는 지우지 않고 밑줄만 거둔다 — 눌러 보면 여전히 뜻이 나온다 */
+html:not(.tcDev153) .tcTerm{color:inherit;text-decoration:none}
+/* 설명이 빠진 만큼 레버 줄 간격을 좁힌다 */
+html:not(.tcDev153) #policy .lineRow{margin-bottom:5px}
+html:not(.tcDev153) #policy h4{margin-top:13px}
+
+#devRow153{display:flex;align-items:center;gap:8px;margin:4px 0 8px}
+#devRow153 .nm{flex:1}
+.devBadge153{margin-left:5px;font-size:9px;font-weight:800;letter-spacing:.04em;
+  color:#e2c98c;border:1px solid rgba(226,201,140,.45);border-radius:5px;padding:0 3px}
+`;
+  (document.head||document.documentElement).appendChild(s);
+}
+
+/* ── 스탬프 — 짧은 안내와 경고만 살린다 ── */
+function stamp(root){
+  const list=(root||document).querySelectorAll?.(".tip:not([data-tcv])");
+  if(!list)return;
+  for(const n of list){
+    const t=(n.textContent||"").trim();
+    n.setAttribute("data-tcv",(t.length<=TIP_LIMIT||KEEP_RE.test(t)||EMPTY_RE.test(t))?"keep":"prose");
+  }
+}
+/* 주제도 범례 — 색 읽는 법(범례)은 남기고 뒤에 붙는 산문만 접는다 */
+function trimOverlayLegend(){
+  for(const box of document.querySelectorAll(".ovExplain")){
+    if(box.dataset.tcv153)continue;
+    box.dataset.tcv153="1";
+    const marks=[...box.querySelectorAll("b")].filter(b=>/읽는 법/.test(b.textContent||""));
+    if(!marks.length)continue;
+    const wrap=document.createElement("span");
+    wrap.setAttribute("data-tcv153","prose");
+    const start=marks[0];
+    const nodes=[];let n=start;
+    while(n){nodes.push(n);n=n.nextSibling;}
+    start.before(wrap);
+    for(const q of nodes)wrap.appendChild(q);
+  }
+}
+/* 제목의 (교재 N장) 인용도 조작면에서는 군더더기다 — 문구만 접고 제목은 남긴다 */
+const CH_RE=/\s*\((?:교재\s*)?[0-9·\-~,\s]+장\)/g;
+function trimChapterRefs(){
+  const sel="#policy h3,#policy h4,#panel h4,#insight h4,#lab h4,#planlog h4,#chron h4,#policy .nm";
+  for(const el of document.querySelectorAll(sel)){
+    if(el.dataset.tcv153c)continue;
+    el.dataset.tcv153c="1";
+    for(const n of [...el.childNodes]){
+      if(n.nodeType!==3)continue;
+      const t=n.nodeValue;CH_RE.lastIndex=0;
+      if(!CH_RE.test(t)){CH_RE.lastIndex=0;continue;}
+      CH_RE.lastIndex=0;
+      const frag=document.createDocumentFragment();let lastIx=0,m;
+      while((m=CH_RE.exec(t))){
+        if(m.index>lastIx)frag.appendChild(document.createTextNode(t.slice(lastIx,m.index)));
+        const sp=document.createElement("span");sp.setAttribute("data-tcv153","prose");sp.textContent=m[0];
+        frag.appendChild(sp);lastIx=m.index+m[0].length;
+      }
+      if(lastIx<t.length)frag.appendChild(document.createTextNode(t.slice(lastIx)));
+      n.replaceWith(frag);
+    }
+  }
+}
+let last=0;
+function refresh(force){
+  const now=performance.now();
+  if(!force&&now-last<300)return;
+  last=now;
+  try{stamp(document);trimOverlayLegend();trimChapterRefs();}catch(_){ }
+}
+
+/* 다시 그리는 지점마다 곧바로 스탬프한다 — 문단이 잠깐 보였다 사라지지 않게 */
+for(const name of ["updatePanel","renderLab","renderPolicyCockpit","updateInsight",
+                   "buildLines","buildBusLines","renderFeed","renderOverlayLegend",
+                   "openPaperReport","renderPlanLog","updateHUD"]){
+  try{
+    const f=window[name];
+    if(typeof f!=="function")continue;
+    window[name]=function(){const r=f.apply(this,arguments);refresh(name!=="updateHUD");return r;};
+  }catch(_){ }
+}
+
+/* ── 토글 ── */
+function apply(){
+  document.documentElement.classList.toggle("tcDev153",dev);
+  try{localStorage.setItem(KEY,dev?"1":"0");}catch(_){ }
+  syncUI();refresh(true);
+}
+function setDev(v){dev=!!v;apply();try{flash(dev?"🛠 개발자 모드 — 설명문을 모두 표시합니다":"✨ 말끔한 화면 — 설명은 📖 교재에 있습니다");}catch(_){ }}
+
+function syncUI(){
+  const t=document.getElementById("devToggle153");if(t)t.textContent=dev?"켬":"끔";
+  const m=document.getElementById("devMenuBtn153");if(m)m.textContent=(dev?"🛠 개발자 모드 · 켬":"✨ 말끔한 화면 · 설명 숨김");
+  const b=document.getElementById("tcBuildBadge");
+  if(b){
+    let d=b.querySelector(".devBadge153");
+    if(dev&&!d){d=document.createElement("span");d.className="devBadge153";d.textContent="DEV";b.appendChild(d);}
+    else if(!dev&&d)d.remove();
+  }
+}
+
+/* 정책 패널 한 줄 */
+function ensurePolicyRow(){
+  const p=document.getElementById("policy");if(!p||document.getElementById("devRow153"))return;
+  const row=document.createElement("div");
+  row.className="lineRow";row.id="devRow153";
+  row.innerHTML=`<span class="nm">설명문 표시 (개발자 모드)</span><span class="hbtn" id="devToggle153">${dev?"켬":"끔"}</span>`;
+  /* 제목·닫기 버튼 아래, 콕핏 앞. 맨 위에 넣으면 닫기 ✕와 겹친다. */
+  const anchor=p.querySelector(".policyCockpit")||p.querySelector("h3")?.nextSibling;
+  if(anchor)p.insertBefore(row,anchor);else p.appendChild(row);
+  row.querySelector("#devToggle153").addEventListener("click",()=>setDev(!dev));
+}
+/* 메인 메뉴 섹션 */
+function ensureMenuRow(){
+  const panel=document.getElementById("tcMainPanel136");
+  if(!panel||document.getElementById("devSec153"))return;
+  const sec=document.createElement("section");
+  sec.className="tcMainSection136";sec.id="devSec153";
+  sec.innerHTML=`<h3>화면 설명</h3><p>끄면 버튼 옆 해설이 사라지고 숫자와 레버만 남습니다. 같은 내용은 📖 교재에 그대로 있습니다.</p>`;
+  const b=document.createElement("button");
+  b.type="button";b.id="devMenuBtn153";
+  b.textContent=dev?"🛠 개발자 모드 · 켬":"✨ 말끔한 화면 · 설명 숨김";
+  b.addEventListener("click",()=>setDev(!dev));
+  sec.appendChild(b);
+  const anchor=panel.querySelector(".tcMenuNotice136");
+  if(anchor)anchor.before(sec);else panel.appendChild(sec);
+}
+
+/* ── 버전 표기 ── */
+function stamp153(){
+  document.title="TRAFFIC CITY 2 — 교통도시 시뮬레이터 v153";
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.querySelector(".devBadge153"))b.textContent="v153";
+  const mv=document.querySelector(".tcMainVersion136");if(mv)mv.textContent="v153";
+  window.TC2_BUILD_VERSION="v153";window.__TC2_BUILD_META={...(window.__TC2_BUILD_META||{}),version:"v153",build:153};
+  syncUI();
+}
+function watchBadge153(){
+  const b=document.getElementById("tcBuildBadge");if(!b||b.__v153obs)return;
+  b.__v153obs=true;
+  /* 더 낮은 번호로 덮였을 때만 되돌린다. 서로 강제하면 감시자끼리 무한 루프가 된다. */
+  new MutationObserver(()=>{
+    const n=parseInt(((b.textContent||"").match(/\d+/)||[0])[0],10);
+    if(!(n>=153)){b.textContent="v153";syncUI();}
+  }).observe(b,{childList:true,characterData:true,subtree:true});
+}
+function sheet153(){
+  const sh=document.getElementById("tcVersionSheet");if(!sh)return;
+  const have=sh.querySelector("[data-v153-entry]");
+  if(have){const first=sh.querySelector(".tcVEntry");const fv=parseInt((first?.querySelector(".tcVTitle b")?.textContent||"v0").slice(1),10)||0;if(first&&first!==have&&fv<153)first.before(have);return;}
+  const sec=document.createElement("section");sec.className="tcVEntry";sec.dataset.v153Entry="1";
+  sec.innerHTML='<div class="tcVTitle"><b>v153</b><span>CLEAN UI / DEVELOPER MODE</span></div><ul>'+
+    '<li>버튼 옆 해설·? 도움말·용어 밑줄·인라인 지식카드를 기본에서 숨김</li>'+
+    '<li>⚠ 경고와 빈 상태 안내는 남김 — 그건 설명이 아니라 상태다</li>'+
+    '<li>메인 화면 「화면 설명」 또는 정책 패널 첫 줄에서 개발자 모드로 전환</li>'+
+    '<li>설명 원문은 📖 교재에 그대로 있음 · 시뮬레이션 코드 변경 없음</li></ul>';
+  const first=sh.querySelector(".tcVEntry");if(first)first.before(sec);else sh.appendChild(sec);
+}
+function watchSheet153(){const bg=document.getElementById("tcVersionBackdrop")||document.body;if(!bg||bg.__v153obs)return;bg.__v153obs=true;new MutationObserver(()=>{const sh=document.getElementById("tcVersionSheet");if(sh&&sh.children.length)sheet153();}).observe(bg,{childList:true,subtree:true});}
+
+function init(){
+  installStyle();apply();
+  ensurePolicyRow();ensureMenuRow();watchSheet153();
+  for(const d of [200,600,1200,2200])setTimeout(()=>{stamp153();watchBadge153();ensurePolicyRow();ensureMenuRow();refresh(true);},d);
+  const b=document.getElementById("tcBuildBadge");if(b&&!b.__v153){b.__v153=true;b.addEventListener("click",()=>setTimeout(sheet153,100),true);}
+  document.addEventListener("click",e=>{
+    if(e.target.closest?.("#tcMainBtn136"))setTimeout(()=>{ensureMenuRow();refresh(true);},60);
+  },true);
+}
+installStyle();                                    // 첫 페인트 전에 규칙부터 건다
+document.documentElement.classList.toggle("tcDev153",dev);
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+window.__TC153={loaded:true,...TC153,
+  get dev(){return dev;},set dev(v){setDev(v);},
+  refresh:()=>refresh(true),
+  count(){let keep=0,prose=0;for(const n of document.querySelectorAll(".tip[data-tcv]"))n.getAttribute("data-tcv")==="keep"?keep++:prose++;return {keep,prose,dev};}};
+if(window.__TC)Object.assign(window.__TC,{setDevMode:setDev});
+console.info("[TRAFFIC CITY 2] Clean UI / Developer Mode v153 loaded");
 })();
 </script>
 
