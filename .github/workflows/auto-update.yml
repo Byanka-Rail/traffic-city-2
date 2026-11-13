@@ -1,0 +1,97 @@
+name: Auto publish TRAFFIC CITY 2 update
+
+# 포병(FIRE DIRECTION LAB)과 같은 방식:
+#  - 저장소 최상위에 TRAFFIC_CITY_2_v<판>.html 을 올린다  예) TRAFFIC_CITY_2_v160.html
+#  - 가장 높은 판을 index.html 로 복사한다 (깔린 앱은 GitHub Pages 의 index.html 을 연다 — APK 재설치 불필요)
+#  - 판 HTML 은 최근 10개만 남긴다
+#  - update.json 을 갱신한다
+#  - 내용이 바뀌면 판 번호를 올린다
+
+on: [push, workflow_dispatch]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: traffic-city-2-update
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refresh index.html / update.json / keep latest 10
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, shutil
+
+          rx = re.compile(r"^TRAFFIC_CITY_2_v(\d+(?:\.\d+)*)\.html$", re.I)
+          inner = re.compile(r"_BUILD_VERSION\s*=\s*['\"]v?([0-9.]+)['\"]")
+
+          found = []
+          for p in Path(".").glob("TRAFFIC_CITY_2_v*.html"):
+              m = rx.match(p.name)
+              if m:
+                  found.append((tuple(map(int, m.group(1).split("."))), m.group(1), p))
+
+          if not found:
+              print("판 HTML(TRAFFIC_CITY_2_v*.html)이 최상위에 없어 아무것도 건드리지 않습니다.")
+              raise SystemExit(0)
+
+          found.sort(key=lambda x: x[0])
+          ver_t, version, game = found[-1]
+
+          # 게임 안의 마지막 _BUILD_VERSION 이 파일 이름 판과 같아야 한다
+          text = game.read_text(encoding="utf-8", errors="ignore")
+          inside = inner.findall(text)
+          if not inside:
+              raise SystemExit(f"{game.name}: 안쪽에 _BUILD_VERSION 이 없습니다.")
+          if inside[-1] != version:
+              raise SystemExit(
+                  f"{game.name}: 파일 이름 판(v{version})과 안쪽 마지막 _BUILD_VERSION(v{inside[-1]})이 다릅니다."
+              )
+
+          shutil.copyfile(game, "index.html")
+
+          for _, _, old in found[:-10]:
+              print(f"remove {old.name}")
+              old.unlink()
+
+          build = 0
+          for x in ver_t:
+              build = build * 1000 + x
+
+          data = {
+              "version": f"v{version}",
+              "build": build,
+              "file": game.name,
+              "sha256": hashlib.sha256(game.read_bytes()).hexdigest(),
+              "notes": f"TRAFFIC CITY 2 v{version}",
+              "mandatory": False,
+          }
+          Path("update.json").write_text(
+              json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"version = v{version} · file = {game.name}")
+          PY
+
+      - name: Commit if changed
+        shell: bash
+        run: |
+          git add -A -- index.html update.json 'TRAFFIC_CITY_2_v*.html'
+          if git diff --cached --quiet; then
+            echo "already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: publish latest TRAFFIC CITY 2 update"
+          git push
